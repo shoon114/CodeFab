@@ -57,4 +57,30 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResul
 	EXPECT_THAT(valueNode->type, Eq(NodeType::NumberLiteral));
 	EXPECT_THAT(valueNode->token.lexeme, Eq("3"));
 }
+
+TEST(VarDeclareParserTest, Parse_WithoutInitializer_DoesNotDelegateToExpressionParser) {
+	// var a;
+	TokenList tokenList = {
+		{ TokenType::KwVar, "var", 1, 1 },
+		{ TokenType::Identifier, "a", 1, 5 },
+		{ TokenType::Semicolon, ";", 1, 6 },
+		{ TokenType::EndOfFile, "", 1, 7 },
+	};
+
+	MockExpressionParser exprParser;
+	EXPECT_CALL(exprParser, Parse(_, _)).Times(0);
+
+	VarDeclareParser parser(exprParser);
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	EXPECT_THAT(root->type, Eq(NodeType::VarDeclareStatement));
+	EXPECT_THAT(root->token.lexeme, Eq("var"));
+	ASSERT_THAT(root->children, SizeIs(1));
+
+	const std::unique_ptr<SyntaxNode>& identNode = root->children[0];
+	EXPECT_THAT(identNode->type, Eq(NodeType::Identifier));
+	EXPECT_THAT(identNode->token.lexeme, Eq("a"));
+}
 #endif
