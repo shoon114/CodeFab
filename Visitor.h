@@ -1,7 +1,7 @@
 #pragma once
-#include "SyntaxTree.h"
+#include "SyntaxNode.h"
 class Visitor {
 public:
     virtual ~Visitor() = default;
-    virtual void Visit(SyntaxTree& node) = 0;
+    virtual void Visit(SyntaxNode& node) = 0;
 };
