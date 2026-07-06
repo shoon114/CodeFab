@@ -1,6 +1,7 @@
 #include "ExecutorUnit.h"
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 void ExecutorUnit::Execute(const SyntaxNode& tree) {
 	if (tree.type != NodeType::Program) {
@@ -23,9 +24,6 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 		}
 		break;
 	}
-	case NodeType::ExprStmt:
-		Evaluate(*node.children[0]);
-		break;
 	default:
 		break;
 	}
@@ -42,7 +40,13 @@ double ExecutorUnit::Evaluate(const SyntaxNode& node) {
 		case TokenType::Plus:  return left + right;
 		case TokenType::Minus: return left - right;
 		case TokenType::Star:  return left * right;
-		case TokenType::Slash: return left / right;
+		case TokenType::Slash:
+			if (right == 0.0) {
+				throw std::runtime_error(
+					"Division by zero at line " + std::to_string(node.token.line) +
+					", column " + std::to_string(node.token.column));
+			}
+			return left / right;
 		default: return 0.0;
 		}
 	}
