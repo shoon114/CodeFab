@@ -1,8 +1,14 @@
 #ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "AssemblerUnit.h"
+#include "Tokenizer.h"
 
 using namespace testing;
+
+class TestableTokenizer : public Tokenizer {
+public:
+	MOCK_METHOD(TokenList, CreateTokenForCode, (), (override));
+};
 
 TEST(AssemblerUnitTest, Parse_CallsWithoutCrashing) {
 	AssemblerUnit assembler;
@@ -14,12 +20,12 @@ TEST(AssemblerUnitTest, Parse_CallsWithoutCrashing) {
 TEST(AssemblerUnitTest, Parse_VarDeclare_BuildsVarDeclareStatementTree) {
 	// var a = 3;
 	TokenList tokenList = {
-		{ TokenType::KwVar, "var", 1, 1 },
-		{ TokenType::Identifier, "a", 1, 5 },
-		{ TokenType::Assign, "=", 1, 7 },
-		{ TokenType::Number, "3", 1, 9 },
-		{ TokenType::Semicolon, ";", 1, 10 },
-		{ TokenType::EndOfFile, "", 1, 11 },
+		{ TokenType::KwVar, "var", 0.0, "var a = 3;", 1, 1 },
+		{ TokenType::Identifier, "a", 0.0, "var a = 3;", 1, 5 },
+		{ TokenType::Assign, "=", 0.0, "var a = 3;", 1, 7 },
+		{ TokenType::Number, "3", 3.0, "var a = 3;", 1, 9 },
+		{ TokenType::Semicolon, ";", 0.0, "var a = 3;", 1, 10 },
+		{ TokenType::EndOfFile, "", 0.0, "var a = 3;", 1, 11 },
 	};
 
 	AssemblerUnit assembler;
@@ -42,4 +48,19 @@ TEST(AssemblerUnitTest, Parse_VarDeclare_BuildsVarDeclareStatementTree) {
 	EXPECT_THAT(valueNode->type, Eq(NodeType::NumberLiteral));
 	EXPECT_THAT(valueNode->token.lexeme, Eq("3"));
 }
+
+TEST(AssemblerUnitTest, Parse_ExpressionTest) {
+	AssemblerUnit assembler;
+	NiceMock<TestableTokenizer> tokenizer;
+	EXPECT_CALL(tokenizer, CreateTokenForCode())
+		.WillOnce(Return(TokenList{
+			Token{TokenType::KwVar, "a", 0.0, "a + 1;", 1, 0},
+			Token{TokenType::Plus, "+", 0.0, "a + 1;", 1, 2},
+			Token{TokenType::Number, "1", 1.0, "a + 1;", 1, 4},
+			Token{TokenType::Semicolon, ";", 0.0, "a + 1;", 1, 5},
+			Token{TokenType::EndOfFile, "", 0.0, "a + 1;", 1, 6} }));
+
+	assembler.Parse(tokenizer.CreateTokenForCode());
+}
+
 #endif
