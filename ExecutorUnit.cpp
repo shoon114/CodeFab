@@ -73,7 +73,7 @@ double ExecutorUnit::Evaluate(const SyntaxNode& node) {
 					", column " + std::to_string(node.token.column));
 			}
 			return left / right;
-		case TokenType::Gt: return left > right ? true : false;
+		case TokenType::Gt: return left > right;
 		default: return 0.0;
 		}
 	}
