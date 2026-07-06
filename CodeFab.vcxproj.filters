@@ -29,6 +29,12 @@
     <ClInclude Include="AssemblerUnit.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="Token.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="SyntaxNode.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
