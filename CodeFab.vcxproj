@@ -151,6 +151,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
+    <ClInclude Include="Token.h" />
+    <ClInclude Include="SyntaxNode.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
