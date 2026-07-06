@@ -1,5 +1,7 @@
 #pragma once
 #include "SyntaxNode.h"
+#include <string>
+#include <unordered_map>
 
 class ExecutorUnit {
 public:
@@ -8,4 +10,6 @@ public:
 private:
 	void ExecuteStmt(const SyntaxNode& node);
 	double Evaluate(const SyntaxNode& node);
+
+	std::unordered_map<std::string, double> variables;
 };
