@@ -1,13 +1,18 @@
 #include "StatementParserRegistry.h"
 
-void StatementParserRegistry::Register(TokenType leadingToken, std::shared_ptr<IStatementParser> parser) {
-	parsers[leadingToken] = std::move(parser);
+StatementParserRegistry& StatementParserRegistry::Instance() {
+	static StatementParserRegistry instance;
+	return instance;
 }
 
-IStatementParser* StatementParserRegistry::Resolve(TokenType leadingToken) const {
-	auto it = parsers.find(leadingToken);
-	if (it == parsers.end()) {
+void StatementParserRegistry::Register(TokenType leadingToken, StatementParserFactory factory) {
+	factories[leadingToken] = std::move(factory);
+}
+
+std::shared_ptr<IStatementParser> StatementParserRegistry::Resolve(TokenType leadingToken, IExpressionParser& exprParser) const {
+	auto it = factories.find(leadingToken);
+	if (it == factories.end()) {
 		return nullptr;
 	}
-	return it->second.get();
+	return it->second(exprParser);
 }

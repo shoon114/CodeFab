@@ -1,4 +1,9 @@
 #include "VarDeclareParser.h"
+#include "StatementParserRegistry.h"
+
+namespace {
+StatementParserRegistrar<VarDeclareParser> registrar(TokenType::KwVar);
+}
 
 std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, size_t& pos) {
 	const Token& varToken = tokenList[pos++];

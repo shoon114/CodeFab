@@ -1,8 +1,7 @@
 #include "AssemblerUnit.h"
-#include "VarDeclareParser.h"
+#include "StatementParserRegistry.h"
 
 AssemblerUnit::AssemblerUnit(std::shared_ptr<IExpressionParser> exprParser) : exprParser(std::move(exprParser)) {
-	statementRegistry.Register(TokenType::KwVar, std::make_shared<VarDeclareParser>(*this->exprParser));
 }
 
 std::unique_ptr<SyntaxNode> AssemblerUnit::Parse(const TokenList& tokenList) {
@@ -11,7 +10,7 @@ std::unique_ptr<SyntaxNode> AssemblerUnit::Parse(const TokenList& tokenList) {
 	}
 
 	size_t pos = 0;
-	IStatementParser* parser = statementRegistry.Resolve(tokenList[pos].type);
+	std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type, *exprParser);
 	if (parser == nullptr) {
 		return nullptr;
 	}

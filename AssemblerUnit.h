@@ -3,7 +3,6 @@
 #include "Token.h"
 #include "SyntaxNode.h"
 #include "IExpressionParser.h"
-#include "StatementParserRegistry.h"
 
 class AssemblerUnit {
 public:
@@ -12,5 +11,4 @@ public:
 
 private:
 	std::shared_ptr<IExpressionParser> exprParser;
-	StatementParserRegistry statementRegistry;
 };
