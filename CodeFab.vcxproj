@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{e2317b64-b68a-489d-9c78-f97b14d45ba5}</ProjectGuid>
+    <ProjectGuid>{0C8FBBEA-EC82-A42E-6CD7-09880509DEE2}</ProjectGuid>
     <RootNamespace>CodeFab</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -145,12 +145,19 @@
     <ClCompile Include="CodeFabInterpreter.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="src\skelton.cpp" />
     <ClCompile Include="TestAssemblerUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="AssemblyUnitIf.cpp" />
+    <ClCompile Include="AssemblyUnitIfTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
+    <ClInclude Include="Token.h" />
+    <ClInclude Include="SyntaxTree.h" />
+    <ClInclude Include="CheckerUnit.h" />
+    <ClInclude Include="Visitor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
