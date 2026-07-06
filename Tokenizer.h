@@ -1,0 +1,12 @@
+#pragma once
+#include "Token.h"
+#include <vector>
+#include <string>
+class Tokenizer {
+public:
+	void GetCodeFromUser();
+	std::vector<std::string> SplitIntoWords();
+	TokenList CreateTokenForCode();
+private:
+	std::string originalCode;
+};
