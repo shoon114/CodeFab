@@ -3,7 +3,7 @@
 #include <vector>
 
 enum class TokenType {
-    Number,
+	Number,
 	String,
 	Identifier,
 
@@ -43,12 +43,12 @@ enum class TokenType {
 };
 
 struct Token{
-    TokenType type;
-    std::string lexeme;
+	TokenType type;
+	std::string lexeme;
     double realValue;
     std::string originalCode;
-    int line;
-    int column;
+	int line;
+	int column;
 };
 
 using TokenList = std::vector<Token>;
