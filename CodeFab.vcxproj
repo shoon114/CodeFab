@@ -173,6 +173,7 @@
     <ClInclude Include="VarDeclareParser.h" />
     <ClInclude Include="StatementParserRegistry.h" />
     <ClInclude Include="MockExpressionParser.h" />
+    <ClInclude Include="TestTokenHelpers.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

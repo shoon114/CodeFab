@@ -2,18 +2,19 @@
 #include "gmock/gmock.h"
 #include "VarDeclareParser.h"
 #include "MockExpressionParser.h"
+#include "TestTokenHelpers.h"
 
 using namespace testing;
 
 TEST(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResultAsValue) {
 	// var a = <expr>;
 	TokenList tokenList = {
-		{ TokenType::KwVar, "var", 1, 1 },
-		{ TokenType::Identifier, "a", 1, 5 },
-		{ TokenType::Assign, "=", 1, 7 },
-		{ TokenType::Number, "3", 1, 9 },
-		{ TokenType::Semicolon, ";", 1, 10 },
-		{ TokenType::EndOfFile, "", 1, 11 },
+		MakeToken(TokenType::KwVar, "var", 1, 1),
+		MakeToken(TokenType::Identifier, "a", 1, 5),
+		MakeToken(TokenType::Assign, "=", 1, 7),
+		MakeToken(TokenType::Number, "3", 1, 9),
+		MakeToken(TokenType::Semicolon, ";", 1, 10),
+		MakeToken(TokenType::EndOfFile, "", 1, 11),
 	};
 
 	MockExpressionParser exprParser;
