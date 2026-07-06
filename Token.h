@@ -42,9 +42,11 @@ enum class TokenType {
 	EndOfFile
 };
 
-struct Token {
+struct Token{
 	TokenType type;
 	std::string lexeme;
+    double realValue;
+    std::string originalCode;
 	int line;
 	int column;
 };
