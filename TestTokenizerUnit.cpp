@@ -157,4 +157,177 @@ TEST(TokenizerTest, CreateTokenForCode_HandlesEmptyInputWithoutCrashing) {
 	ASSERT_FALSE(tokens.empty());
 	EXPECT_EQ(tokens[0].type, TokenType::EndOfFile);
 }
+
+// print keyword
+TEST(TokenizerTest, CreateTokenForCode_ClassifiesPrintKeyword) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 5;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_GE(tokens.size(), 3u);
+	EXPECT_EQ(tokens[0].type, TokenType::Print);
+}
+
+// 산술 연산자 / 우선순위 - 파서가 아니라 토크나이저가 올바른 토큰 시퀀스를 만드는지만 확인
+TEST(TokenizerTest, CreateTokenForCode_MultiplicationAndAddition) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 1 + 2 * 3;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 8u);
+	EXPECT_EQ(tokens[0].type, TokenType::Print);
+	EXPECT_EQ(tokens[1].type, TokenType::Number);
+	EXPECT_EQ(tokens[2].type, TokenType::Plus);
+	EXPECT_EQ(tokens[3].type, TokenType::Number);
+	EXPECT_EQ(tokens[4].type, TokenType::Star);
+	EXPECT_EQ(tokens[5].type, TokenType::Number);
+	EXPECT_EQ(tokens[6].type, TokenType::Semicolon);
+	EXPECT_EQ(tokens[7].type, TokenType::EndOfFile);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_ParenthesizedExpression) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print (1 + 2) * 3;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 10u);
+	EXPECT_EQ(tokens[0].type, TokenType::Print);
+	EXPECT_EQ(tokens[1].type, TokenType::LParen);
+	EXPECT_EQ(tokens[2].type, TokenType::Number);
+	EXPECT_EQ(tokens[3].type, TokenType::Plus);
+	EXPECT_EQ(tokens[4].type, TokenType::Number);
+	EXPECT_EQ(tokens[5].type, TokenType::RParen);
+	EXPECT_EQ(tokens[6].type, TokenType::Star);
+	EXPECT_EQ(tokens[7].type, TokenType::Number);
+	EXPECT_EQ(tokens[8].type, TokenType::Semicolon);
+	EXPECT_EQ(tokens[9].type, TokenType::EndOfFile);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_ChainedSubtraction) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 10 - 4 - 3;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 8u);
+	EXPECT_EQ(tokens[1].type, TokenType::Number);
+	EXPECT_EQ(tokens[2].type, TokenType::Minus);
+	EXPECT_EQ(tokens[3].type, TokenType::Number);
+	EXPECT_EQ(tokens[4].type, TokenType::Minus);
+	EXPECT_EQ(tokens[5].type, TokenType::Number);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_ChainedDivision) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 8 / 2 / 2;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 8u);
+	EXPECT_EQ(tokens[1].type, TokenType::Number);
+	EXPECT_EQ(tokens[2].type, TokenType::Slash);
+	EXPECT_EQ(tokens[3].type, TokenType::Number);
+	EXPECT_EQ(tokens[4].type, TokenType::Slash);
+	EXPECT_EQ(tokens[5].type, TokenType::Number);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_UnaryMinusProducesMinusThenNumber) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print -3 + 2;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 7u);
+	EXPECT_EQ(tokens[1].type, TokenType::Minus);
+	EXPECT_EQ(tokens[2].type, TokenType::Number);
+	EXPECT_EQ(tokens[2].lexeme, "3");
+	EXPECT_EQ(tokens[3].type, TokenType::Plus);
+	EXPECT_EQ(tokens[4].type, TokenType::Number);
+}
+
+// 비교 연산자
+TEST(TokenizerTest, CreateTokenForCode_LessThanOperator) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 1 < 2;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 6u);
+	EXPECT_EQ(tokens[2].type, TokenType::Lt);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_GreaterThanOperator) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 3 > 5;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 6u);
+	EXPECT_EQ(tokens[2].type, TokenType::Gt);
+}
+
+// 문자열 리터럴 - 공백을 포함해도 하나의 단어/토큰이어야 함
+TEST(TokenizerTest, SplitIntoWords_KeepsStringLiteralWithSpacesAsOneWord) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print \"Hello, \" + \"CodeFab!\";\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre("print", "\"Hello, \"", "+", "\"CodeFab!\"", ";"));
+}
+
+TEST(TokenizerTest, CreateTokenForCode_StringConcatenation) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print \"Hello, \" + \"CodeFab!\";\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	ASSERT_EQ(tokens.size(), 6u);
+	EXPECT_EQ(tokens[1].type, TokenType::String);
+	EXPECT_EQ(tokens[1].lexeme, "Hello, ");
+	EXPECT_EQ(tokens[2].type, TokenType::Plus);
+	EXPECT_EQ(tokens[3].type, TokenType::String);
+	EXPECT_EQ(tokens[3].lexeme, "CodeFab!");
+}
+
+// 숫자 리터럴 (정수 / 소수)
+TEST(TokenizerTest, CreateTokenForCode_ParsesIntegerLiteral) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 5;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	EXPECT_EQ(tokens[1].type, TokenType::Number);
+	EXPECT_EQ(tokens[1].lexeme, "5");
+	EXPECT_DOUBLE_EQ(tokens[1].realValue, 5.0);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_ParsesDecimalLiteralWithTrailingZero) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 5.0;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	EXPECT_EQ(tokens[1].type, TokenType::Number);
+	EXPECT_EQ(tokens[1].lexeme, "5.0");
+	EXPECT_DOUBLE_EQ(tokens[1].realValue, 5.0);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_ParsesDecimalLiteral) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print 3.14;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	EXPECT_EQ(tokens[1].type, TokenType::Number);
+	EXPECT_EQ(tokens[1].lexeme, "3.14");
+	EXPECT_DOUBLE_EQ(tokens[1].realValue, 3.14);
+}
+
+// boolean 리터럴
+TEST(TokenizerTest, CreateTokenForCode_ClassifiesTrueLiteral) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print true;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	EXPECT_EQ(tokens[1].type, TokenType::KwTrue);
+}
+
+TEST(TokenizerTest, CreateTokenForCode_ClassifiesFalseLiteral) {
+	Tokenizer tokenizer = MakeTokenizerWithInput("print false;\n");
+
+	TokenList tokens = tokenizer.CreateTokenForCode();
+
+	EXPECT_EQ(tokens[1].type, TokenType::KwFalse);
+}
 #endif
