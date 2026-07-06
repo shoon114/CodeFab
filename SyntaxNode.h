@@ -17,6 +17,7 @@ enum class NodeType {
 	// statement
 	VarDeclStmt,
 	ExprStmt,
+	PrintStmt,
 	IfStmt,
 	WhileStmt,
 	BlockStmt,

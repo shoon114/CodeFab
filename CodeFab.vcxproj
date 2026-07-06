@@ -148,12 +148,19 @@
     <ClCompile Include="TestAssemblerUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="TestExcuterUnit.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="ExecutorUnit.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
     <ClInclude Include="SyntaxNode.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokenizer.h" />
+    <ClInclude Include="ExecutorUnit.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
