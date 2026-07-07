@@ -1,6 +1,7 @@
 #include "Tokenizer.h"
 #include <iostream>
 #include <sstream>
+#include <cctype>
 
 void Tokenizer::GetCodeFromUser()
 {
@@ -9,84 +10,65 @@ void Tokenizer::GetCodeFromUser()
 	originalCode = buffer.str();
 }
 
+bool Tokenizer::CanExtendToTwoCharOperator(char c)
+{
+	return c == '=' || c == '!' || c == '<' || c == '>';
+}
+
+bool Tokenizer::IsSingleCharPunctuation(char c)
+{
+	static const std::string punctuation = "(){};,+-*/%";
+	return punctuation.find(c) != std::string::npos;
+}
+
 std::vector<std::string> Tokenizer::SplitIntoWords()
 {
 	std::vector<std::string> words;
-	std::string word = "";
+	size_t i = 0;
+	const size_t n = originalCode.size();
 
-	for (size_t i = 0; i < originalCode.size(); i++)
-	{
+	while (i < n) {
 		char c = originalCode[i];
 
-		if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
-		{
-			if (word != "") {
-				words.push_back(word);
-				word = "";
-			}
-			continue;
-		}
-
-		if (c == '"')
-		{
-			if (word != "") {
-				words.push_back(word);
-				word = "";
-			}
-			std::string str = "\"";
+		if (std::isspace(static_cast<unsigned char>(c))) {
 			i++;
-			while (i < originalCode.size() && originalCode[i] != '"')
-			{
-				str += originalCode[i];
-				i++;
-			}
-			str += "\"";
-			words.push_back(str);
 			continue;
 		}
 
-		if (c == '=' || c == '!' || c == '<' || c == '>')
-		{
-			if (word != "") {
-				words.push_back(word);
-				word = "";
-			}
-			if (i + 1 < originalCode.size() && originalCode[i + 1] == '=')
-			{
-				std::string op = "";
-				op += c;
-				op += '=';
-				words.push_back(op);
+		if (c == '"') {
+			size_t start = i++;
+			while (i < n && originalCode[i] != '"') {
 				i++;
-				continue;
 			}
-			else
-			{
-				std::string op = "";
-				op += c;
-				words.push_back(op);
-				continue;
+			if (i < n) {
+				i++; // closing quote
 			}
-		}
-
-		if (c == '(' || c == ')' || c == '{' || c == '}' || c == ';' || c == ',' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%')
-		{
-			if (word != "") {
-				words.push_back(word);
-				word = "";
-			}
-			std::string op = "";
-			op += c;
-			words.push_back(op);
+			words.push_back(originalCode.substr(start, i - start));
 			continue;
 		}
 
-		word += c;
-	}
+		if (CanExtendToTwoCharOperator(c)) {
+			bool isTwoCharOperator = (i + 1 < n && originalCode[i + 1] == '=');
+			words.push_back(originalCode.substr(i, isTwoCharOperator ? 2 : 1));
+			i += isTwoCharOperator ? 2 : 1;
+			continue;
+		}
 
-	if (word != "")
-	{
-		words.push_back(word);
+		if (IsSingleCharPunctuation(c)) {
+			words.push_back(std::string(1, c));
+			i++;
+			continue;
+		}
+
+		size_t start = i;
+		while (i < n
+			&& !std::isspace(static_cast<unsigned char>(originalCode[i]))
+			&& originalCode[i] != '"'
+			&& !CanExtendToTwoCharOperator(originalCode[i])
+			&& !IsSingleCharPunctuation(originalCode[i])) {
+			i++;
+		}
+		words.push_back(originalCode.substr(start, i - start));
 	}
 
 	return words;
