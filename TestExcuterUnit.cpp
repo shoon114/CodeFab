@@ -62,7 +62,7 @@ namespace {
 	// var <name> = <initializer>;
 	SyntaxNode MakeVarDeclStmt(const std::string& name, SyntaxNode initializer, int line = 1) {
 		SyntaxNode node;
-		node.type = NodeType::VarDeclStmt;
+		node.type = NodeType::VarDeclareStatement;
 		node.token.type = TokenType::Identifier;
 		node.token.lexeme = name;
 		node.token.line = line;
@@ -286,6 +286,6 @@ TEST(ExecutorUnitTest, Execute_ForLoop_ConditionInitiallyFalse_NeverRunsBody) {
 	executor.Execute(program);
 	std::string output = testing::internal::GetCapturedStdout();
 
-	EXPECT_THAT(output, "");
+	EXPECT_THAT(output, IsEmpty());
 }
 #endif

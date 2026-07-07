@@ -29,7 +29,7 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 		}
 		break;
 	}
-	case NodeType::VarDeclStmt: {
+	case NodeType::VarDeclareStatement: {
 		variables[node.token.lexeme] = Evaluate(*node.children[0]);
 		break;
 	}
