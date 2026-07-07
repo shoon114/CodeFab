@@ -24,7 +24,16 @@
     <ClCompile Include="CodeFabInterpreter.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="CheckerUnit.cpp">
+    <ClCompile Include="TestTokenizerUnit.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)..\..\lib\native\src\gtest\gtest-all.cc">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)..\..\lib\native\src\gmock\gmock-all.cc">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Tokenizer.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="VarDeclareParser.cpp">
