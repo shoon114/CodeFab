@@ -1,4 +1,5 @@
 #ifdef _DEBUG
+#include <stdexcept>
 #include "gmock/gmock.h"
 #include "PrintStatementParser.h"
 #include "MockExpressionParser.h"
@@ -72,5 +73,34 @@ TEST(PrintStatementParserTest, Parse_PrintBinaryExpression_AttachesExpressionAsC
 
 	const std::unique_ptr<SyntaxNode>& exprNode = root->children[0];
 	EXPECT_THAT(exprNode->type, Eq(NodeType::BinaryExpr));
+}
+
+TEST(PrintStatementParserTest, Parse_PrintDanglingOperator_ThrowsOnMalformedSyntax) {
+	// "print a+;"   -- '+' 뒤 피연산자 누락
+	TokenList tokenList = {
+		MakeToken(TokenType::Print, "print", 1, 0),
+		MakeToken(TokenType::Identifier, "a", 1, 1),
+		MakeToken(TokenType::Plus, "+", 1, 2),
+		MakeToken(TokenType::Semicolon, ";", 1, 3),
+		MakeToken(TokenType::EndOfFile, "", 1, 4),
+	};
+
+	NiceMock<MockExpressionParser> exprParser;
+	EXPECT_CALL(exprParser, Parse(_, _))
+		.Times(1)
+		.WillOnce([](const TokenList&, size_t&) -> std::unique_ptr<SyntaxNode> {
+			throw std::runtime_error("Invalid Syntax.");
+		});
+
+	PrintStatementParser parser{ exprParser };
+	size_t pos = 0;
+
+	try {
+		parser.Parse(tokenList, pos);
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_STREQ(e.what(), "Invalid Syntax.");
+	}
 }
 #endif
