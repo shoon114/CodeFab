@@ -14,48 +14,48 @@ protected:
 	// "var a = <expr>;"
 	TokenList MakeVarDeclareWithInitializerTokens() {
 		return TokenList{
-			MakeToken(TokenType::KwVar, "var", 1, 1),
-			MakeToken(TokenType::Identifier, "a", 1, 5),
-			MakeToken(TokenType::Assign, "=", 1, 7),
-			MakeToken(TokenType::Number, "3", 1, 9),
-			MakeToken(TokenType::Semicolon, ";", 1, 10),
-			MakeToken(TokenType::EndOfFile, "", 1, 11),
+			MakeToken(TokenType::KwVar, "var", 0, 0),
+			MakeToken(TokenType::Identifier, "a", 0, 1),
+			MakeToken(TokenType::Assign, "=", 0, 2),
+			MakeToken(TokenType::Number, "3", 0, 3),
+			MakeToken(TokenType::Semicolon, ";", 0, 4),
+			MakeToken(TokenType::EndOfFile, "", 0, 5),
 		};
 	}
 
 	// "var a;"
 	TokenList MakeVarDeclareWithoutInitializerTokens() {
 		return TokenList{
-			MakeToken(TokenType::KwVar, "var", 1, 1),
-			MakeToken(TokenType::Identifier, "a", 1, 5),
-			MakeToken(TokenType::Semicolon, ";", 1, 6),
-			MakeToken(TokenType::EndOfFile, "", 1, 7),
+			MakeToken(TokenType::KwVar, "var", 0, 0),
+			MakeToken(TokenType::Identifier, "a", 0, 1),
+			MakeToken(TokenType::Semicolon, ";", 0, 2),
+			MakeToken(TokenType::EndOfFile, "", 0, 3),
 		};
 	}
 
 	// "var a = b;"
 	TokenList MakeVarDeclareWithIdentifierInitializerTokens() {
 		return TokenList{
-			MakeToken(TokenType::KwVar, "var", 1, 1),
-			MakeToken(TokenType::Identifier, "a", 1, 5),
-			MakeToken(TokenType::Assign, "=", 1, 7),
-			MakeToken(TokenType::Identifier, "b", 1, 9),
-			MakeToken(TokenType::Semicolon, ";", 1, 10),
-			MakeToken(TokenType::EndOfFile, "", 1, 11),
+			MakeToken(TokenType::KwVar, "var", 0, 0),
+			MakeToken(TokenType::Identifier, "a", 0, 1),
+			MakeToken(TokenType::Assign, "=", 0, 2),
+			MakeToken(TokenType::Identifier, "b", 0, 3),
+			MakeToken(TokenType::Semicolon, ";", 0, 4),
+			MakeToken(TokenType::EndOfFile, "", 0, 5),
 		};
 	}
 
 	// "var a = 3 + 4;"
 	TokenList MakeVarDeclareWithBinaryExprInitializerTokens() {
 		return TokenList{
-			MakeToken(TokenType::KwVar, "var", 1, 1),
-			MakeToken(TokenType::Identifier, "a", 1, 5),
-			MakeToken(TokenType::Assign, "=", 1, 7),
-			MakeToken(TokenType::Number, "3", 1, 9),
-			MakeToken(TokenType::Plus, "+", 1, 11),
-			MakeToken(TokenType::Number, "4", 1, 13),
-			MakeToken(TokenType::Semicolon, ";", 1, 14),
-			MakeToken(TokenType::EndOfFile, "", 1, 15),
+			MakeToken(TokenType::KwVar, "var", 0, 0),
+			MakeToken(TokenType::Identifier, "a", 0, 1),
+			MakeToken(TokenType::Assign, "=", 0, 2),
+			MakeToken(TokenType::Number, "3", 0, 3),
+			MakeToken(TokenType::Plus, "+", 0, 4),
+			MakeToken(TokenType::Number, "4", 0, 5),
+			MakeToken(TokenType::Semicolon, ";", 0, 6),
+			MakeToken(TokenType::EndOfFile, "", 0, 7),
 		};
 	}
 };
