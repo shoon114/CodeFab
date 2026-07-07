@@ -288,4 +288,66 @@ TEST(ExecutorUnitTest, Execute_ForLoop_ConditionInitiallyFalse_NeverRunsBody) {
 
 	EXPECT_THAT(output, IsEmpty());
 }
+
+// PDF p.81: var a = 5; for (var i = 0; i < 2; i = i + 1) { if (a > 3) a = a - 1; }
+// i = 0(a: 5->4), i = 1(a: 4->3), i = 2에서 조건이 거짓이 되어 종료 -> 최종 a = 3.
+// ForStmt/IfStmt/ExprStmt/AssignExpr가 모두 이미 구현되어 있으므로 통과(Green)해야 한다.
+TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_DecrementsAWhileGreaterThanThree) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(5)),
+		MakeForStmt(
+			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
+			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(2)),
+			/*increment*/ MakeAssignExpr("i",
+				MakeBinaryExpr(TokenType::Plus, MakeIdentifier("i"), MakeNumberLiteral(1))),
+			/*body*/      MakeBlockStmt(
+				MakeIfStmt(
+					MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(3)),
+					MakeExprStmt(
+						MakeAssignExpr("a",
+							MakeBinaryExpr(TokenType::Minus, MakeIdentifier("a"), MakeNumberLiteral(1)))
+					)
+				)
+			)
+		),
+		MakePrintStmt(MakeIdentifier("a"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("3\n"));
+}
+
+// PDF p.81 변형: a가 이미 3 이하이면 if 조건이 항상 거짓이라 for 루프 동안 a가 변하지 않아야 한다.
+TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_ConditionAlwaysFalse_KeepsOriginalValue) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(2)),
+		MakeForStmt(
+			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
+			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(2)),
+			/*increment*/ MakeAssignExpr("i",
+				MakeBinaryExpr(TokenType::Plus, MakeIdentifier("i"), MakeNumberLiteral(1))),
+			/*body*/      MakeBlockStmt(
+				MakeIfStmt(
+					MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(3)),
+					MakeExprStmt(
+						MakeAssignExpr("a",
+							MakeBinaryExpr(TokenType::Minus, MakeIdentifier("a"), MakeNumberLiteral(1)))
+					)
+				)
+			)
+		),
+		MakePrintStmt(MakeIdentifier("a"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("2\n"));
+}
 #endif
