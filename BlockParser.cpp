@@ -3,7 +3,7 @@
 #include <stdexcept>
 
 namespace {
-StatementParserRegistrar<BlockParser> registrar(TokenType::LBrace);
+	StatementParserRegistrar<BlockParser> registrar(TokenType::LBrace);
 }
 
 std::unique_ptr<SyntaxNode> BlockParser::Parse(const TokenList& tokenList, size_t& pos) {
@@ -17,6 +17,10 @@ std::unique_ptr<SyntaxNode> BlockParser::Parse(const TokenList& tokenList, size_
 		std::shared_ptr<IStatementParser> stmtParser =
 			StatementParserRegistry::Instance().Resolve(tokenList[pos].type, exprParser);
 		blockNode->children.push_back(stmtParser->Parse(tokenList, pos));
+	}
+
+	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::RBrace) {
+		throw std::runtime_error("Expected '}' to close block");
 	}
 
 	auto endNode = std::make_unique<SyntaxNode>();

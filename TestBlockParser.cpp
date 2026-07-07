@@ -130,6 +130,15 @@ TEST_F(BlockParserTest, Parse_UnclosedBlock_Throws) {
 	// "{ var a = 1;" -- reaches end of input without a closing '}'
 	TokenList tokenList = MakeUnclosedBlockTokens();
 
+	EXPECT_CALL(exprParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+		auto node = std::make_unique<SyntaxNode>();
+		node->type = NodeType::NumberLiteral;
+		node->token = tokens[pos];
+		pos++; // consume '1'
+		return node;
+			});
+
 	size_t pos = 0;
 }
 #endif
