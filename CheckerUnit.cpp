@@ -17,7 +17,7 @@ void CheckerUnit::Visit(SyntaxNode* node) {
     bool isBlock = (node->type == NodeType::BlockStmt);
     if (isBlock) EnterScope();
 
-    if (node->type == NodeType::VarDeclStmt) {
+    if (node->type == NodeType::VarDeclareStatement) {
         CheckVarDecl(node);
     }
 
