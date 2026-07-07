@@ -2,6 +2,8 @@
 #include "gmock/gmock.h"
 #include "VarDeclareParser.h"
 #include "MockExpressionParser.h"
+#include "MockStatementParser.h"
+#include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
 
 using namespace testing;
@@ -10,6 +12,19 @@ class VarDeclareParserTest : public Test {
 protected:
 	MockExpressionParser exprParser;
 	VarDeclareParser parser{ exprParser };
+
+	// VarDeclareParser resolves whatever is registered for the token right
+	// after 'var' (Identifier here) via StatementParserRegistry -- in
+	// production that will eventually be an ExprStmtParser. We stand in for
+	// it with a mock so this TC doesn't depend on that parser's real
+	// implementation existing yet.
+	std::shared_ptr<MockStatementParser> mockTailParser = std::make_shared<MockStatementParser>();
+
+	void SetUp() override {
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [this](IExpressionParser&) {
+			return mockTailParser;
+		});
+	}
 
 	// "var a;"
 	TokenList MakeVarDeclareWithoutInitializerTokens() {
@@ -34,10 +49,10 @@ protected:
 	}
 };
 
-TEST_F(VarDeclareParserTest, Parse_WithoutInitializer_DelegatesIdentifierToExpressionParser) {
+TEST_F(VarDeclareParserTest, Parse_WithoutInitializer_DelegatesToRegisteredTailParser) {
 	TokenList tokenList = MakeVarDeclareWithoutInitializerTokens();
 
-	EXPECT_CALL(exprParser, Parse(_, _))
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<SyntaxNode>();
@@ -62,13 +77,14 @@ TEST_F(VarDeclareParserTest, Parse_WithoutInitializer_DelegatesIdentifierToExpre
 	EXPECT_THAT(pos, Eq(tokenList.size() - 1)); // consumed up through ';', stopped at EOF
 }
 
-TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesAssignmentToExpressionParser) {
+TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesToRegisteredTailParser_RegardlessOfReturnedShape) {
 	TokenList tokenList = MakeVarDeclareWithInitializerTokens();
 
-	EXPECT_CALL(exprParser, Parse(_, _))
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			// simulate exprParser recognizing "a = 3" as one assignment expression
+			// simulate whatever gets registered for Identifier (e.g. ExprStmtParser)
+			// recognizing "a = 3" as one assignment expression
 			auto identNode = std::make_unique<SyntaxNode>();
 			identNode->type = NodeType::Identifier;
 			identNode->token = tokens[pos]; // 'a'

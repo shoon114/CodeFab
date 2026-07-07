@@ -192,6 +192,7 @@
     <ClInclude Include="StatementParserRegistry.h" />
     <ClInclude Include="ExpressionParser.h" />
     <ClInclude Include="MockExpressionParser.h" />
+    <ClInclude Include="MockStatementParser.h" />
     <ClInclude Include="TestTokenHelpers.h" />
     <ClInclude Include="ExecutorUnit.h" />
   </ItemGroup>

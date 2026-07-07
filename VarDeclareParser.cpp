@@ -12,11 +12,15 @@ std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, 
 	varDeclNode->type = NodeType::VarDeclareStatement;
 	varDeclNode->token = varToken;
 
-	// exprParser is responsible for recognizing whether this is a plain
-	// identifier ("a") or an assignment ("a = 3") and returning the
-	// appropriate tree; VarDeclareParser just attaches whatever comes back.
-	auto exprNode = exprParser.Parse(tokenList, pos);
-	varDeclNode->children.push_back(std::move(exprNode));
+	// Resolve whatever statement parser is registered for the token right
+	// after 'var' (e.g. an ExprStmtParser registered for Identifier, which
+	// itself decides whether this is a plain identifier or an assignment
+	// via exprParser) instead of calling exprParser directly. This lets new
+	// statement forms after 'var' be supported purely by registering them
+	// elsewhere, without VarDeclareParser knowing about them.
+	std::shared_ptr<IStatementParser> stmtParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type, exprParser);
+	auto childNode = stmtParser->Parse(tokenList, pos);
+	varDeclNode->children.push_back(std::move(childNode));
 
 	pos++; // ';'
 
