@@ -14,13 +14,13 @@ protected:
 	// "if (a > 3)"
 	TokenList MakeIfConditionTokens() {
 		return TokenList{
-			MakeToken(TokenType::KwIf, "if", 1, 1),
-			MakeToken(TokenType::LParen, "(", 1, 4),
-			MakeToken(TokenType::Identifier, "a", 1, 5),
-			MakeToken(TokenType::Gt, ">", 1, 7),
-			MakeToken(TokenType::Number, "3", 1, 9),
-			MakeToken(TokenType::RParen, ")", 1, 10),
-			MakeToken(TokenType::EndOfFile, "", 1, 11),
+			MakeToken(TokenType::KwIf, "if", 1, 0),
+			MakeToken(TokenType::LParen, "(", 1, 1),
+			MakeToken(TokenType::Identifier, "a", 1, 2),
+			MakeToken(TokenType::Gt, ">", 1, 3),
+			MakeToken(TokenType::Number, "3", 1, 4),
+			MakeToken(TokenType::RParen, ")", 1, 5),
+			MakeToken(TokenType::EndOfFile, "", 1, 6),
 		};
 	}
 };
