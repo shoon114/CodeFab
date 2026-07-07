@@ -1,10 +1,22 @@
 #ifdef _DEBUG
+#include <utility>
 #include "gmock/gmock.h"
 #include "IfStatementParser.h"
 #include "MockExpressionParser.h"
 #include "TestTokenHelpers.h"
 
 using namespace testing;
+
+namespace {
+	TokenList MakeTokens(std::initializer_list<std::pair<TokenType, std::string>> tokens) {
+		TokenList result;
+		int column = 0;
+		for (const auto& [type, lexeme] : tokens) {
+			result.push_back(MakeToken(type, lexeme, 1, column++));
+		}
+		return result;
+	}
+}
 
 class IfStatementParserTest : public Test {
 protected:
@@ -13,29 +25,27 @@ protected:
 
 	// "if (a <op> 3)"
 	TokenList MakeIfConditionTokens(TokenType opType, const std::string& opLexeme) {
-		return TokenList{
-			MakeToken(TokenType::KwIf, "if", 1, 0),
-			MakeToken(TokenType::LParen, "(", 1, 1),
-			MakeToken(TokenType::Identifier, "a", 1, 2),
-			MakeToken(opType, opLexeme, 1, 3),
-			MakeToken(TokenType::Number, "3", 1, 4),
-			MakeToken(TokenType::RParen, ")", 1, 5),
-			MakeToken(TokenType::EndOfFile, "", 1, 6),
-		};
+		return MakeTokens({
+			{TokenType::KwIf, "if"},
+			{TokenType::LParen, "("},
+			{TokenType::Identifier, "a"},
+			{opType, opLexeme},
+			{TokenType::Number, "3"},
+			{TokenType::RParen, ")"},
+			{TokenType::EndOfFile, ""},
+			});
 	}
 
-	// exprParser가 조건식(3개 토큰: identifier, operator, number)을 소비하고
-	// BinaryExpr 노드 하나를 돌려주는 상황을 흉내낸다.
 	void StubExprParserToConsumeCondition() {
 		EXPECT_CALL(exprParser, Parse(_, _))
 			.Times(1)
 			.WillOnce([](const TokenList& tokens, size_t& pos) {
-				auto node = std::make_unique<SyntaxNode>();
-				node->type = NodeType::BinaryExpr;
-				node->token = tokens[pos];
-				pos += 3;
-				return node;
-			});
+			auto node = std::make_unique<SyntaxNode>();
+			node->type = NodeType::BinaryExpr;
+			node->token = tokens[pos];
+			pos += 3;
+			return node;
+				});
 	}
 
 	void ExpectParseThrows(TokenList tokenList, const char* expectedMessage) {
@@ -84,28 +94,28 @@ TEST_F(IfStatementParserTest, Parse_Condition_WithGtEqOperator_AttachesExpressio
 
 TEST_F(IfStatementParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSyntax) {
 	// if a>3)   -- '(' 누락
-	TokenList tokenList = {
-		MakeToken(TokenType::KwIf, "if", 1, 0),
-		MakeToken(TokenType::Identifier, "a", 1, 1),
-		MakeToken(TokenType::Gt, ">", 1, 2),
-		MakeToken(TokenType::Number, "3", 1, 3),
-		MakeToken(TokenType::RParen, ")", 1, 4),
-		MakeToken(TokenType::EndOfFile, "", 1, 5),
-	};
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::EndOfFile, ""},
+		});
 
 	ExpectParseThrows(tokenList, "Invalid Syntax. '(' is Missing");
 }
 
 TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 	// if(a>3   -- ')' 누락
-	TokenList tokenList = {
-		MakeToken(TokenType::KwIf, "if", 1, 0),
-		MakeToken(TokenType::LParen, "(", 1, 1),
-		MakeToken(TokenType::Identifier, "a", 1, 2),
-		MakeToken(TokenType::Gt, ">", 1, 3),
-		MakeToken(TokenType::Number, "3", 1, 4),
-		MakeToken(TokenType::EndOfFile, "", 1, 5),
-	};
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::EndOfFile, ""},
+		});
 
 	ExpectParseThrows(tokenList, "Invalid Syntax. ')' is Missing");
 }
