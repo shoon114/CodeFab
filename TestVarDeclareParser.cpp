@@ -22,6 +22,42 @@ protected:
 			MakeToken(TokenType::EndOfFile, "", 1, 11),
 		};
 	}
+
+	// "var a;"
+	TokenList MakeVarDeclareWithoutInitializerTokens() {
+		return TokenList{
+			MakeToken(TokenType::KwVar, "var", 1, 1),
+			MakeToken(TokenType::Identifier, "a", 1, 5),
+			MakeToken(TokenType::Semicolon, ";", 1, 6),
+			MakeToken(TokenType::EndOfFile, "", 1, 7),
+		};
+	}
+
+	// "var a = b;"
+	TokenList MakeVarDeclareWithIdentifierInitializerTokens() {
+		return TokenList{
+			MakeToken(TokenType::KwVar, "var", 1, 1),
+			MakeToken(TokenType::Identifier, "a", 1, 5),
+			MakeToken(TokenType::Assign, "=", 1, 7),
+			MakeToken(TokenType::Identifier, "b", 1, 9),
+			MakeToken(TokenType::Semicolon, ";", 1, 10),
+			MakeToken(TokenType::EndOfFile, "", 1, 11),
+		};
+	}
+
+	// "var a = 3 + 4;"
+	TokenList MakeVarDeclareWithBinaryExprInitializerTokens() {
+		return TokenList{
+			MakeToken(TokenType::KwVar, "var", 1, 1),
+			MakeToken(TokenType::Identifier, "a", 1, 5),
+			MakeToken(TokenType::Assign, "=", 1, 7),
+			MakeToken(TokenType::Number, "3", 1, 9),
+			MakeToken(TokenType::Plus, "+", 1, 11),
+			MakeToken(TokenType::Number, "4", 1, 13),
+			MakeToken(TokenType::Semicolon, ";", 1, 14),
+			MakeToken(TokenType::EndOfFile, "", 1, 15),
+		};
+	}
 };
 
 TEST_F(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResultAsValue) {
@@ -58,19 +94,11 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResul
 	EXPECT_THAT(valueNode->token.lexeme, Eq("3"));
 }
 
-TEST(VarDeclareParserTest, Parse_WithoutInitializer_DoesNotDelegateToExpressionParser) {
-	// var a;
-	TokenList tokenList = {
-		{ TokenType::KwVar, "var", 1, 1 },
-		{ TokenType::Identifier, "a", 1, 5 },
-		{ TokenType::Semicolon, ";", 1, 6 },
-		{ TokenType::EndOfFile, "", 1, 7 },
-	};
+TEST_F(VarDeclareParserTest, Parse_WithoutInitializer_DoesNotDelegateToExpressionParser) {
+	TokenList tokenList = MakeVarDeclareWithoutInitializerTokens();
 
-	MockExpressionParser exprParser;
 	EXPECT_CALL(exprParser, Parse(_, _)).Times(0);
 
-	VarDeclareParser parser(exprParser);
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
 
@@ -84,18 +112,10 @@ TEST(VarDeclareParserTest, Parse_WithoutInitializer_DoesNotDelegateToExpressionP
 	EXPECT_THAT(identNode->token.lexeme, Eq("a"));
 }
 
-TEST(VarDeclareParserTest, Parse_WithIdentifierInitializer_AttachesExpressionParserResultAsValue) {
-	// var a = b;  (VarDeclareParser must work the same regardless of the node shape exprParser returns)
-	TokenList tokenList = {
-		{ TokenType::KwVar, "var", 1, 1 },
-		{ TokenType::Identifier, "a", 1, 5 },
-		{ TokenType::Assign, "=", 1, 7 },
-		{ TokenType::Identifier, "b", 1, 9 },
-		{ TokenType::Semicolon, ";", 1, 10 },
-		{ TokenType::EndOfFile, "", 1, 11 },
-	};
+TEST_F(VarDeclareParserTest, Parse_WithIdentifierInitializer_AttachesExpressionParserResultAsValue) {
+	// VarDeclareParser must work the same regardless of the node shape exprParser returns
+	TokenList tokenList = MakeVarDeclareWithIdentifierInitializerTokens();
 
-	MockExpressionParser exprParser;
 	EXPECT_CALL(exprParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<SyntaxNode>();
@@ -105,7 +125,6 @@ TEST(VarDeclareParserTest, Parse_WithIdentifierInitializer_AttachesExpressionPar
 			return node;
 		});
 
-	VarDeclareParser parser(exprParser);
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
 
@@ -120,20 +139,10 @@ TEST(VarDeclareParserTest, Parse_WithIdentifierInitializer_AttachesExpressionPar
 	EXPECT_THAT(valueNode->token.lexeme, Eq("b"));
 }
 
-TEST(VarDeclareParserTest, Parse_WithBinaryExprInitializer_AttachesExpressionParserResultAsValue) {
-	// var a = 3 + 4;  (VarDeclareParser must work the same regardless of the node shape exprParser returns)
-	TokenList tokenList = {
-		{ TokenType::KwVar, "var", 1, 1 },
-		{ TokenType::Identifier, "a", 1, 5 },
-		{ TokenType::Assign, "=", 1, 7 },
-		{ TokenType::Number, "3", 1, 9 },
-		{ TokenType::Plus, "+", 1, 11 },
-		{ TokenType::Number, "4", 1, 13 },
-		{ TokenType::Semicolon, ";", 1, 14 },
-		{ TokenType::EndOfFile, "", 1, 15 },
-	};
+TEST_F(VarDeclareParserTest, Parse_WithBinaryExprInitializer_AttachesExpressionParserResultAsValue) {
+	// VarDeclareParser must work the same regardless of the node shape exprParser returns
+	TokenList tokenList = MakeVarDeclareWithBinaryExprInitializerTokens();
 
-	MockExpressionParser exprParser;
 	EXPECT_CALL(exprParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto left = std::make_unique<SyntaxNode>();
@@ -156,7 +165,6 @@ TEST(VarDeclareParserTest, Parse_WithBinaryExprInitializer_AttachesExpressionPar
 			return binaryNode;
 		});
 
-	VarDeclareParser parser(exprParser);
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
 
