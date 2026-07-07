@@ -101,7 +101,7 @@ TEST_F(IfStatementParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSyntax) {
 		FAIL();
 	}
 	catch (const std::runtime_error& e) {
-		EXPECT_EQ(e.what(), "Invalid Syntax. '(' is Missing");
+		EXPECT_STREQ(e.what(), "Invalid Syntax. '(' is Missing");
 	}
 }
 
@@ -122,7 +122,7 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 		FAIL();
 	}
 	catch (const std::runtime_error& e) {
-		EXPECT_EQ(e.what(), "Invalid Syntax. ')' is Missing");
+		EXPECT_STREQ(e.what(), "Invalid Syntax. ')' is Missing");
 	}
 }
 #endif
