@@ -152,4 +152,47 @@ TEST_F(VarDeclareParserTest, Parse_MissingVariableName_Throws) {
 	size_t pos = 0;
 	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
+
+TEST_F(VarDeclareParserTest, Parse_MissingSemicolon_Throws) {
+	// "var a 5" -- no ';' after the declaration; the registered tail parser
+	// only consumes 'a', leaving '5' where ';' was expected.
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+		MakeToken(TokenType::Identifier, "a", 0, 1),
+		MakeToken(TokenType::Number, "5", 0, 2),
+		MakeToken(TokenType::EndOfFile, "", 0, 3),
+	};
+
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			auto node = std::make_unique<SyntaxNode>();
+			node->type = NodeType::Identifier;
+			node->token = tokens[pos];
+			pos++; // consume 'a' only
+			return node;
+		});
+
+	size_t pos = 0;
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(VarDeclareParserTest, Parse_MissingSemicolonAtEndOfInput_Throws) {
+	// "var a" -- input ends right after the declaration, no ';' at all.
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+		MakeToken(TokenType::Identifier, "a", 0, 1),
+	};
+
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			auto node = std::make_unique<SyntaxNode>();
+			node->type = NodeType::Identifier;
+			node->token = tokens[pos];
+			pos++; // consume 'a', reaching the end of the list
+			return node;
+		});
+
+	size_t pos = 0;
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
 #endif
