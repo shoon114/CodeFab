@@ -146,11 +146,23 @@
     <ClCompile Include="CodeFabInterpreter.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="VarDeclareParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="StatementParserRegistry.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="TestAssemblerUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="TestTokenizerUnit.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
+    <ClCompile Include="TestVarDeclareParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="TestStatementParserRegistry.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
@@ -158,6 +170,12 @@
     <ClInclude Include="SyntaxNode.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokenizer.h" />
+    <ClInclude Include="IStatementParser.h" />
+    <ClInclude Include="IExpressionParser.h" />
+    <ClInclude Include="VarDeclareParser.h" />
+    <ClInclude Include="StatementParserRegistry.h" />
+    <ClInclude Include="MockExpressionParser.h" />
+    <ClInclude Include="TestTokenHelpers.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
