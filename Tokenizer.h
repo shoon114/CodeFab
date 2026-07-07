@@ -9,4 +9,7 @@ public:
 	virtual TokenList CreateTokenForCode();
 private:
 	std::string originalCode;
+
+	bool CanExtendToTwoCharOperator(char c);
+	bool IsSingleCharPunctuation(char c);
 };

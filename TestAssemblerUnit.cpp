@@ -28,12 +28,12 @@ protected:
 	TokenList MakeVarDeclareTokens() {
 		EXPECT_CALL(tokenizer, CreateTokenForCode())
 			.WillOnce(Return(TokenList{
-				MakeToken(TokenType::KwVar, "var", 0, 1),
-				MakeToken(TokenType::Identifier, "a", 0, 5),
-				MakeToken(TokenType::Assign, "=", 0, 7),
-				MakeToken(TokenType::Number, "3", 0, 9),
-				MakeToken(TokenType::Semicolon, ";", 0, 10),
-				MakeToken(TokenType::EndOfFile, "", 0, 11),
+				MakeToken(TokenType::KwVar, "var", 0, 0),
+				MakeToken(TokenType::Identifier, "a", 0, 1),
+				MakeToken(TokenType::Assign, "=", 0, 2),
+				MakeToken(TokenType::Number, "3", 0, 3),
+				MakeToken(TokenType::Semicolon, ";", 0, 4),
+				MakeToken(TokenType::EndOfFile, "", 0, 5),
 			}));
 		return tokenizer.CreateTokenForCode();
 	}
@@ -43,10 +43,10 @@ protected:
 		EXPECT_CALL(tokenizer, CreateTokenForCode())
 			.WillOnce(Return(TokenList{
 				MakeToken(TokenType::KwVar, "a", 0, 0),
-				MakeToken(TokenType::Plus, "+", 0, 2),
-				MakeToken(TokenType::Number, "1", 0, 4),
-				MakeToken(TokenType::Semicolon, ";", 0, 5),
-				MakeToken(TokenType::EndOfFile, "", 0, 6),
+				MakeToken(TokenType::Plus, "+", 0, 1),
+				MakeToken(TokenType::Number, "1", 0, 2),
+				MakeToken(TokenType::Semicolon, ";", 0, 3),
+				MakeToken(TokenType::EndOfFile, "", 0, 4),
 			}));
 		return tokenizer.CreateTokenForCode();
 	}

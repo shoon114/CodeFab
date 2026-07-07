@@ -146,15 +146,24 @@
     <ClCompile Include="CodeFabInterpreter.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="IfStatementParser.cpp" />
+    <ClCompile Include="TestIfStatementParser.cpp" />
     <ClCompile Include="VarDeclareParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="StatementParserRegistry.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="ExpressionParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="TestExpressionParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">  %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="TestAssemblerUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="TestCheckerUnit.cpp" />
     <ClCompile Include="TestTokenizerUnit.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
     <ClCompile Include="TestVarDeclareParser.cpp">
@@ -173,6 +182,7 @@
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
     <ClInclude Include="CheckerUnit.h" />
+    <ClInclude Include="IfStatementParser.h" />
     <ClInclude Include="SyntaxNode.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokenizer.h" />
@@ -181,6 +191,7 @@
     <ClInclude Include="Value.h" />
     <ClInclude Include="VarDeclareParser.h" />
     <ClInclude Include="StatementParserRegistry.h" />
+    <ClInclude Include="ExpressionParser.h" />
     <ClInclude Include="MockExpressionParser.h" />
     <ClInclude Include="TestTokenHelpers.h" />
     <ClInclude Include="ExecutorUnit.h" />
