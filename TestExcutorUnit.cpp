@@ -436,4 +436,27 @@ TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_RestoresOuterValueAfterInner
 
 	EXPECT_THAT(output, Eq("72"));
 }
+
+// 문자열 변수에 대한 블록 스코프 검증:
+// var x = "global"; { var x = "inner"; print x; } print x;
+// 블록 안에서는 섀도잉된 "inner"가, 블록 밖에서는 원래의 "global"이 출력되어야 한다.
+// NOTE: 현재 ExecutorUnit은 변수를 double로만 저장하므로(Evaluate가 StringLiteral을
+// 지원하지 않음) 이 테스트는 실패(Red)한다. 문자열 값을 지원하는 Value 타입 도입 후 통과해야 한다.
+TEST(ExecutorUnitTest, Execute_BlockScope_StringVariableShadowing_RestoresOuterValueAfterBlockEnds) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("x", MakeStringLiteral("global")),
+		MakeBlockStmt(
+			MakeVarDeclStmt("x", MakeStringLiteral("inner")),
+			MakePrintStmt(MakeIdentifier("x"))
+		),
+		MakePrintStmt(MakeIdentifier("x"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("innerglobal"));
+}
 #endif
