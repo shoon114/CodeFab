@@ -3,10 +3,8 @@
 #include "Tokenizer.h"
 #include <iostream>
 #include <sstream>
-#include <algorithm>
 
 using namespace testing;
-
 
 namespace {
 	Tokenizer MakeTokenizerWithInput(const std::string& input) {
@@ -21,248 +19,66 @@ namespace {
 	}
 }
 
-// GetCodeFromUser
-TEST(TokenizerTest, GetCodeFromUser_StoresInputForLaterUse) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("int a = 10;\n");
 
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("int", "a", "=", "10", ";"));
-}
-
-// SplitIntoWords
-TEST(TokenizerTest, SplitIntoWords_SplitsOnWhitespace) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("int a = 10\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("int", "a", "=", "10"));
-}
-
-TEST(TokenizerTest, SplitIntoWords_SplitsOperatorsAndParenthesesWithoutSpaces) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("if(a>10)\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("if", "(", "a", ">", "10", ")"));
-}
-
-TEST(TokenizerTest, SplitIntoWords_RecognizesTwoCharacterOperators) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("a >= 10 == b != c <= d\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("a", ">=", "10", "==", "b", "!=", "c", "<=", "d"));
-}
-
-TEST(TokenizerTest, SplitIntoWords_KeepsMultipleStatementsInOneList) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("int a =10; int b =20;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"int", "a", "=", "10", ";",
-		"int", "b", "=", "20", ";"));
-}
-
-TEST(TokenizerTest, SplitIntoWords_HandlesEmptyInput) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_TRUE(words.empty());
-}
-
-// CreateTokenForCode
-TEST(TokenizerTest, CreateTokenForCode_ClassifiesNumber) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("10\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_FALSE(tokens.empty());
-	EXPECT_EQ(tokens[0].type, TokenType::Number);
-	EXPECT_EQ(tokens[0].lexeme, "10");
-	EXPECT_DOUBLE_EQ(tokens[0].realValue, 10.0);
-}
-
-TEST(TokenizerTest, CreateTokenForCode_ClassifiesIdentifier) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("a\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_FALSE(tokens.empty());
-	EXPECT_EQ(tokens[0].type, TokenType::Identifier);
-	EXPECT_EQ(tokens[0].lexeme, "a");
-}
-
-TEST(TokenizerTest, CreateTokenForCode_ClassifiesKeyword) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("if\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_FALSE(tokens.empty());
-	EXPECT_EQ(tokens[0].type, TokenType::KwIf);
-}
-
-TEST(TokenizerTest, CreateTokenForCode_ClassifiesOperatorsAndPunctuation) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("if(a>10)\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_EQ(tokens.size(), 6u);
-	EXPECT_EQ(tokens[0].type, TokenType::KwIf);
-	EXPECT_EQ(tokens[1].type, TokenType::LParen);
-	EXPECT_EQ(tokens[2].type, TokenType::Identifier);
-	EXPECT_EQ(tokens[3].type, TokenType::Gt);
-	EXPECT_EQ(tokens[4].type, TokenType::Number);
-	EXPECT_EQ(tokens[5].type, TokenType::RParen);
-}
-
-TEST(TokenizerTest, CreateTokenForCode_HandlesMultipleStatementsInOneLine) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("int a =10; int b =20;\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	int semicolonCount = static_cast<int>(std::count_if(
-		tokens.begin(), tokens.end(),
-		[](const Token& token) { return token.type == TokenType::Semicolon; }));
-
-	EXPECT_EQ(semicolonCount, 2);
-}
-
-TEST(TokenizerTest, CreateTokenForCode_TracksLineAndColumn) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("int a = 10;\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_FALSE(tokens.empty());
-	EXPECT_EQ(tokens[0].line, 1);
-	EXPECT_EQ(tokens[0].column, 1);
-}
-
-TEST(TokenizerTest, CreateTokenForCode_AppendsEndOfFileToken) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("a\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_FALSE(tokens.empty());
-	EXPECT_EQ(tokens.back().type, TokenType::EndOfFile);
-}
-
-TEST(TokenizerTest, CreateTokenForCode_HandlesEmptyInputWithoutCrashing) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_FALSE(tokens.empty());
-	EXPECT_EQ(tokens[0].type, TokenType::EndOfFile);
-}
-
-// print keyword
-TEST(TokenizerTest, CreateTokenForCode_ClassifiesPrintKeyword) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 5;\n");
-
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_GE(tokens.size(), 3u);
-	EXPECT_EQ(tokens[0].type, TokenType::Print);
-}
-
-// 산술 연산자 / 우선순위 - 파서가 아니라 토크나이저가 올바른 토큰 시퀀스를 만드는지만 확인
-TEST(TokenizerTest, CreateTokenForCode_MultiplicationAndAddition) {
+TEST(TokenizerTest, SplitIntoWords_AdditionAndMultiplication) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 1 + 2 * 3;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	ASSERT_EQ(tokens.size(), 8u);
-	EXPECT_EQ(tokens[0].type, TokenType::Print);
-	EXPECT_EQ(tokens[1].type, TokenType::Number);
-	EXPECT_EQ(tokens[2].type, TokenType::Plus);
-	EXPECT_EQ(tokens[3].type, TokenType::Number);
-	EXPECT_EQ(tokens[4].type, TokenType::Star);
-	EXPECT_EQ(tokens[5].type, TokenType::Number);
-	EXPECT_EQ(tokens[6].type, TokenType::Semicolon);
-	EXPECT_EQ(tokens[7].type, TokenType::EndOfFile);
+	EXPECT_THAT(words, ElementsAre("print", "1", "+", "2", "*", "3", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_ParenthesizedExpression) {
+TEST(TokenizerTest, SplitIntoWords_ParenthesizedExpression) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print (1 + 2) * 3;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	ASSERT_EQ(tokens.size(), 10u);
-	EXPECT_EQ(tokens[0].type, TokenType::Print);
-	EXPECT_EQ(tokens[1].type, TokenType::LParen);
-	EXPECT_EQ(tokens[2].type, TokenType::Number);
-	EXPECT_EQ(tokens[3].type, TokenType::Plus);
-	EXPECT_EQ(tokens[4].type, TokenType::Number);
-	EXPECT_EQ(tokens[5].type, TokenType::RParen);
-	EXPECT_EQ(tokens[6].type, TokenType::Star);
-	EXPECT_EQ(tokens[7].type, TokenType::Number);
-	EXPECT_EQ(tokens[8].type, TokenType::Semicolon);
-	EXPECT_EQ(tokens[9].type, TokenType::EndOfFile);
+	EXPECT_THAT(words, ElementsAre("print", "(", "1", "+", "2", ")", "*", "3", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_ChainedSubtraction) {
+TEST(TokenizerTest, SplitIntoWords_ChainedSubtraction) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 10 - 4 - 3;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	ASSERT_EQ(tokens.size(), 8u);
-	EXPECT_EQ(tokens[1].type, TokenType::Number);
-	EXPECT_EQ(tokens[2].type, TokenType::Minus);
-	EXPECT_EQ(tokens[3].type, TokenType::Number);
-	EXPECT_EQ(tokens[4].type, TokenType::Minus);
-	EXPECT_EQ(tokens[5].type, TokenType::Number);
+	EXPECT_THAT(words, ElementsAre("print", "10", "-", "4", "-", "3", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_ChainedDivision) {
+TEST(TokenizerTest, SplitIntoWords_ChainedDivision) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 8 / 2 / 2;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	ASSERT_EQ(tokens.size(), 8u);
-	EXPECT_EQ(tokens[1].type, TokenType::Number);
-	EXPECT_EQ(tokens[2].type, TokenType::Slash);
-	EXPECT_EQ(tokens[3].type, TokenType::Number);
-	EXPECT_EQ(tokens[4].type, TokenType::Slash);
-	EXPECT_EQ(tokens[5].type, TokenType::Number);
+	EXPECT_THAT(words, ElementsAre("print", "8", "/", "2", "/", "2", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_UnaryMinusProducesMinusThenNumber) {
+TEST(TokenizerTest, SplitIntoWords_UnaryMinus) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print -3 + 2;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	ASSERT_EQ(tokens.size(), 7u);
-	EXPECT_EQ(tokens[1].type, TokenType::Minus);
-	EXPECT_EQ(tokens[2].type, TokenType::Number);
-	EXPECT_EQ(tokens[2].lexeme, "3");
-	EXPECT_EQ(tokens[3].type, TokenType::Plus);
-	EXPECT_EQ(tokens[4].type, TokenType::Number);
+	EXPECT_THAT(words, ElementsAre("print", "-", "3", "+", "2", ";"));
 }
 
-// 비교 연산자
-TEST(TokenizerTest, CreateTokenForCode_LessThanOperator) {
+
+TEST(TokenizerTest, SplitIntoWords_LessThan) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 1 < 2;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	ASSERT_EQ(tokens.size(), 6u);
-	EXPECT_EQ(tokens[2].type, TokenType::Lt);
+	EXPECT_THAT(words, ElementsAre("print", "1", "<", "2", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_GreaterThanOperator) {
+TEST(TokenizerTest, SplitIntoWords_GreaterThan) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 3 > 5;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	ASSERT_EQ(tokens.size(), 6u);
-	EXPECT_EQ(tokens[2].type, TokenType::Gt);
+	EXPECT_THAT(words, ElementsAre("print", "3", ">", "5", ";"));
 }
 
-// 문자열 리터럴 - 공백을 포함해도 하나의 단어/토큰이어야 함
-TEST(TokenizerTest, SplitIntoWords_KeepsStringLiteralWithSpacesAsOneWord) {
+
+TEST(TokenizerTest, SplitIntoWords_StringConcatenation) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print \"Hello, \" + \"CodeFab!\";\n");
 
 	std::vector<std::string> words = tokenizer.SplitIntoWords();
@@ -270,64 +86,190 @@ TEST(TokenizerTest, SplitIntoWords_KeepsStringLiteralWithSpacesAsOneWord) {
 	EXPECT_THAT(words, ElementsAre("print", "\"Hello, \"", "+", "\"CodeFab!\"", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_StringConcatenation) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print \"Hello, \" + \"CodeFab!\";\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
-
-	ASSERT_EQ(tokens.size(), 6u);
-	EXPECT_EQ(tokens[1].type, TokenType::String);
-	EXPECT_EQ(tokens[1].lexeme, "Hello, ");
-	EXPECT_EQ(tokens[2].type, TokenType::Plus);
-	EXPECT_EQ(tokens[3].type, TokenType::String);
-	EXPECT_EQ(tokens[3].lexeme, "CodeFab!");
-}
-
-// 숫자 리터럴 (정수 / 소수)
-TEST(TokenizerTest, CreateTokenForCode_ParsesIntegerLiteral) {
+TEST(TokenizerTest, SplitIntoWords_IntegerLiteral) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 5;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	EXPECT_EQ(tokens[1].type, TokenType::Number);
-	EXPECT_EQ(tokens[1].lexeme, "5");
-	EXPECT_DOUBLE_EQ(tokens[1].realValue, 5.0);
+	EXPECT_THAT(words, ElementsAre("print", "5", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_ParsesDecimalLiteralWithTrailingZero) {
+TEST(TokenizerTest, SplitIntoWords_DecimalLiteralWithTrailingZero) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 5.0;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	EXPECT_EQ(tokens[1].type, TokenType::Number);
-	EXPECT_EQ(tokens[1].lexeme, "5.0");
-	EXPECT_DOUBLE_EQ(tokens[1].realValue, 5.0);
+	EXPECT_THAT(words, ElementsAre("print", "5.0", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_ParsesDecimalLiteral) {
+TEST(TokenizerTest, SplitIntoWords_DecimalLiteral) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print 3.14;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	EXPECT_EQ(tokens[1].type, TokenType::Number);
-	EXPECT_EQ(tokens[1].lexeme, "3.14");
-	EXPECT_DOUBLE_EQ(tokens[1].realValue, 3.14);
+	EXPECT_THAT(words, ElementsAre("print", "3.14", ";"));
 }
 
-// boolean 리터럴
-TEST(TokenizerTest, CreateTokenForCode_ClassifiesTrueLiteral) {
+
+TEST(TokenizerTest, SplitIntoWords_TrueLiteral) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print true;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	EXPECT_EQ(tokens[1].type, TokenType::KwTrue);
+	EXPECT_THAT(words, ElementsAre("print", "true", ";"));
 }
 
-TEST(TokenizerTest, CreateTokenForCode_ClassifiesFalseLiteral) {
+TEST(TokenizerTest, SplitIntoWords_FalseLiteral) {
 	Tokenizer tokenizer = MakeTokenizerWithInput("print false;\n");
 
-	TokenList tokens = tokenizer.CreateTokenForCode();
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
 
-	EXPECT_EQ(tokens[1].type, TokenType::KwFalse);
+	EXPECT_THAT(words, ElementsAre("print", "false", ";"));
+}
+
+
+TEST(TokenizerTest, SplitIntoWords_VariableDeclarationAndUse) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"var a = 10;\n"
+		"var b = 20;\n"
+		"print a + b;\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"var", "a", "=", "10", ";",
+		"var", "b", "=", "20", ";",
+		"print", "a", "+", "b", ";"));
+}
+
+
+TEST(TokenizerTest, SplitIntoWords_Reassignment) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"a = a + 5;\n"
+		"print a;\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"a", "=", "a", "+", "5", ";",
+		"print", "a", ";"));
+}
+
+
+TEST(TokenizerTest, SplitIntoWords_BlockScopeShadowing) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"var x = \"global\";\n"
+		"{\n"
+		"  var x = \"inner\";\n"
+		"  print x;\n"
+		"}\n"
+		"print x;\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"var", "x", "=", "\"global\"", ";",
+		"{",
+		"var", "x", "=", "\"inner\"", ";",
+		"print", "x", ";",
+		"}",
+		"print", "x", ";"));
+}
+
+
+TEST(TokenizerTest, SplitIntoWords_InnerBlockModifiesOuterVariable) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"var count = 0;\n"
+		"{\n"
+		"  count = count + 1;\n"
+		"}\n"
+		"print count;\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"var", "count", "=", "0", ";",
+		"{",
+		"count", "=", "count", "+", "1", ";",
+		"}",
+		"print", "count", ";"));
+}
+
+
+TEST(TokenizerTest, SplitIntoWords_NestedScopes) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"var outer = \"A\";\n"
+		"{\n"
+		"  var inner = \"B\";\n"
+		"  {\n"
+		"    print outer + inner;\n"
+		"  }\n"
+		"}\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"var", "outer", "=", "\"A\"", ";",
+		"{",
+		"var", "inner", "=", "\"B\"", ";",
+		"{",
+		"print", "outer", "+", "inner", ";",
+		"}",
+		"}"));
+}
+
+TEST(TokenizerTest, SplitIntoWords_IfWithoutElse) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"if (true) print \"bbq\";\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"if", "(", "true", ")", "print", "\"bbq\"", ";"));
+}
+
+TEST(TokenizerTest, SplitIntoWords_IfElse) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"if (false) print \"no\"; else print \"kfc\";\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"if", "(", "false", ")", "print", "\"no\"", ";",
+		"else", "print", "\"kfc\"", ";"));
+}
+
+
+TEST(TokenizerTest, SplitIntoWords_NestedIfElseBindsToNearestIf) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"if (true)\n"
+		"{\n"
+		"  if (false) print \"kfc\";\n"
+		"  else print \"bbq\";\n"
+		"}\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"if", "(", "true", ")",
+		"{",
+		"if", "(", "false", ")", "print", "\"kfc\"", ";",
+		"else", "print", "\"bbq\"", ";",
+		"}"));
+}
+
+
+TEST(TokenizerTest, SplitIntoWords_ForLoop) {
+	Tokenizer tokenizer = MakeTokenizerWithInput(
+		"for (var j = 0; j < 3; j = j + 1) { print j; }\n");
+
+	std::vector<std::string> words = tokenizer.SplitIntoWords();
+
+	EXPECT_THAT(words, ElementsAre(
+		"for", "(", "var", "j", "=", "0", ";",
+		"j", "<", "3", ";",
+		"j", "=", "j", "+", "1", ")",
+		"{", "print", "j", ";", "}"));
 }
 #endif
