@@ -41,6 +41,16 @@ double ExecutorUnit::AsNumber(const Value_t& value, int line) {
 	return std::get<double>(value);
 }
 
+bool ExecutorUnit::IsTruthy(const Value_t& value) {
+	if (std::holds_alternative<bool>(value)) {
+		return std::get<bool>(value);
+	}
+	if (std::holds_alternative<double>(value)) {
+		return std::get<double>(value) != 0.0;
+	}
+	return !std::get<std::string>(value).empty();
+}
+
 void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 	switch (node.type) {
 	case NodeType::PrintStmt: {
@@ -48,6 +58,8 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 		Value_t value = Evaluate(expression);
 		if (std::holds_alternative<std::string>(value)) {
 			std::cout << std::get<std::string>(value);
+		} else if (std::holds_alternative<bool>(value)) {
+			std::cout << (std::get<bool>(value) ? "true" : "false");
 		} else {
 			double number = std::get<double>(value);
 			if (number == std::floor(number)) {
@@ -74,7 +86,7 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 	case NodeType::IfStmt: {
 		const auto& condition = *node.children[0];
 		const auto& thenBranch = *node.children[1];
-		if (AsNumber(Evaluate(condition), condition.token.line) != 0.0) {
+		if (IsTruthy(Evaluate(condition))) {
 			ExecuteStmt(thenBranch);
 		}
 		break;
@@ -90,7 +102,7 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 		const auto& increment = *node.children[2];
 		const auto& body = *node.children[3];
 		ExecuteStmt(init);
-		while (AsNumber(Evaluate(condition), condition.token.line) != 0.0) {
+		while (IsTruthy(Evaluate(condition))) {
 			ExecuteStmt(body);
 			Evaluate(increment);
 		}
@@ -140,8 +152,8 @@ Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
 					", column " + std::to_string(node.token.column));
 			}
 			return left / right;
-		case TokenType::Gt: return static_cast<double>(left > right);
-		case TokenType::Lt: return static_cast<double>(left < right);
+		case TokenType::Gt: return left > right;
+		case TokenType::Lt: return left < right;
 		default:
 			throw std::runtime_error(
 				"Unsupported binary operator at line " + std::to_string(node.token.line));
