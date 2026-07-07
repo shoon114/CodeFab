@@ -2,11 +2,13 @@
 #include <memory>
 #include "Token.h"
 #include "SyntaxNode.h"
+#include "IExpressionParser.h"
 
 class AssemblerUnit {
 public:
+	explicit AssemblerUnit(std::shared_ptr<IExpressionParser> exprParser);
 	std::unique_ptr<SyntaxNode> Parse(const TokenList& tokenList);
 
 private:
-	std::unique_ptr<SyntaxNode> ParseVarDeclare(const TokenList& tokenList, size_t& pos);
+	std::shared_ptr<IExpressionParser> exprParser;
 };
