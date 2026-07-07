@@ -347,7 +347,7 @@ TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesChainedArithmeticWithColumns)
 TEST_F(TokenizerTest, CreateTokenForCode_UnaryMinusProducesMinusThenNumber) {
 	TokenList tokens = CreateTokens("print -3 + 2;\n");
 
-	ASSERT_EQ(tokens.size(), 6u);
+	ASSERT_EQ(tokens.size(), 7u);
 	EXPECT_EQ(tokens[1].type, TokenType::Minus);
 	EXPECT_EQ(tokens[1].column, 1);
 
@@ -362,7 +362,7 @@ TEST_F(TokenizerTest, CreateTokenForCode_UnaryMinusProducesMinusThenNumber) {
 TEST_F(TokenizerTest, CreateTokenForCode_StringLiteralLexemeHasQuotesStripped) {
 	TokenList tokens = CreateTokens("print \"Hello, \" + \"CodeFab!\";\n");
 
-	ASSERT_EQ(tokens.size(), 5u);
+	ASSERT_EQ(tokens.size(), 6u);
 	EXPECT_EQ(tokens[0].type, TokenType::Print);
 	EXPECT_EQ(tokens[0].column, 0);
 
