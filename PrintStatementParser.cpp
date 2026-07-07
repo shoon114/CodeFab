@@ -1,4 +1,3 @@
-#ifdef _DEBUG
 #include "PrintStatementParser.h"
 #include "StatementParserRegistry.h"
 
@@ -20,4 +19,3 @@ std::unique_ptr<SyntaxNode> PrintStatementParser::Parse(const TokenList& tokenLi
 
 	return printNode;
 }
-#endif
