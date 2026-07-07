@@ -136,4 +136,20 @@ TEST_F(VarDeclareParserTest, Parse_NothingAfterVar_Throws) {
 	size_t pos = 0;
 	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
+
+TEST_F(VarDeclareParserTest, Parse_MissingVariableName_Throws) {
+	// "var = 3;" -- no identifier between 'var' and '=', so nothing is
+	// registered in StatementParserRegistry for the Assign token that
+	// appears here.
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+		MakeToken(TokenType::Assign, "=", 0, 1),
+		MakeToken(TokenType::Number, "3", 0, 2),
+		MakeToken(TokenType::Semicolon, ";", 0, 3),
+		MakeToken(TokenType::EndOfFile, "", 0, 4),
+	};
+
+	size_t pos = 0;
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
 #endif

@@ -24,6 +24,10 @@ std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, 
 	// statement forms after 'var' be supported purely by registering them
 	// elsewhere, without VarDeclareParser knowing about them.
 	std::shared_ptr<IStatementParser> stmtParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type, exprParser);
+	if (stmtParser == nullptr) {
+		throw std::runtime_error("Expected a variable name after 'var' at line " + std::to_string(tokenList[pos].line));
+	}
+
 	auto childNode = stmtParser->Parse(tokenList, pos);
 	varDeclNode->children.push_back(std::move(childNode));
 
