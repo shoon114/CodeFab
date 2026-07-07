@@ -6,7 +6,7 @@ class Tokenizer {
 public:
 	void GetCodeFromUser();
 	std::vector<std::string> SplitIntoWords();
-	virtual TokenList CreateTokenForCode() { return {}; };
+	virtual TokenList CreateTokenForCode();
 private:
 	std::string originalCode;
 };
