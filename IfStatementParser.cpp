@@ -1,4 +1,3 @@
-#ifdef _DEBUG
 #include <stdexcept>
 #include <string>
 #include "IfStatementParser.h"
@@ -29,4 +28,3 @@ std::unique_ptr<SyntaxNode> IfStatementParser::Parse(const TokenList& tokenList,
 
 	return ifNode;
 }
-#endif
