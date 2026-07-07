@@ -1,4 +1,4 @@
-#include "ExecutorUnit.h"
+﻿#include "ExecutorUnit.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -53,63 +53,81 @@ bool ExecutorUnit::IsTruthy(const Value_t& value) {
 
 void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 	switch (node.type) {
-	case NodeType::PrintStmt: {
-		const auto& expression = *node.children[0];
-		Value_t value = Evaluate(expression);
-		if (std::holds_alternative<std::string>(value)) {
-			std::cout << std::get<std::string>(value);
-		} else if (std::holds_alternative<bool>(value)) {
-			std::cout << (std::get<bool>(value) ? "true" : "false");
-		} else {
-			double number = std::get<double>(value);
-			if (number == std::floor(number)) {
-				std::cout << static_cast<long long>(number);
-			} else {
-				std::cout << number;
-			}
-		}
+	case NodeType::PrintStmt:
+		ExecutePrintStmt(node);
 		break;
-	}
-	case NodeType::VarDeclareStatement: {
-		const auto& initializer = *node.children[0];
-		scopes.back()[node.token.lexeme] = Evaluate(initializer);
+	case NodeType::VarDeclareStatement:
+		ExecuteVarDeclareStatement(node);
 		break;
-	}
-	case NodeType::BlockStmt: {
-		EnterScope();
-		for (const auto& stmt : node.children) {
-			ExecuteStmt(*stmt);
-		}
-		ExitScope();
+	case NodeType::BlockStmt:
+		ExecuteBlockStmt(node);
 		break;
-	}
-	case NodeType::IfStmt: {
-		const auto& condition = *node.children[0];
-		const auto& thenBranch = *node.children[1];
-		if (IsTruthy(Evaluate(condition))) {
-			ExecuteStmt(thenBranch);
-		}
+	case NodeType::IfStmt:
+		ExecuteIfStmt(node);
 		break;
-	}
-	case NodeType::ExprStmt: {
-		const auto& expression = *node.children[0];
-		Evaluate(expression);
+	case NodeType::ExprStmt:
+		ExecuteExprStmt(node);
 		break;
-	}
-	case NodeType::ForStmt: {
-		const auto& init = *node.children[0];
-		const auto& condition = *node.children[1];
-		const auto& increment = *node.children[2];
-		const auto& body = *node.children[3];
-		ExecuteStmt(init);
-		while (IsTruthy(Evaluate(condition))) {
-			ExecuteStmt(body);
-			Evaluate(increment);
-		}
+	case NodeType::ForStmt:
+		ExecuteForStmt(node);
 		break;
-	}
 	default:
 		break;
+	}
+}
+
+void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
+	const auto& expression = *node.children[0];
+	Value_t value = Evaluate(expression);
+	if (std::holds_alternative<std::string>(value)) {
+		std::cout << std::get<std::string>(value);
+	} else if (std::holds_alternative<bool>(value)) {
+		std::cout << (std::get<bool>(value) ? "true" : "false");
+	} else {
+		double number = std::get<double>(value);
+		if (number == std::floor(number)) {
+			std::cout << static_cast<long long>(number);
+		} else {
+			std::cout << number;
+		}
+	}
+}
+
+void ExecutorUnit::ExecuteVarDeclareStatement(const SyntaxNode& node) {
+	const auto& initializer = *node.children[0];
+	scopes.back()[node.token.lexeme] = Evaluate(initializer);
+}
+
+void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
+	EnterScope();
+	for (const auto& stmt : node.children) {
+		ExecuteStmt(*stmt);
+	}
+	ExitScope();
+}
+
+void ExecutorUnit::ExecuteIfStmt(const SyntaxNode& node) {
+	const auto& condition = *node.children[0];
+	const auto& thenBranch = *node.children[1];
+	if (IsTruthy(Evaluate(condition))) {
+		ExecuteStmt(thenBranch);
+	}
+}
+
+void ExecutorUnit::ExecuteExprStmt(const SyntaxNode& node) {
+	const auto& expression = *node.children[0];
+	Evaluate(expression);
+}
+
+void ExecutorUnit::ExecuteForStmt(const SyntaxNode& node) {
+	const auto& init = *node.children[0];
+	const auto& condition = *node.children[1];
+	const auto& increment = *node.children[2];
+	const auto& body = *node.children[3];
+	ExecuteStmt(init);
+	while (IsTruthy(Evaluate(condition))) {
+		ExecuteStmt(body);
+		Evaluate(increment);
 	}
 }
 
@@ -120,47 +138,57 @@ Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
 	case NodeType::StringLiteral:
 		return node.token.lexeme;
 	case NodeType::Identifier:
-		return ResolveVariable(node.token.lexeme, node.token.line);
-	case NodeType::AssignExpr: {
-		const auto& valueExpr = *node.children[0];
-		Value_t value = Evaluate(valueExpr);
-		ResolveVariable(node.token.lexeme, node.token.line) = value;
-		return value;
-	}
-	case NodeType::BinaryExpr: {
-		const auto& leftExpr = *node.children[0];
-		const auto& rightExpr = *node.children[1];
-		Value_t leftValue = Evaluate(leftExpr);
-		Value_t rightValue = Evaluate(rightExpr);
-
-		if (node.token.type == TokenType::Plus &&
-			std::holds_alternative<std::string>(leftValue) &&
-			std::holds_alternative<std::string>(rightValue)) {
-			return std::get<std::string>(leftValue) + std::get<std::string>(rightValue);
-		}
-
-		double left = AsNumber(leftValue, node.token.line);
-		double right = AsNumber(rightValue, node.token.line);
-		switch (node.token.type) {
-		case TokenType::Plus:  return left + right;
-		case TokenType::Minus: return left - right;
-		case TokenType::Star:  return left * right;
-		case TokenType::Slash:
-			if (right == 0.0) {
-				throw std::runtime_error(
-					"Division by zero at line " + std::to_string(node.token.line) +
-					", column " + std::to_string(node.token.column));
-			}
-			return left / right;
-		case TokenType::Gt: return left > right;
-		case TokenType::Lt: return left < right;
-		default:
-			throw std::runtime_error(
-				"Unsupported binary operator at line " + std::to_string(node.token.line));
-		}
-	}
+		return EvaluateIdentifier(node);
+	case NodeType::AssignExpr:
+		return EvaluateAssignExpr(node);
+	case NodeType::BinaryExpr:
+		return EvaluateBinaryExpr(node);
 	default:
 		throw std::runtime_error(
 			"Unsupported expression node at line " + std::to_string(node.token.line));
+	}
+}
+
+Value_t ExecutorUnit::EvaluateIdentifier(const SyntaxNode& node) {
+	return ResolveVariable(node.token.lexeme, node.token.line);
+}
+
+Value_t ExecutorUnit::EvaluateAssignExpr(const SyntaxNode& node) {
+	const auto& valueExpr = *node.children[0];
+	Value_t value = Evaluate(valueExpr);
+	ResolveVariable(node.token.lexeme, node.token.line) = value;
+	return value;
+}
+
+Value_t ExecutorUnit::EvaluateBinaryExpr(const SyntaxNode& node) {
+	const auto& leftExpr = *node.children[0];
+	const auto& rightExpr = *node.children[1];
+	Value_t leftValue = Evaluate(leftExpr);
+	Value_t rightValue = Evaluate(rightExpr);
+
+	if (node.token.type == TokenType::Plus &&
+		std::holds_alternative<std::string>(leftValue) &&
+		std::holds_alternative<std::string>(rightValue)) {
+		return std::get<std::string>(leftValue) + std::get<std::string>(rightValue);
+	}
+
+	double left = AsNumber(leftValue, node.token.line);
+	double right = AsNumber(rightValue, node.token.line);
+	switch (node.token.type) {
+	case TokenType::Plus:  return left + right;
+	case TokenType::Minus: return left - right;
+	case TokenType::Star:  return left * right;
+	case TokenType::Slash:
+		if (right == 0.0) {
+			throw std::runtime_error(
+				"Division by zero at line " + std::to_string(node.token.line) +
+				", column " + std::to_string(node.token.column));
+		}
+		return left / right;
+	case TokenType::Gt: return left > right;
+	case TokenType::Lt: return left < right;
+	default:
+		throw std::runtime_error(
+			"Unsupported binary operator at line " + std::to_string(node.token.line));
 	}
 }

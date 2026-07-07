@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "SyntaxNode.h"
 #include "Value.h"
 #include <string>
@@ -12,6 +12,19 @@ public:
 private:
 	void ExecuteStmt(const SyntaxNode& node);
 	Value_t Evaluate(const SyntaxNode& node);
+
+	// ExecuteStmt가 위임하는 문(statement)별 실행 메서드
+	void ExecutePrintStmt(const SyntaxNode& node);
+	void ExecuteVarDeclareStatement(const SyntaxNode& node);
+	void ExecuteBlockStmt(const SyntaxNode& node);
+	void ExecuteIfStmt(const SyntaxNode& node);
+	void ExecuteExprStmt(const SyntaxNode& node);
+	void ExecuteForStmt(const SyntaxNode& node);
+
+	// Evaluate가 위임하는 식(expression)별 평가 메서드
+	Value_t EvaluateIdentifier(const SyntaxNode& node);
+	Value_t EvaluateAssignExpr(const SyntaxNode& node);
+	Value_t EvaluateBinaryExpr(const SyntaxNode& node);
 
 	void EnterScope();
 	void ExitScope();
