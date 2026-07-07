@@ -16,7 +16,12 @@ void ExecutorUnit::Execute(const SyntaxNode& tree) {
 void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 	switch (node.type) {
 	case NodeType::PrintStmt: {
-		double value = Evaluate(*node.children[0]);
+		const SyntaxNode& expression = *node.children[0];
+		if (expression.type == NodeType::StringLiteral) {
+			std::cout << expression.token.lexeme << std::endl;
+			break;
+		}
+		double value = Evaluate(expression);
 		if (value == std::floor(value)) {
 			std::cout << static_cast<long long>(value) << std::endl;
 		} else {
@@ -41,6 +46,18 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 		}
 		break;
 	}
+	case NodeType::ExprStmt: {
+		Evaluate(*node.children[0]);
+		break;
+	}
+	case NodeType::ForStmt: {
+		ExecuteStmt(*node.children[0]);
+		while (Evaluate(*node.children[1]) != 0.0) {
+			ExecuteStmt(*node.children[3]);
+			Evaluate(*node.children[2]);
+		}
+		break;
+	}
 	default:
 		break;
 	}
@@ -59,6 +76,11 @@ double ExecutorUnit::Evaluate(const SyntaxNode& node) {
 		}
 		return it->second;
 	}
+	case NodeType::AssignExpr: {
+		double value = Evaluate(*node.children[0]);
+		variables[node.token.lexeme] = value;
+		return value;
+	}
 	case NodeType::BinaryExpr: {
 		double left = Evaluate(*node.children[0]);
 		double right = Evaluate(*node.children[1]);
@@ -74,6 +96,7 @@ double ExecutorUnit::Evaluate(const SyntaxNode& node) {
 			}
 			return left / right;
 		case TokenType::Gt: return left > right;
+		case TokenType::Lt: return left < right;
 		default: return 0.0;
 		}
 	}

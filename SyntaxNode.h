@@ -20,6 +20,7 @@ enum class NodeType {
 	PrintStmt,
 	IfStmt,
 	WhileStmt,
+	ForStmt,
 	BlockStmt,
 	FuncDeclStmt,
 	ReturnStmt,

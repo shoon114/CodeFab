@@ -88,6 +88,48 @@ namespace {
 		return node;
 	}
 
+	// PDF p.79: <name> = <value> (블록 없이 단일 문으로 오는 if의 thenBranch에서 쓰이는 형태)
+	SyntaxNode MakeAssignExpr(const std::string& name, SyntaxNode value, int line = 1) {
+		SyntaxNode node;
+		node.type = NodeType::AssignExpr;
+		node.token.type = TokenType::Identifier;
+		node.token.lexeme = name;
+		node.token.line = line;
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(value)));
+		return node;
+	}
+
+	SyntaxNode MakeExprStmt(SyntaxNode expression, int line = 1) {
+		SyntaxNode node;
+		node.type = NodeType::ExprStmt;
+		node.token.line = line;
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(expression)));
+		return node;
+	}
+
+	// PDF p.80: for (init; condition; increment) { print "#"; } 에서 사용되는 헬퍼.
+	SyntaxNode MakeStringLiteral(const std::string& value, int line = 1) {
+		SyntaxNode node;
+		node.type = NodeType::StringLiteral;
+		node.token.type = TokenType::String;
+		node.token.lexeme = value;
+		node.token.line = line;
+		return node;
+	}
+
+	// for (<init>; <condition>; <increment>) <body>
+	// children 순서: init, condition, increment, body (PDF p.80 다이어그램 순서를 따른다)
+	SyntaxNode MakeForStmt(SyntaxNode init, SyntaxNode condition, SyntaxNode increment, SyntaxNode body, int line = 1) {
+		SyntaxNode node;
+		node.type = NodeType::ForStmt;
+		node.token.line = line;
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(init)));
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(condition)));
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(increment)));
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(body)));
+		return node;
+	}
+
 }
 
 TEST(ExecutorUnitTest, Execute_EmptyProgram_DoesNotCrash) {
@@ -153,5 +195,97 @@ TEST(ExecutorUnitTest, Execute_IfConditionFalse_SkipsThenBranch_PrintsNothing) {
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, IsEmpty());
+}
+
+// PDF p.79: var a = 10; if (a > 0) a = 3 + 7 * 5; 실행 시 조건이 참이므로
+// 블록 없는 단일 문(ExprStmt -> AssignExpr)이 실행되어 a가 38(3 + 7*5)이 되어야 한다.
+// NOTE: ExecutorUnit이 아직 ExprStmt/AssignExpr를 지원하지 않아 현재는 실패(Red)한다.
+TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionTrue_AssignsExpressionResult) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
+		MakeIfStmt(
+			MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(0)),
+			MakeExprStmt(
+				MakeAssignExpr("a",
+					MakeBinaryExpr(TokenType::Plus,
+						MakeNumberLiteral(3),
+						MakeBinaryExpr(TokenType::Star, MakeNumberLiteral(7), MakeNumberLiteral(5))))
+			)
+		),
+		MakePrintStmt(MakeIdentifier("a"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("38"));
+}
+
+// PDF p.79: 조건이 거짓이면(a <= 0) 대입이 일어나지 않아 a는 원래 값(10)을 유지해야 한다.
+TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionFalse_KeepsOriginalValue) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(-1)),
+		MakeIfStmt(
+			MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(0)),
+			MakeExprStmt(
+				MakeAssignExpr("a",
+					MakeBinaryExpr(TokenType::Plus,
+						MakeNumberLiteral(3),
+						MakeBinaryExpr(TokenType::Star, MakeNumberLiteral(7), MakeNumberLiteral(5))))
+			)
+		),
+		MakePrintStmt(MakeIdentifier("a"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("-1"));
+}
+
+// PDF p.80: for (var i = 0; i < 3; i = i + 1) { print "#"; } 실행 시
+// i = 0, 1, 2 세 번 반복하며 "#"을 출력하고, i = 3이 되면 조건이 거짓이 되어 종료해야 한다.
+// NOTE: ExecutorUnit이 아직 ForStmt/StringLiteral을 지원하지 않아 현재는 실패(Red)한다.
+TEST(ExecutorUnitTest, Execute_ForLoop_PrintsHashThreeTimes) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeForStmt(
+			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
+			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(3)),
+			/*increment*/ MakeAssignExpr("i",
+				MakeBinaryExpr(TokenType::Plus, MakeIdentifier("i"), MakeNumberLiteral(1))),
+			/*body*/      MakeBlockStmt(MakePrintStmt(MakeStringLiteral("#")))
+		)
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("#\n#\n#\n"));
+}
+
+// PDF p.80: 초기 조건이 이미 거짓이면(i = 3) 본문이 한 번도 실행되지 않아야 한다.
+TEST(ExecutorUnitTest, Execute_ForLoop_ConditionInitiallyFalse_NeverRunsBody) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeForStmt(
+			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(3)),
+			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(3)),
+			/*increment*/ MakeAssignExpr("i",
+				MakeBinaryExpr(TokenType::Plus, MakeIdentifier("i"), MakeNumberLiteral(1))),
+			/*body*/      MakeBlockStmt(MakePrintStmt(MakeStringLiteral("#")))
+		)
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, "");
 }
 #endif
