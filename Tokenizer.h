@@ -12,4 +12,6 @@ private:
 
 	bool CanExtendToTwoCharOperator(char c);
 	bool IsSingleCharPunctuation(char c);
+	std::vector<Token> ScanWords();
+	void ClassifyToken(Token& token);
 };
