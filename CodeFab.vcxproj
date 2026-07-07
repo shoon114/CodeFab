@@ -191,6 +191,7 @@
     <ClInclude Include="Tokenizer.h" />
     <ClInclude Include="IStatementParser.h" />
     <ClInclude Include="IExpressionParser.h" />
+    <ClInclude Include="Value.h" />
     <ClInclude Include="VarDeclareParser.h" />
     <ClInclude Include="StatementParserRegistry.h" />
     <ClInclude Include="ExpressionParser.h" />
