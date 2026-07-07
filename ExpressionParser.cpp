@@ -134,7 +134,12 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParsePrimary(const TokenList& toke
 	if (type == TokenType::LParen) {
 		pos++; // '('
 		std::unique_ptr<SyntaxNode> inner = ParseExpression(tokenList, pos, 0);
+		if (PeekType(tokenList, pos) != TokenType::RParen) {
+			throw std::runtime_error("Expected ')' after parenthesized expression");
+		}
 		pos++; // ')'
 		return inner;
 	}
+
+	throw std::runtime_error("Unexpected token while parsing expression");
 }

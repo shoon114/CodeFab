@@ -253,12 +253,16 @@ TEST_F(ExpressionParserTest, Parse_Assignment_IsRightAssociative) {
 TEST_F(ExpressionParserTest, Parse_EmptyTokenList_Throws) {
 	TokenList tokenList = MakeTokens({});
 	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
 
 TEST_F(ExpressionParserTest, Parse_UnexpectedToken_Throws) {
 	// a bare ')' can never start an expression
 	TokenList tokenList = MakeTokens({ MakeToken(TokenType::RParen, ")", 0, 0) });
 	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
 
 TEST_F(ExpressionParserTest, Parse_MissingRightOperand_Throws) {
@@ -268,6 +272,8 @@ TEST_F(ExpressionParserTest, Parse_MissingRightOperand_Throws) {
 		MakeToken(TokenType::Plus, "+", 0, 2),
 		});
 	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
 
 TEST_F(ExpressionParserTest, Parse_UnclosedParenthesis_Throws) {
@@ -277,6 +283,8 @@ TEST_F(ExpressionParserTest, Parse_UnclosedParenthesis_Throws) {
 		MakeToken(TokenType::Number, "1", 0, 1),
 		});
 	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
 
 #endif
