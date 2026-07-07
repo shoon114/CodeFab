@@ -15,7 +15,6 @@ private:
 	// Prefix position: unary operators, literals, identifiers, parenthesized expressions, calls.
 	std::unique_ptr<SyntaxNode> ParsePrefix(const TokenList& tokenList, size_t& pos);
 	std::unique_ptr<SyntaxNode> ParsePrimary(const TokenList& tokenList, size_t& pos);
-	std::unique_ptr<SyntaxNode> ParseCallArguments(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> callee);
 
 	static std::unique_ptr<SyntaxNode> MakeBinary(NodeType type, Token op, std::unique_ptr<SyntaxNode> left, std::unique_ptr<SyntaxNode> right);
 };
