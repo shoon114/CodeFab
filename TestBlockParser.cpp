@@ -12,7 +12,7 @@ public:
 	TokenList MakeBlockEmptyBlock() {
 		return TokenList{
 			MakeToken(TokenType::LBrace, "{", 0, 0),
-			MakeToken(TokenType::RBrace, "}", 0, 2)
+			MakeToken(TokenType::RBrace, "}", 0, 1)
 		};
 	}
 
@@ -20,12 +20,12 @@ public:
 	TokenList MakeBlockWithSingleVarDeclareTokens() {
 		return TokenList{
 			MakeToken(TokenType::LBrace, "{", 0, 0),
-			MakeToken(TokenType::KwVar, "var", 0, 2),
-			MakeToken(TokenType::Identifier, "a", 0, 6),
-			MakeToken(TokenType::Assign, "=", 0, 8),
-			MakeToken(TokenType::Number, "1", 0, 10),
-			MakeToken(TokenType::Semicolon, ";", 0, 11),
-			MakeToken(TokenType::RBrace, "}", 0, 13),
+			MakeToken(TokenType::KwVar, "var", 0, 1),
+			MakeToken(TokenType::Identifier, "a", 0, 2),
+			MakeToken(TokenType::Assign, "=", 0, 3),
+			MakeToken(TokenType::Number, "1", 0, 4),
+			MakeToken(TokenType::Semicolon, ";", 0, 5),
+			MakeToken(TokenType::RBrace, "}", 0, 6),
 		};
 	}
 
@@ -33,9 +33,9 @@ public:
 	TokenList MakeNestedEmptyBlockTokens() {
 		return TokenList{
 			MakeToken(TokenType::LBrace, "{", 0, 0),
-			MakeToken(TokenType::LBrace, "{", 0, 2),
-			MakeToken(TokenType::RBrace, "}", 0, 4),
-			MakeToken(TokenType::RBrace, "}", 0, 6),
+			MakeToken(TokenType::LBrace, "{", 0, 1),
+			MakeToken(TokenType::RBrace, "}", 0, 2),
+			MakeToken(TokenType::RBrace, "}", 0, 3),
 		};
 	}
 
@@ -43,11 +43,11 @@ public:
 	TokenList MakeUnclosedBlockTokens() {
 		return TokenList{
 			MakeToken(TokenType::LBrace, "{", 0, 0),
-			MakeToken(TokenType::KwVar, "var", 0, 2),
-			MakeToken(TokenType::Identifier, "a", 0, 6),
-			MakeToken(TokenType::Assign, "=", 0, 8),
-			MakeToken(TokenType::Number, "1", 0, 10),
-			MakeToken(TokenType::Semicolon, ";", 0, 11),
+			MakeToken(TokenType::KwVar, "var", 0, 1),
+			MakeToken(TokenType::Identifier, "a", 0, 2),
+			MakeToken(TokenType::Assign, "=", 0, 3),
+			MakeToken(TokenType::Number, "1", 0, 4),
+			MakeToken(TokenType::Semicolon, ";", 0, 5),
 		};
 	}
 protected:
@@ -140,5 +140,6 @@ TEST_F(BlockParserTest, Parse_UnclosedBlock_Throws) {
 			});
 
 	size_t pos = 0;
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
 #endif
