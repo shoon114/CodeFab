@@ -147,7 +147,9 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="IfStatementParser.cpp" />
+    <ClCompile Include="PrintStatementParser.cpp" />
     <ClCompile Include="TestIfStatementParser.cpp" />
+    <ClCompile Include="TestPrintStatementParser.cpp" />
     <ClCompile Include="VarDeclareParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -182,6 +184,7 @@
     <ClInclude Include="AssemblerUnit.h" />
     <ClInclude Include="CheckerUnit.h" />
     <ClInclude Include="IfStatementParser.h" />
+    <ClInclude Include="PrintStatementParser.h" />
     <ClInclude Include="SyntaxNode.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokenizer.h" />
