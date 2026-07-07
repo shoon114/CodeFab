@@ -1,7 +1,6 @@
 #pragma once
 #include "IStatementParser.h"
 #include "IExpressionParser.h"
-
 class IfStatementParser : public IStatementParser {
 public:
 	explicit IfStatementParser(IExpressionParser& exprParser) : exprParser(exprParser) {}

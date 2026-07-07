@@ -2,6 +2,8 @@
 #include "gmock/gmock.h"
 #include "AssemblerUnit.h"
 #include "MockExpressionParser.h"
+#include "MockStatementParser.h"
+#include "StatementParserRegistry.h"
 #include "Tokenizer.h"
 #include "TestTokenHelpers.h"
 
@@ -17,6 +19,17 @@ protected:
 	NiceMock<TestableTokenizer> tokenizer;
 	std::shared_ptr<NiceMock<MockExpressionParser>> exprParser = std::make_shared<NiceMock<MockExpressionParser>>();
 	AssemblerUnit assembler{ exprParser };
+
+	// VarDeclareParser resolves whatever is registered for the token right
+	// after 'var' (Identifier here) via StatementParserRegistry -- in
+	// production that will eventually be an ExprStmtParser.
+	std::shared_ptr<MockStatementParser> mockTailParser = std::make_shared<MockStatementParser>();
+
+	void SetUp() override {
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [this](IExpressionParser&) {
+			return mockTailParser;
+		});
+	}
 
 	// no source code -> empty token list
 	TokenList MakeEmptyTokens() {
@@ -38,11 +51,11 @@ protected:
 		return tokenizer.CreateTokenForCode();
 	}
 
-	// "a + 1;" -- smoke test token stream (no assertions on the resulting tree)
+	// "a + 1;" -- top-level Identifier-led statement, no assertions on the resulting tree
 	TokenList MakeExpressionTokens() {
 		EXPECT_CALL(tokenizer, CreateTokenForCode())
 			.WillOnce(Return(TokenList{
-				MakeToken(TokenType::KwVar, "a", 0, 0),
+				MakeToken(TokenType::Identifier, "a", 0, 0),
 				MakeToken(TokenType::Plus, "+", 0, 1),
 				MakeToken(TokenType::Number, "1", 0, 2),
 				MakeToken(TokenType::Semicolon, ";", 0, 3),
@@ -61,12 +74,12 @@ TEST_F(AssemblerUnitTest, Parse_CallsWithoutCrashing) {
 TEST_F(AssemblerUnitTest, Parse_VarDeclare_DelegatesToRegisteredParser) {
 	TokenList tokenList = MakeVarDeclareTokens();
 
-	EXPECT_CALL(*exprParser, Parse(_, _))
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::NumberLiteral;
-			node->token = tokens[pos];
-			pos++;
+			node->type = NodeType::AssignExpr;
+			node->token = tokens[pos + 1]; // '='
+			pos += 3; // consume 'a', '=', '3'
 			return node;
 		});
 
@@ -77,7 +90,16 @@ TEST_F(AssemblerUnitTest, Parse_VarDeclare_DelegatesToRegisteredParser) {
 }
 
 TEST_F(AssemblerUnitTest, Parse_ExpressionTest) {
+	// mockTailParser (registered in SetUp) handles the bare, top-level
+	// Identifier-led statement here too -- in this smoke test we don't
+	// care what it returns, just that AssemblerUnit delegates to it.
 	TokenList tokenList = MakeExpressionTokens();
+
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 3; // consume 'a', '+', '1'
+			return nullptr;
+		});
 
 	assembler.Parse(tokenList);
 }
