@@ -6,18 +6,27 @@
 
 using namespace testing;
 
-TEST(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResultAsValue) {
-	// var a = <expr>;
-	TokenList tokenList = {
-		MakeToken(TokenType::KwVar, "var", 1, 1),
-		MakeToken(TokenType::Identifier, "a", 1, 5),
-		MakeToken(TokenType::Assign, "=", 1, 7),
-		MakeToken(TokenType::Number, "3", 1, 9),
-		MakeToken(TokenType::Semicolon, ";", 1, 10),
-		MakeToken(TokenType::EndOfFile, "", 1, 11),
-	};
-
+class VarDeclareParserTest : public Test {
+protected:
 	MockExpressionParser exprParser;
+	VarDeclareParser parser{ exprParser };
+
+	// "var a = <expr>;"
+	TokenList MakeVarDeclareWithInitializerTokens() {
+		return TokenList{
+			MakeToken(TokenType::KwVar, "var", 1, 1),
+			MakeToken(TokenType::Identifier, "a", 1, 5),
+			MakeToken(TokenType::Assign, "=", 1, 7),
+			MakeToken(TokenType::Number, "3", 1, 9),
+			MakeToken(TokenType::Semicolon, ";", 1, 10),
+			MakeToken(TokenType::EndOfFile, "", 1, 11),
+		};
+	}
+};
+
+TEST_F(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResultAsValue) {
+	TokenList tokenList = MakeVarDeclareWithInitializerTokens();
+
 	EXPECT_CALL(exprParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<SyntaxNode>();
@@ -27,7 +36,6 @@ TEST(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResultA
 			return node;
 		});
 
-	VarDeclareParser parser(exprParser);
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
 

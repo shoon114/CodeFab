@@ -15,7 +15,7 @@ public:
 class AssemblerUnitTest : public Test {
 protected:
 	NiceMock<TestableTokenizer> tokenizer;
-	std::shared_ptr<MockExpressionParser> exprParser = std::make_shared<MockExpressionParser>();
+	std::shared_ptr<NiceMock<MockExpressionParser>> exprParser = std::make_shared<NiceMock<MockExpressionParser>>();
 	AssemblerUnit assembler{ exprParser };
 
 	// no source code -> empty token list
