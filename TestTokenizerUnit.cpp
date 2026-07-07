@@ -8,7 +8,7 @@ using namespace testing;
 
 class TokenizerTest : public Test {
 protected:
-	std::vector<std::string> SplitWords(const std::string& input) {
+	Tokenizer MakeTokenizerWithInput(const std::string& input) {
 		std::istringstream fakeInput(input);
 		std::streambuf* originalCinBuffer = std::cin.rdbuf(fakeInput.rdbuf());
 
@@ -29,31 +29,15 @@ protected:
 		}
 
 		std::cin.rdbuf(originalCinBuffer);
-		return tokenizer.SplitIntoWords();
+		return tokenizer;
+	}
+
+	std::vector<std::string> SplitWords(const std::string& input) {
+		return MakeTokenizerWithInput(input).SplitIntoWords();
 	}
 
 	TokenList CreateTokens(const std::string& input) {
-		std::istringstream fakeInput(input);
-		std::streambuf* originalCinBuffer = std::cin.rdbuf(fakeInput.rdbuf());
-
-		Tokenizer tokenizer;
-
-		try {
-			tokenizer.GetCodeFromUser();
-		}
-		catch (const std::exception& e) {
-			std::cin.rdbuf(originalCinBuffer);
-			std::cerr << "Tokenizer 실행 중 에러 발생: " << e.what() << std::endl;
-			throw;
-		}
-		catch (...) {
-			std::cin.rdbuf(originalCinBuffer);
-			std::cerr << "Tokenizer 실행 중 알 수 없는 치명적인 에러 발생!" << std::endl;
-			throw;
-		}
-
-		std::cin.rdbuf(originalCinBuffer);
-		return tokenizer.CreateTokenForCode();
+		return MakeTokenizerWithInput(input).CreateTokenForCode();
 	}
 };
 
