@@ -350,4 +350,90 @@ TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_ConditionAlwaysFalse_KeepsOri
 
 	EXPECT_THAT(output, Eq("2"));
 }
+
+// PDF p.83: var a = 10; { var b = 20; print a + b; } var c = 20;
+// 블록 내부에서 바깥 스코프의 a와 블록 지역 변수 b를 모두 참조할 수 있어야 한다 (a+b=30).
+TEST(ExecutorUnitTest, Execute_BlockScope_AccessesOuterVariable_PrintsSum) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
+		MakeBlockStmt(
+			MakeVarDeclStmt("b", MakeNumberLiteral(20)),
+			MakePrintStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b")))
+		),
+		MakeVarDeclStmt("c", MakeNumberLiteral(20))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("30"));
+}
+
+// PDF p.83: "{ } 블록이 끝나면 지역 변수는 사라진다"를 검증한다.
+// NOTE: 현재 ExecutorUnit은 스코프가 없는 flat map이라 블록이 끝나도 b가 남아있어
+// 이 테스트는 실패(Red)한다. 스코프 구현 후 통과해야 한다.
+TEST(ExecutorUnitTest, Execute_BlockScope_LocalVariableDestroyedAfterBlockEnds) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
+		MakeBlockStmt(
+			MakeVarDeclStmt("b", MakeNumberLiteral(20))
+		),
+		MakePrintStmt(MakeIdentifier("b"))
+	);
+
+	EXPECT_THROW(executor.Execute(program), std::runtime_error);
+}
+
+// PDF p.84: var ga = 3; { var a = 2; { var a = 7; { print a; print ga; } print a; } }
+// 안쪽 스코프에 a가 없으면 바깥으로 탐색하며(a: C->B, ga: C->B->A->Global), 가장 가까운 스코프의 값을 사용한다.
+// 다만 이 예제의 모든 print는 a=7로 재선언된 B 스코프가 닫히기 전에 실행되므로,
+// 현재의 flat map 구현으로도 우연히 "737"이 출력되어 이 테스트만으로는 Red를 보장하지 못한다
+// (스코프 복원 여부는 아래 Execute_NestedBlockShadowing_RestoresOuterValueAfterInnerBlockEnds에서 검증한다).
+TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_PrintsInnerAndGlobalValues) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("ga", MakeNumberLiteral(3)),
+		MakeBlockStmt( // Scope A
+			MakeVarDeclStmt("a", MakeNumberLiteral(2)),
+			MakeBlockStmt( // Scope B
+				MakeVarDeclStmt("a", MakeNumberLiteral(7)),
+				MakeBlockStmt( // Scope C
+					MakePrintStmt(MakeIdentifier("a")),
+					MakePrintStmt(MakeIdentifier("ga"))
+				),
+				MakePrintStmt(MakeIdentifier("a"))
+			)
+		)
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("737"));
+}
+
+// PDF p.84 개념의 확장: 안쪽 블록에서 같은 이름(a)을 재선언(shadowing)해도,
+// 블록이 끝나면 바깥 스코프의 원래 값(2)으로 복원되어야 한다.
+// NOTE: 현재 flat map 구현은 재선언 시 덮어쓰기만 하고 복원하지 않아 실패(Red)한다.
+TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_RestoresOuterValueAfterInnerBlockEnds) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(2)),
+		MakeBlockStmt(
+			MakeVarDeclStmt("a", MakeNumberLiteral(7)),
+			MakePrintStmt(MakeIdentifier("a"))
+		),
+		MakePrintStmt(MakeIdentifier("a"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("72"));
+}
 #endif

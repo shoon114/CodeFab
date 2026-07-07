@@ -8,9 +8,30 @@ void ExecutorUnit::Execute(const SyntaxNode& tree) {
 		return;
 	}
 
+	scopes.clear();
+	EnterScope(); // Global 스코프
+
 	for (const auto& stmt : tree.children) {
 		ExecuteStmt(*stmt);
 	}
+}
+
+void ExecutorUnit::EnterScope() {
+	scopes.emplace_back();
+}
+
+void ExecutorUnit::ExitScope() {
+	scopes.pop_back();
+}
+
+double& ExecutorUnit::ResolveVariable(const std::string& name, int line) {
+	for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+		auto found = it->find(name);
+		if (found != it->end()) {
+			return found->second;
+		}
+	}
+	throw std::runtime_error("Undefined variable '" + name + "' at line " + std::to_string(line));
 }
 
 void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
@@ -31,13 +52,15 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 	}
 	case NodeType::VarDeclareStatement: {
 		const auto& initializer = *node.children[0];
-		variables[node.token.lexeme] = Evaluate(initializer);
+		scopes.back()[node.token.lexeme] = Evaluate(initializer);
 		break;
 	}
 	case NodeType::BlockStmt: {
+		EnterScope();
 		for (const auto& stmt : node.children) {
 			ExecuteStmt(*stmt);
 		}
+		ExitScope();
 		break;
 	}
 	case NodeType::IfStmt: {
@@ -74,19 +97,12 @@ double ExecutorUnit::Evaluate(const SyntaxNode& node) {
 	switch (node.type) {
 	case NodeType::NumberLiteral:
 		return node.token.realValue;
-	case NodeType::Identifier: {
-		auto it = variables.find(node.token.lexeme);
-		if (it == variables.end()) {
-			throw std::runtime_error(
-				"Undefined variable '" + node.token.lexeme + "' at line " +
-				std::to_string(node.token.line));
-		}
-		return it->second;
-	}
+	case NodeType::Identifier:
+		return ResolveVariable(node.token.lexeme, node.token.line);
 	case NodeType::AssignExpr: {
 		const auto& valueExpr = *node.children[0];
 		double value = Evaluate(valueExpr);
-		variables[node.token.lexeme] = value;
+		ResolveVariable(node.token.lexeme, node.token.line) = value;
 		return value;
 	}
 	case NodeType::BinaryExpr: {
