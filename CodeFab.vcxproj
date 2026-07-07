@@ -152,6 +152,12 @@
     <ClCompile Include="StatementParserRegistry.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="ExpressionParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="TestExpressionParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">  %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="TestAssemblerUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -178,6 +184,7 @@
     <ClInclude Include="IExpressionParser.h" />
     <ClInclude Include="VarDeclareParser.h" />
     <ClInclude Include="StatementParserRegistry.h" />
+    <ClInclude Include="ExpressionParser.h" />
     <ClInclude Include="MockExpressionParser.h" />
     <ClInclude Include="TestTokenHelpers.h" />
     <ClInclude Include="ExecutorUnit.h" />
