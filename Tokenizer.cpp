@@ -4,6 +4,21 @@
 #include <cctype>
 #include <unordered_map>
 
+namespace {
+	const std::unordered_map<std::string, TokenType> keywords = {
+		{"var", TokenType::KwVar}, {"if", TokenType::KwIf}, {"else", TokenType::KwElse},
+		{"while", TokenType::KwWhile}, {"func", TokenType::KwFunc}, {"return", TokenType::KwReturn},
+		{"true", TokenType::KwTrue}, {"false", TokenType::KwFalse}, {"print", TokenType::Print},
+	};
+	const std::unordered_map<std::string, TokenType> operators = {
+		{"+", TokenType::Plus}, {"-", TokenType::Minus}, {"*", TokenType::Star}, {"/", TokenType::Slash},
+		{"%", TokenType::Percent}, {"=", TokenType::Assign}, {"==", TokenType::Eq}, {"!=", TokenType::NotEq},
+		{"<", TokenType::Lt}, {">", TokenType::Gt}, {"<=", TokenType::LtEq}, {">=", TokenType::GtEq},
+		{"(", TokenType::LParen}, {")", TokenType::RParen}, {"{", TokenType::LBrace}, {"}", TokenType::RBrace},
+		{",", TokenType::Comma}, {";", TokenType::Semicolon},
+	};
+}
+
 void Tokenizer::GetCodeFromUser()
 {
 	std::ostringstream buffer;
@@ -107,19 +122,6 @@ std::vector<std::string> Tokenizer::SplitIntoWords()
 
 void Tokenizer::ClassifyToken(Token& token)
 {
-	static const std::unordered_map<std::string, TokenType> keywords = {
-		{"var", TokenType::KwVar}, {"if", TokenType::KwIf}, {"else", TokenType::KwElse},
-		{"while", TokenType::KwWhile}, {"func", TokenType::KwFunc}, {"return", TokenType::KwReturn},
-		{"true", TokenType::KwTrue}, {"false", TokenType::KwFalse}, {"print", TokenType::Print},
-	};
-	static const std::unordered_map<std::string, TokenType> operators = {
-		{"+", TokenType::Plus}, {"-", TokenType::Minus}, {"*", TokenType::Star}, {"/", TokenType::Slash},
-		{"%", TokenType::Percent}, {"=", TokenType::Assign}, {"==", TokenType::Eq}, {"!=", TokenType::NotEq},
-		{"<", TokenType::Lt}, {">", TokenType::Gt}, {"<=", TokenType::LtEq}, {">=", TokenType::GtEq},
-		{"(", TokenType::LParen}, {")", TokenType::RParen}, {"{", TokenType::LBrace}, {"}", TokenType::RBrace},
-		{",", TokenType::Comma}, {";", TokenType::Semicolon},
-	};
-
 	const std::string& raw = token.lexeme;
 
 	if (raw.size() >= 2 && raw.front() == '"' && raw.back() == '"') {
