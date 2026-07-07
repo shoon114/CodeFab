@@ -1,7 +1,6 @@
 #ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "VarDeclareParser.h"
-#include "MockExpressionParser.h"
 #include "MockStatementParser.h"
 #include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
@@ -10,14 +9,12 @@ using namespace testing;
 
 class VarDeclareParserTest : public Test {
 protected:
-	MockExpressionParser exprParser;
-	VarDeclareParser parser{ exprParser };
+	VarDeclareParser parser;
 
 	// VarDeclareParser resolves whatever is registered for the token right
 	// after 'var' (Identifier here) via StatementParserRegistry -- in
-	// production that will eventually be an ExprStmtParser. We stand in for
-	// it with a mock so this TC doesn't depend on that parser's real
-	// implementation existing yet.
+	// production that's the real ExpressionParser. We stand in for it with
+	// a mock so this TC doesn't depend on ExpressionParser's real behavior.
 	std::shared_ptr<MockStatementParser> mockTailParser = std::make_shared<MockStatementParser>();
 
 	void SetUp() override {
@@ -25,7 +22,7 @@ protected:
 		// stored in the global StatementParserRegistry and can outlive this
 		// fixture, so capturing `this` would leave a dangling pointer once
 		// this test finishes and a later test resolves Identifier again.
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockTailParser](IExpressionParser&) {
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockTailParser]() {
 			return tailParser;
 		});
 	}
@@ -35,7 +32,7 @@ protected:
 		// doesn't outlive this fixture (which would otherwise be reported as
 		// a leaked mock, or get called again -- with already-satisfied
 		// expectations -- by a later test that also resolves Identifier).
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [](IExpressionParser&) {
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
 			return nullptr;
 		});
 	}
@@ -102,8 +99,7 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesToRegisteredTailPars
 	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			// simulate whatever gets registered for Identifier (e.g. ExprStmtParser)
-			// recognizing "a = 3" as one assignment expression
+			// simulate the real ExpressionParser recognizing "a = 3" as one assignment expression
 			auto identNode = std::make_unique<SyntaxNode>();
 			identNode->type = NodeType::Identifier;
 			identNode->token = tokens[pos]; // 'a'

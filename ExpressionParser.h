@@ -1,10 +1,10 @@
 #pragma once
-#include "IExpressionParser.h"
+#include "IStatementParser.h"
 
 // Pratt parser (operator-precedence parsing): a single precedence-climbing
 // loop driven by a per-token binding-power table, instead of one function
 // per precedence level.
-class ExpressionParser : public IExpressionParser {
+class ExpressionParser : public IStatementParser {
 public:
 	std::unique_ptr<SyntaxNode> Parse(const TokenList& tokenList, size_t& pos) override;
 
