@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -157,10 +157,18 @@
     <ClCompile Include="TestAssemblerUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="TestTokenizerUnit.cpp" />
+    <ClCompile Include="Tokenizer.cpp" />
     <ClCompile Include="TestVarDeclareParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="TestStatementParserRegistry.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="TestExcutorUnit.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="ExecutorUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemGroup>
@@ -177,6 +185,7 @@
     <ClInclude Include="StatementParserRegistry.h" />
     <ClInclude Include="MockExpressionParser.h" />
     <ClInclude Include="TestTokenHelpers.h" />
+    <ClInclude Include="ExecutorUnit.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

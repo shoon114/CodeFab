@@ -17,6 +17,12 @@ std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, 
 	varDeclNode->type = NodeType::VarDeclareStatement;
 	varDeclNode->token = varToken;
 
+	if (tokenList[pos].type == TokenType::Semicolon) {
+		pos++; // ';'
+		varDeclNode->children.push_back(std::move(identNode));
+		return varDeclNode;
+	}
+
 	pos++; // '='
 	auto valueNode = exprParser.Parse(tokenList, pos);
 	pos++; // ';'

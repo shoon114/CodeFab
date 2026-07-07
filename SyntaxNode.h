@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <memory>
 #include <vector>
 #include "Token.h"
@@ -17,8 +17,9 @@ enum class NodeType {
 	// statement
 	VarDeclareStatement,
 	ExprStmt,
+	PrintStmt,
 	IfStmt,
-	WhileStmt,
+	ForStmt,
 	BlockStmt,
 	FuncDeclStmt,
 	ReturnStmt,
