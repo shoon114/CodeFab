@@ -163,6 +163,21 @@ Value_t ExecutorUnit::EvaluateAssignExpr(const SyntaxNode& node) {
 Value_t ExecutorUnit::EvaluateBinaryExpr(const SyntaxNode& node) {
 	const auto& leftExpr = *node.children[0];
 	const auto& rightExpr = *node.children[1];
+
+	// And/Or는 왼쪽만 보고 결과가 정해지면 오른쪽을 평가하지 않는다(단락 평가).
+	if (node.token.type == TokenType::And) {
+		if (!IsTruthy(Evaluate(leftExpr))) {
+			return false;
+		}
+		return IsTruthy(Evaluate(rightExpr));
+	}
+	if (node.token.type == TokenType::Or) {
+		if (IsTruthy(Evaluate(leftExpr))) {
+			return true;
+		}
+		return IsTruthy(Evaluate(rightExpr));
+	}
+
 	Value_t leftValue = Evaluate(leftExpr);
 	Value_t rightValue = Evaluate(rightExpr);
 
@@ -170,6 +185,14 @@ Value_t ExecutorUnit::EvaluateBinaryExpr(const SyntaxNode& node) {
 		std::holds_alternative<std::string>(leftValue) &&
 		std::holds_alternative<std::string>(rightValue)) {
 		return std::get<std::string>(leftValue) + std::get<std::string>(rightValue);
+	}
+
+	// Eq/NotEq는 숫자로 강제 변환하지 않고 값(숫자/문자열/불리언) 자체를 비교한다.
+	if (node.token.type == TokenType::Eq) {
+		return leftValue == rightValue;
+	}
+	if (node.token.type == TokenType::NotEq) {
+		return !(leftValue == rightValue);
 	}
 
 	double left = AsNumber(leftValue, node.token.line);
@@ -185,8 +208,17 @@ Value_t ExecutorUnit::EvaluateBinaryExpr(const SyntaxNode& node) {
 				", column " + std::to_string(node.token.column));
 		}
 		return left / right;
-	case TokenType::Gt: return left > right;
-	case TokenType::Lt: return left < right;
+	case TokenType::Percent:
+		if (right == 0.0) {
+			throw std::runtime_error(
+				"Division by zero at line " + std::to_string(node.token.line) +
+				", column " + std::to_string(node.token.column));
+		}
+		return std::fmod(left, right);
+	case TokenType::Gt:   return left > right;
+	case TokenType::Lt:   return left < right;
+	case TokenType::GtEq: return left >= right;
+	case TokenType::LtEq: return left <= right;
 	default:
 		throw std::runtime_error(
 			"Unsupported binary operator at line " + std::to_string(node.token.line));
