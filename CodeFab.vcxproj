@@ -177,10 +177,17 @@
     <ClCompile Include="ExecutorUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="BlockParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="TestBlockParser.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
     <ClInclude Include="CheckerUnit.h" />
+    <ClInclude Include="BlockParser.h" />
     <ClInclude Include="IfStatementParser.h" />
     <ClInclude Include="SyntaxNode.h" />
     <ClInclude Include="Token.h" />
