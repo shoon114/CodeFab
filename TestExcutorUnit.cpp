@@ -459,4 +459,55 @@ TEST(ExecutorUnitTest, Execute_BlockScope_StringVariableShadowing_RestoresOuterV
 
 	EXPECT_THAT(output, Eq("innerglobal"));
 }
+
+// 블록 안에서의 대입은 재선언이 아니라 바깥 스코프 변수를 수정해야 한다:
+// var count = 0; { count = count + 1; } print count;
+// AssignExpr는 var가 아니므로 새 스코프에 선언하지 않고, ResolveVariable로 체인을 타고 올라가
+// Global의 count를 직접 수정해야 한다.
+TEST(ExecutorUnitTest, Execute_AssignInsideBlock_MutatesOuterVariable_NotShadow) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("count", MakeNumberLiteral(0)),
+		MakeBlockStmt(
+			MakeExprStmt(
+				MakeAssignExpr("count",
+					MakeBinaryExpr(TokenType::Plus, MakeIdentifier("count"), MakeNumberLiteral(1)))
+			)
+		),
+		MakePrintStmt(MakeIdentifier("count"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("1"));
+}
+
+// 중첩 블록에서 서로 다른 스코프에 있는 문자열 변수들을 + 로 연결한다:
+// var outer = "A"; { var inner = "B"; { print outer + inner; } } -> expect "AB"
+// NOTE: 현재 BinaryExpr의 Plus는 AsNumber로 항상 숫자 변환을 강제하므로,
+// 문자열 피연산자에 대해서는 "Expected a number" 예외가 던져져 실패(Red)한다.
+// 문자열 연결(+)을 지원하려면 BinaryExpr의 Plus 케이스에서 두 피연산자가 모두
+// 문자열일 때 std::string 연결을 수행하도록 분기를 추가해야 한다.
+TEST(ExecutorUnitTest, Execute_NestedBlockScope_ConcatenatesStringsFromDifferentScopes) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("outer", MakeStringLiteral("A")),
+		MakeBlockStmt(
+			MakeVarDeclStmt("inner", MakeStringLiteral("B")),
+			MakeBlockStmt(
+				MakePrintStmt(
+					MakeBinaryExpr(TokenType::Plus, MakeIdentifier("outer"), MakeIdentifier("inner"))
+				)
+			)
+		)
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("AB"));
+}
 #endif

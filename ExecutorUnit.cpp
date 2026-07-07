@@ -118,8 +118,17 @@ Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
 	case NodeType::BinaryExpr: {
 		const auto& leftExpr = *node.children[0];
 		const auto& rightExpr = *node.children[1];
-		double left = AsNumber(Evaluate(leftExpr), node.token.line);
-		double right = AsNumber(Evaluate(rightExpr), node.token.line);
+		Value_t leftValue = Evaluate(leftExpr);
+		Value_t rightValue = Evaluate(rightExpr);
+
+		if (node.token.type == TokenType::Plus &&
+			std::holds_alternative<std::string>(leftValue) &&
+			std::holds_alternative<std::string>(rightValue)) {
+			return std::get<std::string>(leftValue) + std::get<std::string>(rightValue);
+		}
+
+		double left = AsNumber(leftValue, node.token.line);
+		double right = AsNumber(rightValue, node.token.line);
 		switch (node.token.type) {
 		case TokenType::Plus:  return left + right;
 		case TokenType::Minus: return left - right;
