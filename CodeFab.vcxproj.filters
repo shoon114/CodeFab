@@ -21,6 +21,9 @@
     <ClCompile Include="TestAssemblerUnit.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="TestCheckerUnit.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="CodeFabInterpreter.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
