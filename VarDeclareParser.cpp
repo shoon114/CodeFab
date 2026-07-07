@@ -1,5 +1,6 @@
 #include "VarDeclareParser.h"
 #include "StatementParserRegistry.h"
+#include <stdexcept>
 
 namespace {
 StatementParserRegistrar<VarDeclareParser> registrar(TokenType::KwVar);
@@ -11,6 +12,10 @@ std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, 
 	auto varDeclNode = std::make_unique<SyntaxNode>();
 	varDeclNode->type = NodeType::VarDeclareStatement;
 	varDeclNode->token = varToken;
+
+	if (pos >= tokenList.size()) {
+		throw std::runtime_error("Unexpected end of input after 'var'");
+	}
 
 	// Resolve whatever statement parser is registered for the token right
 	// after 'var' (e.g. an ExprStmtParser registered for Identifier, which

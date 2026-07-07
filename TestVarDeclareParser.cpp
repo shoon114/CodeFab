@@ -126,4 +126,14 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesToRegisteredTailPars
 
 	EXPECT_THAT(pos, Eq(tokenList.size() - 1)); // consumed up through ';', stopped at EOF
 }
+
+TEST_F(VarDeclareParserTest, Parse_NothingAfterVar_Throws) {
+	// 'var' with no EndOfFile sentinel or any other token following it
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+	};
+
+	size_t pos = 0;
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
 #endif
