@@ -28,6 +28,7 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_AttachesExpressionParserResul
 	TokenList tokenList = MakeVarDeclareWithInitializerTokens();
 
 	EXPECT_CALL(exprParser, Parse(_, _))
+		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<SyntaxNode>();
 			node->type = NodeType::NumberLiteral;
