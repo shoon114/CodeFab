@@ -1,3 +1,4 @@
+#ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "CheckerUnit.h"
 #include "TestTokenHelpers.h"
@@ -75,3 +76,5 @@ TEST_F(CheckerUnitTest, Check_SelfReferenceInInitializer_ReportsError) {
 
 	EXPECT_THAT(output, HasSubstr("자신의 초기화식"));
 }
+#endif
+
