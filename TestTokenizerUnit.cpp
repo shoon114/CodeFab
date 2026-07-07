@@ -12,7 +12,20 @@ namespace {
 		std::streambuf* originalCinBuffer = std::cin.rdbuf(fakeInput.rdbuf());
 
 		Tokenizer tokenizer;
-		tokenizer.GetCodeFromUser();
+
+		try {
+			tokenizer.GetCodeFromUser();
+		}
+		catch (const std::exception& e) {
+			std::cin.rdbuf(originalCinBuffer);
+			std::cerr << "Tokenizer 실행 중 에러 발생: " << e.what() << std::endl;
+			throw;
+		}
+		catch (...) {
+			std::cin.rdbuf(originalCinBuffer);
+			std::cerr << "Tokenizer 실행 중 알 수 없는 치명적인 에러 발생!" << std::endl;
+			throw;
+		}
 
 		std::cin.rdbuf(originalCinBuffer);
 		return tokenizer;
