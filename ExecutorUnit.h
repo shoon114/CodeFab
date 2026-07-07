@@ -25,6 +25,7 @@ private:
 	Value_t EvaluateIdentifier(const SyntaxNode& node);
 	Value_t EvaluateAssignExpr(const SyntaxNode& node);
 	Value_t EvaluateBinaryExpr(const SyntaxNode& node);
+	Value_t EvaluateUnaryExpr(const SyntaxNode& node);
 
 	void EnterScope();
 	void ExitScope();

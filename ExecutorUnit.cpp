@@ -137,12 +137,16 @@ Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
 		return node.token.realValue;
 	case NodeType::StringLiteral:
 		return node.token.lexeme;
+	case NodeType::BoolLiteral:
+		return node.token.lexeme == "true";
 	case NodeType::Identifier:
 		return EvaluateIdentifier(node);
 	case NodeType::AssignExpr:
 		return EvaluateAssignExpr(node);
 	case NodeType::BinaryExpr:
 		return EvaluateBinaryExpr(node);
+	case NodeType::UnaryExpr:
+		return EvaluateUnaryExpr(node);
 	default:
 		throw std::runtime_error(
 			"Unsupported expression node at line " + std::to_string(node.token.line));
@@ -222,5 +226,19 @@ Value_t ExecutorUnit::EvaluateBinaryExpr(const SyntaxNode& node) {
 	default:
 		throw std::runtime_error(
 			"Unsupported binary operator at line " + std::to_string(node.token.line));
+	}
+}
+
+Value_t ExecutorUnit::EvaluateUnaryExpr(const SyntaxNode& node) {
+	const auto& operand = *node.children[0];
+	Value_t value = Evaluate(operand);
+	switch (node.token.type) {
+	case TokenType::Minus:
+		return -AsNumber(value, node.token.line);
+	case TokenType::Not:
+		return !IsTruthy(value);
+	default:
+		throw std::runtime_error(
+			"Unsupported unary operator at line " + std::to_string(node.token.line));
 	}
 }

@@ -107,6 +107,25 @@ namespace {
 		return node;
 	}
 
+	// -a, !a 등 단항식 헬퍼
+	SyntaxNode MakeUnaryExpr(TokenType op, SyntaxNode operand, int line = 1) {
+		SyntaxNode node;
+		node.type = NodeType::UnaryExpr;
+		node.token.type = op;
+		node.token.line = line;
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(operand)));
+		return node;
+	}
+
+	// true / false 리터럴. 값은 token.lexeme에 "true"/"false" 텍스트로 저장한다.
+	SyntaxNode MakeBoolLiteral(bool value, int line = 1) {
+		SyntaxNode node;
+		node.type = NodeType::BoolLiteral;
+		node.token.lexeme = value ? "true" : "false";
+		node.token.line = line;
+		return node;
+	}
+
 	// PDF p.80: for (init; condition; increment) { print "#"; } 에서 사용되는 헬퍼.
 	SyntaxNode MakeStringLiteral(const std::string& value, int line = 1) {
 		SyntaxNode node;
@@ -509,5 +528,40 @@ TEST(ExecutorUnitTest, Execute_NestedBlockScope_ConcatenatesStringsFromDifferent
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("AB"));
+}
+
+// var a = 10; var b = -a; print b; -> expect -10
+// UnaryExpr(Minus)가 숫자를 음수화하여 다른 변수에 대입될 수 있어야 한다.
+TEST(ExecutorUnitTest, Execute_UnaryMinus_NegatesVariableValue) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
+		MakeVarDeclStmt("b", MakeUnaryExpr(TokenType::Minus, MakeIdentifier("a"))),
+		MakePrintStmt(MakeIdentifier("b"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("-10"));
+}
+
+// var a = true; var b = !a; print b; -> expect "false"
+// NOTE: Evaluate가 아직 NodeType::BoolLiteral을 지원하지 않아 이 테스트는 실패(Red)한다.
+// BoolLiteral 평가(token.lexeme == "true" 여부를 bool로 반환)를 Evaluate에 추가해야 통과한다.
+TEST(ExecutorUnitTest, Execute_UnaryNot_NegatesBooleanVariable) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeVarDeclStmt("a", MakeBoolLiteral(true)),
+		MakeVarDeclStmt("b", MakeUnaryExpr(TokenType::Not, MakeIdentifier("a"))),
+		MakePrintStmt(MakeIdentifier("b"))
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("false"));
 }
 #endif
