@@ -6,8 +6,9 @@
 
 using namespace testing;
 
-namespace {
-	Tokenizer MakeTokenizerWithInput(const std::string& input) {
+class TokenizerTest : public Test {
+protected:
+	std::vector<std::string> SplitWords(const std::string& input) {
 		std::istringstream fakeInput(input);
 		std::streambuf* originalCinBuffer = std::cin.rdbuf(fakeInput.rdbuf());
 
@@ -28,261 +29,183 @@ namespace {
 		}
 
 		std::cin.rdbuf(originalCinBuffer);
-		return tokenizer;
+		return tokenizer.SplitIntoWords();
 	}
+};
+
+TEST_F(TokenizerTest, SplitIntoWords_AdditionAndMultiplication) {
+	EXPECT_THAT(SplitWords("print 1 + 2 * 3;\n"),
+		ElementsAre("print", "1", "+", "2", "*", "3", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_AdditionAndMultiplication) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 1 + 2 * 3;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "1", "+", "2", "*", "3", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_ParenthesizedExpression) {
+	EXPECT_THAT(SplitWords("print (1 + 2) * 3;\n"),
+		ElementsAre("print", "(", "1", "+", "2", ")", "*", "3", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_ParenthesizedExpression) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print (1 + 2) * 3;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "(", "1", "+", "2", ")", "*", "3", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_ChainedSubtraction) {
+	EXPECT_THAT(SplitWords("print 10 - 4 - 3;\n"),
+		ElementsAre("print", "10", "-", "4", "-", "3", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_ChainedSubtraction) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 10 - 4 - 3;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "10", "-", "4", "-", "3", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_ChainedDivision) {
+	EXPECT_THAT(SplitWords("print 8 / 2 / 2;\n"),
+		ElementsAre("print", "8", "/", "2", "/", "2", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_ChainedDivision) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 8 / 2 / 2;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "8", "/", "2", "/", "2", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_UnaryMinus) {
+	EXPECT_THAT(SplitWords("print -3 + 2;\n"),
+		ElementsAre("print", "-", "3", "+", "2", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_UnaryMinus) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print -3 + 2;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "-", "3", "+", "2", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_LessThan) {
+	EXPECT_THAT(SplitWords("print 1 < 2;\n"),
+		ElementsAre("print", "1", "<", "2", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_LessThan) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 1 < 2;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "1", "<", "2", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_GreaterThan) {
+	EXPECT_THAT(SplitWords("print 3 > 5;\n"),
+		ElementsAre("print", "3", ">", "5", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_GreaterThan) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 3 > 5;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "3", ">", "5", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_StringConcatenation) {
+	EXPECT_THAT(SplitWords("print \"Hello, \" + \"CodeFab!\";\n"),
+		ElementsAre("print", "\"Hello, \"", "+", "\"CodeFab!\"", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_StringConcatenation) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print \"Hello, \" + \"CodeFab!\";\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "\"Hello, \"", "+", "\"CodeFab!\"", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_IntegerLiteral) {
+	EXPECT_THAT(SplitWords("print 5;\n"),
+		ElementsAre("print", "5", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_IntegerLiteral) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 5;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "5", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_DecimalLiteralWithTrailingZero) {
+	EXPECT_THAT(SplitWords("print 5.0;\n"),
+		ElementsAre("print", "5.0", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_DecimalLiteralWithTrailingZero) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 5.0;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "5.0", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_DecimalLiteral) {
+	EXPECT_THAT(SplitWords("print 3.14;\n"),
+		ElementsAre("print", "3.14", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_DecimalLiteral) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print 3.14;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "3.14", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_TrueLiteral) {
+	EXPECT_THAT(SplitWords("print true;\n"),
+		ElementsAre("print", "true", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_TrueLiteral) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print true;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "true", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_FalseLiteral) {
+	EXPECT_THAT(SplitWords("print false;\n"),
+		ElementsAre("print", "false", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_FalseLiteral) {
-	Tokenizer tokenizer = MakeTokenizerWithInput("print false;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre("print", "false", ";"));
-}
-
-
-TEST(TokenizerTest, SplitIntoWords_VariableDeclarationAndUse) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
+TEST_F(TokenizerTest, SplitIntoWords_VariableDeclarationAndUse) {
+	EXPECT_THAT(SplitWords(
 		"var a = 10;\n"
 		"var b = 20;\n"
-		"print a + b;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"var", "a", "=", "10", ";",
-		"var", "b", "=", "20", ";",
-		"print", "a", "+", "b", ";"));
+		"print a + b;\n"),
+		ElementsAre(
+			"var", "a", "=", "10", ";",
+			"var", "b", "=", "20", ";",
+			"print", "a", "+", "b", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_Reassignment) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
+TEST_F(TokenizerTest, SplitIntoWords_Reassignment) {
+	EXPECT_THAT(SplitWords(
 		"a = a + 5;\n"
-		"print a;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"a", "=", "a", "+", "5", ";",
-		"print", "a", ";"));
+		"print a;\n"),
+		ElementsAre(
+			"a", "=", "a", "+", "5", ";",
+			"print", "a", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_BlockScopeShadowing) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
+TEST_F(TokenizerTest, SplitIntoWords_BlockScopeShadowing) {
+	EXPECT_THAT(SplitWords(
 		"var x = \"global\";\n"
 		"{\n"
 		"  var x = \"inner\";\n"
 		"  print x;\n"
 		"}\n"
-		"print x;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"var", "x", "=", "\"global\"", ";",
-		"{",
-		"var", "x", "=", "\"inner\"", ";",
-		"print", "x", ";",
-		"}",
-		"print", "x", ";"));
+		"print x;\n"),
+		ElementsAre(
+			"var", "x", "=", "\"global\"", ";",
+			"{",
+			"var", "x", "=", "\"inner\"", ";",
+			"print", "x", ";",
+			"}",
+			"print", "x", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_InnerBlockModifiesOuterVariable) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
+TEST_F(TokenizerTest, SplitIntoWords_InnerBlockModifiesOuterVariable) {
+	EXPECT_THAT(SplitWords(
 		"var count = 0;\n"
 		"{\n"
 		"  count = count + 1;\n"
 		"}\n"
-		"print count;\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"var", "count", "=", "0", ";",
-		"{",
-		"count", "=", "count", "+", "1", ";",
-		"}",
-		"print", "count", ";"));
+		"print count;\n"),
+		ElementsAre(
+			"var", "count", "=", "0", ";",
+			"{",
+			"count", "=", "count", "+", "1", ";",
+			"}",
+			"print", "count", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_NestedScopes) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
+TEST_F(TokenizerTest, SplitIntoWords_NestedScopes) {
+	EXPECT_THAT(SplitWords(
 		"var outer = \"A\";\n"
 		"{\n"
 		"  var inner = \"B\";\n"
 		"  {\n"
 		"    print outer + inner;\n"
 		"  }\n"
-		"}\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"var", "outer", "=", "\"A\"", ";",
-		"{",
-		"var", "inner", "=", "\"B\"", ";",
-		"{",
-		"print", "outer", "+", "inner", ";",
-		"}",
-		"}"));
+		"}\n"),
+		ElementsAre(
+			"var", "outer", "=", "\"A\"", ";",
+			"{",
+			"var", "inner", "=", "\"B\"", ";",
+			"{",
+			"print", "outer", "+", "inner", ";",
+			"}",
+			"}"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_IfWithoutElse) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
-		"if (true) print \"bbq\";\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"if", "(", "true", ")", "print", "\"bbq\"", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_IfWithoutElse) {
+	EXPECT_THAT(SplitWords(
+		"if (true) print \"bbq\";\n"),
+		ElementsAre(
+			"if", "(", "true", ")", "print", "\"bbq\"", ";"));
 }
 
-TEST(TokenizerTest, SplitIntoWords_IfElse) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
-		"if (false) print \"no\"; else print \"kfc\";\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"if", "(", "false", ")", "print", "\"no\"", ";",
-		"else", "print", "\"kfc\"", ";"));
+TEST_F(TokenizerTest, SplitIntoWords_IfElse) {
+	EXPECT_THAT(SplitWords(
+		"if (false) print \"no\"; else print \"kfc\";\n"),
+		ElementsAre(
+			"if", "(", "false", ")", "print", "\"no\"", ";",
+			"else", "print", "\"kfc\"", ";"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_NestedIfElseBindsToNearestIf) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
+TEST_F(TokenizerTest, SplitIntoWords_NestedIfElseBindsToNearestIf) {
+	EXPECT_THAT(SplitWords(
 		"if (true)\n"
 		"{\n"
 		"  if (false) print \"kfc\";\n"
 		"  else print \"bbq\";\n"
-		"}\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"if", "(", "true", ")",
-		"{",
-		"if", "(", "false", ")", "print", "\"kfc\"", ";",
-		"else", "print", "\"bbq\"", ";",
-		"}"));
+		"}\n"),
+		ElementsAre(
+			"if", "(", "true", ")",
+			"{",
+			"if", "(", "false", ")", "print", "\"kfc\"", ";",
+			"else", "print", "\"bbq\"", ";",
+			"}"));
 }
 
-
-TEST(TokenizerTest, SplitIntoWords_ForLoop) {
-	Tokenizer tokenizer = MakeTokenizerWithInput(
-		"for (var j = 0; j < 3; j = j + 1) { print j; }\n");
-
-	std::vector<std::string> words = tokenizer.SplitIntoWords();
-
-	EXPECT_THAT(words, ElementsAre(
-		"for", "(", "var", "j", "=", "0", ";",
-		"j", "<", "3", ";",
-		"j", "=", "j", "+", "1", ")",
-		"{", "print", "j", ";", "}"));
+TEST_F(TokenizerTest, SplitIntoWords_ForLoop) {
+	EXPECT_THAT(SplitWords(
+		"for (var j = 0; j < 3; j = j + 1) { print j; }\n"),
+		ElementsAre(
+			"for", "(", "var", "j", "=", "0", ";",
+			"j", "<", "3", ";",
+			"j", "=", "j", "+", "1", ")",
+			"{", "print", "j", ";", "}"));
 }
 #endif
