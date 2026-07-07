@@ -1,25 +1,26 @@
 #ifdef _DEBUG
+#include <stdexcept>
+#include <string>
 #include "IfStatementParser.h"
 #include "StatementParserRegistry.h"
 
 namespace {
-StatementParserRegistrar<IfStatementParser> registrar(TokenType::KwIf);
+	StatementParserRegistrar<IfStatementParser> registrar(TokenType::KwIf);
+
+	void ExpectToken(const TokenList& tokenList, size_t& pos, TokenType expected, const char* symbol) {
+		if (tokenList[pos].type != expected) {
+			throw std::runtime_error(std::string("Invalid Syntax. '") + symbol + "' is Missing");
+		}
+		pos++;
+	}
 }
 
 std::unique_ptr<SyntaxNode> IfStatementParser::Parse(const TokenList& tokenList, size_t& pos) {
 	const Token& ifToken = tokenList[pos++]; // 'if'
 
-	if (tokenList[pos].type != TokenType::LParen) {
-		throw std::runtime_error("Invalid Syntax. '(' is Missing");
-	}
-	pos++; // '('
-
+	ExpectToken(tokenList, pos, TokenType::LParen, "(");
 	auto conditionNode = exprParser.Parse(tokenList, pos);
-
-	if (tokenList[pos].type != TokenType::RParen) {
-		throw std::runtime_error("Invalid Syntax. ')' is Missing");
-	}
-	pos++; // ')'
+	ExpectToken(tokenList, pos, TokenType::RParen, ")");
 
 	auto ifNode = std::make_unique<SyntaxNode>();
 	ifNode->type = NodeType::IfStmt;
