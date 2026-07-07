@@ -1,5 +1,10 @@
 #ifdef _DEBUG
 #include "PrintStatementParser.h"
+#include "StatementParserRegistry.h"
+
+namespace {
+StatementParserRegistrar<PrintStatementParser> registrar(TokenType::Print);
+}
 
 std::unique_ptr<SyntaxNode> PrintStatementParser::Parse(const TokenList& tokenList, size_t& pos) {
 	const Token& printToken = tokenList[pos++]; // 'print'
