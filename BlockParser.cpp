@@ -15,7 +15,10 @@ std::unique_ptr<SyntaxNode> BlockParser::Parse(const TokenList& tokenList, size_
 
 	while (pos < tokenList.size() && tokenList[pos].type != TokenType::RBrace) {
 		std::shared_ptr<IStatementParser> stmtParser =
-			StatementParserRegistry::Instance().Resolve(tokenList[pos].type, exprParser);
+			StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
+		if (stmtParser == nullptr) {
+			throw std::runtime_error("Unexpected token inside block");
+		}
 		blockNode->children.push_back(stmtParser->Parse(tokenList, pos));
 	}
 

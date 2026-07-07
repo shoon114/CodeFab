@@ -30,8 +30,21 @@ protected:
 	std::shared_ptr<MockStatementParser> mockConditionParser = std::make_shared<MockStatementParser>();
 
 	void SetUp() override {
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [this]() {
-			return mockConditionParser;
+		// Capture mockConditionParser by value (not `this`): the factory
+		// lambda is stored in the global StatementParserRegistry and can
+		// outlive this fixture.
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [conditionParser = mockConditionParser]() {
+			return conditionParser;
+		});
+	}
+
+	void TearDown() override {
+		// Release our captured mockConditionParser from the global registry
+		// so it doesn't outlive this fixture (which would otherwise be
+		// reported as a leaked mock, or get called again -- with
+		// already-satisfied expectations -- by a later test).
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
+			return nullptr;
 		});
 	}
 
