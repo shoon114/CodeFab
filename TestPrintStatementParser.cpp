@@ -89,7 +89,7 @@ TEST(PrintStatementParserTest, Parse_PrintDanglingOperator_ThrowsOnMalformedSynt
 	EXPECT_CALL(exprParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList&, size_t&) -> std::unique_ptr<SyntaxNode> {
-			throw std::runtime_error("Invalid Syntax.");
+			throw std::runtime_error("Unexpected token while parsing expression");
 		});
 
 	PrintStatementParser parser{ exprParser };
@@ -100,7 +100,7 @@ TEST(PrintStatementParserTest, Parse_PrintDanglingOperator_ThrowsOnMalformedSynt
 		FAIL();
 	}
 	catch (const std::runtime_error& e) {
-		EXPECT_STREQ(e.what(), "Invalid Syntax.");
+		EXPECT_STREQ(e.what(), "Unexpected token while parsing expression");
 	}
 }
 #endif
