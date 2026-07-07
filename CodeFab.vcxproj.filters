@@ -45,6 +45,12 @@
     <ClCompile Include="StatementParserRegistry.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="ExpressionParser.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="TestExpressionParser.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="TestVarDeclareParser.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -84,6 +90,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="StatementParserRegistry.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionParser.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="MockExpressionParser.h">
