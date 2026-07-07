@@ -8,7 +8,7 @@ using namespace testing;
 
 class IfStatementParserTest : public Test {
 protected:
-	MockExpressionParser exprParser;
+	NiceMock<MockExpressionParser> exprParser;
 	IfStatementParser parser{ exprParser };
 
 	// "if (a > 3)"
@@ -115,6 +115,11 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 		MakeToken(TokenType::Number, "3", 1, 4),
 		MakeToken(TokenType::EndOfFile, "", 1, 5),
 	};
+
+	ON_CALL(exprParser, Parse(_, _))
+		.WillByDefault([](const TokenList&, size_t&) {
+			return nullptr;
+		});
 
 	size_t pos = 0;
 	try {
