@@ -26,8 +26,22 @@ protected:
 	std::shared_ptr<MockStatementParser> mockTailParser = std::make_shared<MockStatementParser>();
 
 	void SetUp() override {
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [this](IExpressionParser&) {
-			return mockTailParser;
+		// Capture mockTailParser by value (not `this`): the factory lambda is
+		// stored in the global StatementParserRegistry and can outlive this
+		// fixture, so capturing `this` would leave a dangling pointer once
+		// this test finishes and a later test resolves Identifier again.
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockTailParser](IExpressionParser&) {
+			return tailParser;
+		});
+	}
+
+	void TearDown() override {
+		// Release our captured mockTailParser from the global registry so it
+		// doesn't outlive this fixture (which would otherwise be reported as
+		// a leaked mock, or get called again -- with already-satisfied
+		// expectations -- by a later test that also resolves Identifier).
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [](IExpressionParser&) {
+			return nullptr;
 		});
 	}
 
