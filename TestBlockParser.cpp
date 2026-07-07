@@ -38,6 +38,18 @@ public:
 			MakeToken(TokenType::RBrace, "}", 0, 6),
 		};
 	}
+
+	// "{ var a = 1;" -- missing closing '}'
+	TokenList MakeUnclosedBlockTokens() {
+		return TokenList{
+			MakeToken(TokenType::LBrace, "{", 0, 0),
+			MakeToken(TokenType::KwVar, "var", 0, 2),
+			MakeToken(TokenType::Identifier, "a", 0, 6),
+			MakeToken(TokenType::Assign, "=", 0, 8),
+			MakeToken(TokenType::Number, "1", 0, 10),
+			MakeToken(TokenType::Semicolon, ";", 0, 11),
+		};
+	}
 protected:
 	MockExpressionParser exprParser;
 	BlockParser parser{ exprParser };
@@ -67,12 +79,12 @@ TEST_F(BlockParserTest, Parse_SingleStatement_DelegatesToRegisteredStatementPars
 
 	EXPECT_CALL(exprParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::NumberLiteral;
-			node->token = tokens[pos];
-			pos++; // consume '1'
-			return node;
-		});
+		auto node = std::make_unique<SyntaxNode>();
+		node->type = NodeType::NumberLiteral;
+		node->token = tokens[pos];
+		pos++; // consume '1'
+		return node;
+			});
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
@@ -112,5 +124,12 @@ TEST_F(BlockParserTest, Parse_NestedEmptyBlock) {
 	EXPECT_THAT(endNode->type, Eq(NodeType::BlockStmt));
 	EXPECT_THAT(endNode->token.type, Eq(TokenType::RBrace));
 	EXPECT_THAT(pos, Eq(tokenList.size()));
+}
+
+TEST_F(BlockParserTest, Parse_UnclosedBlock_Throws) {
+	// "{ var a = 1;" -- reaches end of input without a closing '}'
+	TokenList tokenList = MakeUnclosedBlockTokens();
+
+	size_t pos = 0;
 }
 #endif
