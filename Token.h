@@ -15,6 +15,7 @@ enum class TokenType {
 	KwReturn,
 	KwTrue,
 	KwFalse,
+	Print,
 
 	Plus,
 	Minus,

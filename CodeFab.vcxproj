@@ -155,6 +155,8 @@
     <ClCompile Include="TestAssemblerUnit.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="TestTokenizerUnit.cpp" />
+    <ClCompile Include="Tokenizer.cpp" />
     <ClCompile Include="TestVarDeclareParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
