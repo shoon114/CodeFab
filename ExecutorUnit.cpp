@@ -30,7 +30,8 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 		break;
 	}
 	case NodeType::VarDeclareStatement: {
-		variables[node.token.lexeme] = Evaluate(*node.children[0]);
+		const auto& initializer = *node.children[0];
+		variables[node.token.lexeme] = Evaluate(initializer);
 		break;
 	}
 	case NodeType::BlockStmt: {
@@ -40,21 +41,27 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 		break;
 	}
 	case NodeType::IfStmt: {
-		double condition = Evaluate(*node.children[0]);
-		if (condition != 0.0) {
-			ExecuteStmt(*node.children[1]);
+		const auto& condition = *node.children[0];
+		const auto& thenBranch = *node.children[1];
+		if (Evaluate(condition) != 0.0) {
+			ExecuteStmt(thenBranch);
 		}
 		break;
 	}
 	case NodeType::ExprStmt: {
-		Evaluate(*node.children[0]);
+		const auto& expression = *node.children[0];
+		Evaluate(expression);
 		break;
 	}
 	case NodeType::ForStmt: {
-		ExecuteStmt(*node.children[0]);
-		while (Evaluate(*node.children[1]) != 0.0) {
-			ExecuteStmt(*node.children[3]);
-			Evaluate(*node.children[2]);
+		const auto& init = *node.children[0];
+		const auto& condition = *node.children[1];
+		const auto& increment = *node.children[2];
+		const auto& body = *node.children[3];
+		ExecuteStmt(init);
+		while (Evaluate(condition) != 0.0) {
+			ExecuteStmt(body);
+			Evaluate(increment);
 		}
 		break;
 	}
@@ -77,13 +84,16 @@ double ExecutorUnit::Evaluate(const SyntaxNode& node) {
 		return it->second;
 	}
 	case NodeType::AssignExpr: {
-		double value = Evaluate(*node.children[0]);
+		const auto& valueExpr = *node.children[0];
+		double value = Evaluate(valueExpr);
 		variables[node.token.lexeme] = value;
 		return value;
 	}
 	case NodeType::BinaryExpr: {
-		double left = Evaluate(*node.children[0]);
-		double right = Evaluate(*node.children[1]);
+		const auto& leftExpr = *node.children[0];
+		const auto& rightExpr = *node.children[1];
+		double left = Evaluate(leftExpr);
+		double right = Evaluate(rightExpr);
 		switch (node.token.type) {
 		case TokenType::Plus:  return left + right;
 		case TokenType::Minus: return left - right;
@@ -97,10 +107,13 @@ double ExecutorUnit::Evaluate(const SyntaxNode& node) {
 			return left / right;
 		case TokenType::Gt: return left > right;
 		case TokenType::Lt: return left < right;
-		default: return 0.0;
+		default:
+			throw std::runtime_error(
+				"Unsupported binary operator at line " + std::to_string(node.token.line));
 		}
 	}
 	default:
-		return 0.0;
+		throw std::runtime_error(
+			"Unsupported expression node at line " + std::to_string(node.token.line));
 	}
 }
