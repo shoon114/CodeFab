@@ -15,7 +15,7 @@ enum class NodeType {
 	CallExpr,
 
 	// statement
-	VarDeclStmt,
+	VarDeclareStatement,
 	ExprStmt,
 	PrintStmt,
 	IfStmt,
