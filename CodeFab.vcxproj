@@ -146,6 +146,8 @@
     <ClCompile Include="CodeFabInterpreter.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="IfStatementParser.cpp" />
+    <ClCompile Include="TestIfStatementParser.cpp" />
     <ClCompile Include="VarDeclareParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -173,6 +175,7 @@
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
     <ClInclude Include="CheckerUnit.h" />
+    <ClInclude Include="IfStatementParser.h" />
     <ClInclude Include="SyntaxNode.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokenizer.h" />
