@@ -1,4 +1,4 @@
-#include "ExecutorUnit.h"
+﻿#include "ExecutorUnit.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -18,14 +18,14 @@ void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
 	case NodeType::PrintStmt: {
 		const SyntaxNode& expression = *node.children[0];
 		if (expression.type == NodeType::StringLiteral) {
-			std::cout << expression.token.lexeme << std::endl;
+			std::cout << expression.token.lexeme;
 			break;
 		}
 		double value = Evaluate(expression);
 		if (value == std::floor(value)) {
-			std::cout << static_cast<long long>(value) << std::endl;
+			std::cout << static_cast<long long>(value);
 		} else {
-			std::cout << value << std::endl;
+			std::cout << value;
 		}
 		break;
 	}

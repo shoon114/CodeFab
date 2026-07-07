@@ -1,4 +1,4 @@
-#ifdef _DEBUG
+﻿#ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "ExecutorUnit.h"
 #include "SyntaxNode.h"
@@ -266,7 +266,7 @@ TEST(ExecutorUnitTest, Execute_ForLoop_PrintsHashThreeTimes) {
 	executor.Execute(program);
 	std::string output = testing::internal::GetCapturedStdout();
 
-	EXPECT_THAT(output, Eq("#\n#\n#\n"));
+	EXPECT_THAT(output, Eq("###"));
 }
 
 // PDF p.80: 초기 조건이 이미 거짓이면(i = 3) 본문이 한 번도 실행되지 않아야 한다.
@@ -318,7 +318,7 @@ TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_DecrementsAWhileGreaterThanTh
 	executor.Execute(program);
 	std::string output = testing::internal::GetCapturedStdout();
 
-	EXPECT_THAT(output, Eq("3\n"));
+	EXPECT_THAT(output, Eq("3"));
 }
 
 // PDF p.81 변형: a가 이미 3 이하이면 if 조건이 항상 거짓이라 for 루프 동안 a가 변하지 않아야 한다.
@@ -348,6 +348,6 @@ TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_ConditionAlwaysFalse_KeepsOri
 	executor.Execute(program);
 	std::string output = testing::internal::GetCapturedStdout();
 
-	EXPECT_THAT(output, Eq("2\n"));
+	EXPECT_THAT(output, Eq("2"));
 }
 #endif
