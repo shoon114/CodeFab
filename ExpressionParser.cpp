@@ -11,37 +11,35 @@ namespace {
 	}
 
 	// Binding power of each infix/assignment operator. Higher binds tighter.
-	// rightAssoc == true means a same-precedence operator to the right is allowed
-	// to include this position's right-hand side (used for assignment: a = b = 1).
+	// All operators are left-associative.
 	struct InfixInfo {
 		int precedence;
-		bool rightAssoc;
 		NodeType nodeType;
 	};
 
 	std::optional<InfixInfo> GetInfixInfo(TokenType type) {
 		switch (type) {
 		case TokenType::Assign:
-			return InfixInfo{ 1, true, NodeType::AssignExpr };
+			return InfixInfo{ 1, NodeType::AssignExpr };
 		case TokenType::Or:
-			return InfixInfo{ 2, false, NodeType::BinaryExpr };
+			return InfixInfo{ 2, NodeType::BinaryExpr };
 		case TokenType::And:
-			return InfixInfo{ 3, false, NodeType::BinaryExpr };
+			return InfixInfo{ 3, NodeType::BinaryExpr };
 		case TokenType::Eq:
 		case TokenType::NotEq:
-			return InfixInfo{ 4, false, NodeType::BinaryExpr };
+			return InfixInfo{ 4, NodeType::BinaryExpr };
 		case TokenType::Lt:
 		case TokenType::Gt:
 		case TokenType::LtEq:
 		case TokenType::GtEq:
-			return InfixInfo{ 5, false, NodeType::BinaryExpr };
+			return InfixInfo{ 5, NodeType::BinaryExpr };
 		case TokenType::Plus:
 		case TokenType::Minus:
-			return InfixInfo{ 6, false, NodeType::BinaryExpr };
+			return InfixInfo{ 6, NodeType::BinaryExpr };
 		case TokenType::Star:
 		case TokenType::Slash:
 		case TokenType::Percent:
-			return InfixInfo{ 7, false, NodeType::BinaryExpr };
+			return InfixInfo{ 7, NodeType::BinaryExpr };
 		default:
 			return std::nullopt;
 		}
@@ -73,8 +71,7 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseExpression(const TokenList& t
 		}
 
 		Token op = tokenList[pos++];
-		int nextMinPrecedence = info->rightAssoc ? info->precedence : info->precedence + 1;
-		std::unique_ptr<SyntaxNode> right = ParseExpression(tokenList, pos, nextMinPrecedence);
+		std::unique_ptr<SyntaxNode> right = ParseExpression(tokenList, pos, info->precedence + 1);
 
 		left = MakeBinary(info->nodeType, op, std::move(left), std::move(right));
 	}

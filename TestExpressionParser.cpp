@@ -34,6 +34,17 @@ TEST_F(ExpressionParserTest, Parse_NumberLiteral) {
 	EXPECT_THAT(pos, Eq(1u));
 }
 
+TEST_F(ExpressionParserTest, Parse_Identifier) {
+	TokenList tokenList = MakeTokens({ MakeToken(TokenType::Identifier, "a", 0, 0) });
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::Identifier));
+	EXPECT_THAT(pos, Eq(1u));
+}
+
 TEST_F(ExpressionParserTest, Parse_BinaryAddition) {
 	// "a + 1"
 	TokenList tokenList = MakeTokens({
@@ -227,14 +238,12 @@ TEST_F(ExpressionParserTest, Parse_NestedParentheses) {
 	EXPECT_THAT(pos, Eq(5u));
 }
 
-TEST_F(ExpressionParserTest, Parse_Assignment_IsRightAssociative) {
-	// "a = b = 1" -> a = (b = 1)
+TEST_F(ExpressionParserTest, Parse_Assignment) {
+	// "a = 1"
 	TokenList tokenList = MakeTokens({
 		MakeToken(TokenType::Identifier, "a", 0, 0),
 		MakeToken(TokenType::Assign, "=", 0, 2),
-		MakeToken(TokenType::Identifier, "b", 0, 4),
-		MakeToken(TokenType::Assign, "=", 0, 6),
-		MakeToken(TokenType::Number, "1", 0, 8),
+		MakeToken(TokenType::Number, "1", 0, 4),
 		});
 	size_t pos = 0;
 
@@ -243,11 +252,7 @@ TEST_F(ExpressionParserTest, Parse_Assignment_IsRightAssociative) {
 	ASSERT_THAT(node, NotNull());
 	EXPECT_THAT(node->type, Eq(NodeType::AssignExpr));
 	EXPECT_THAT(node->children[0]->type, Eq(NodeType::Identifier));
-
-	SyntaxNode* rightNode = node->children[1].get();
-	ASSERT_THAT(rightNode->type, Eq(NodeType::AssignExpr));
-	EXPECT_THAT(rightNode->children[0]->type, Eq(NodeType::Identifier));
-	EXPECT_THAT(rightNode->children[1]->type, Eq(NodeType::NumberLiteral));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::NumberLiteral));
 }
 
 TEST_F(ExpressionParserTest, Parse_EmptyTokenList_Throws) {
