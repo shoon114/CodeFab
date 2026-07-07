@@ -564,4 +564,76 @@ TEST(ExecutorUnitTest, Execute_UnaryNot_NegatesBooleanVariable) {
 
 	EXPECT_THAT(output, Eq("false"));
 }
+
+// PDF p.86: 3 - "hello"처럼 피연산자 타입이 맞지 않을 때 [N번째줄] 피연산자는 반드시 숫자여야 한다.
+// 형식으로 런타임 오류를 보고해야 한다.
+TEST(ExecutorUnitTest, Execute_TypeMismatch_BooleanMultiplication_ThrowsWithLineMessage) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeExprStmt(
+			MakeBinaryExpr(TokenType::Star, MakeBoolLiteral(true), MakeBoolLiteral(false), 1)
+		)
+	);
+
+	try {
+		executor.Execute(program);
+		FAIL() << "std::runtime_error가 던져지길 기대했습니다.";
+	} catch (const std::runtime_error& e) {
+		EXPECT_THAT(std::string(e.what()), HasSubstr("[1번째줄] 피연산자는 반드시 숫자여야 한다."));
+	}
+}
+
+// PDF p.86: 3 - "hello" -> [1번째줄] 피연산자는 반드시 숫자여야 한다.
+TEST(ExecutorUnitTest, Execute_TypeMismatch_NumberMinusString_ThrowsWithLineMessage) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeExprStmt(
+			MakeBinaryExpr(TokenType::Minus, MakeNumberLiteral(3), MakeStringLiteral("hello"), 1)
+		)
+	);
+
+	try {
+		executor.Execute(program);
+		FAIL() << "std::runtime_error가 던져지길 기대했습니다.";
+	} catch (const std::runtime_error& e) {
+		EXPECT_THAT(std::string(e.what()), HasSubstr("[1번째줄] 피연산자는 반드시 숫자여야 한다."));
+	}
+}
+
+// PDF p.87: 선언 없이 x = 5; -> [1번째줄] 미정의된 변수 'x'
+TEST(ExecutorUnitTest, Execute_UndefinedVariableAssignment_ThrowsWithLineMessage) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeExprStmt(
+			MakeAssignExpr("x", MakeNumberLiteral(5), 1)
+		)
+	);
+
+	try {
+		executor.Execute(program);
+		FAIL() << "std::runtime_error가 던져지길 기대했습니다.";
+	} catch (const std::runtime_error& e) {
+		EXPECT_THAT(std::string(e.what()), HasSubstr("[1번째줄] 미정의된 변수 'x'"));
+	}
+}
+
+// PDF p.88: a = 3 / 0; -> [1번째줄] 0으로 나눈 오류
+// AssignExpr는 값을 먼저 평가하므로, a가 선언되어 있지 않아도 나눗셈 오류가 먼저 발생한다.
+TEST(ExecutorUnitTest, Execute_DivisionByZero_ThrowsWithLineMessage) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakeExprStmt(
+			MakeAssignExpr("a",
+				MakeBinaryExpr(TokenType::Slash, MakeNumberLiteral(3), MakeNumberLiteral(0), 1),
+				1)
+		)
+	);
+
+	try {
+		executor.Execute(program);
+		FAIL() << "std::runtime_error가 던져지길 기대했습니다.";
+	} catch (const std::runtime_error& e) {
+		EXPECT_THAT(std::string(e.what()), HasSubstr("[1번째줄] 0으로 나눈 오류"));
+	}
+}
 #endif
