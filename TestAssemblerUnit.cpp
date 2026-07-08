@@ -75,6 +75,27 @@ protected:
 			}));
 		return tokenizer.CreateTokenForCode();
 	}
+
+	// "a = 1; b = 2;" -- two consecutive bare expression-statements. The real
+	// ExpressionParser (which mockTailParser stands in for here) never
+	// consumes a trailing ';', since it's also reused as a sub-expression
+	// parser by VarDeclareParser/PrintStatementParser/etc, where the ';'
+	// belongs to the *outer* statement instead.
+	TokenList MakeConsecutiveBareAssignmentTokens() {
+		EXPECT_CALL(tokenizer, CreateTokenForCode())
+			.WillOnce(Return(TokenList{
+				MakeToken(TokenType::Identifier, "a", 0, 0),
+				MakeToken(TokenType::Assign, "=", 0, 1),
+				MakeToken(TokenType::Number, "1", 0, 2),
+				MakeToken(TokenType::Semicolon, ";", 0, 3),
+				MakeToken(TokenType::Identifier, "b", 0, 4),
+				MakeToken(TokenType::Assign, "=", 0, 5),
+				MakeToken(TokenType::Number, "2", 0, 6),
+				MakeToken(TokenType::Semicolon, ";", 0, 7),
+				MakeToken(TokenType::EndOfFile, "", 0, 8),
+			}));
+		return tokenizer.CreateTokenForCode();
+	}
 };
 
 TEST_F(AssemblerUnitTest, Parse_CallsWithoutCrashing) {
@@ -121,6 +142,33 @@ TEST_F(AssemblerUnitTest, Parse_ExpressionTest) {
 
 	ASSERT_THAT(root, NotNull());
 	EXPECT_THAT(root->type, Eq(NodeType::Program));
+}
+
+TEST_F(AssemblerUnitTest, Parse_ConsecutiveBareExpressionStatements_ConsumesEachTrailingSemicolon) {
+	// "a = 1; b = 2;" -- regression test: a bare top-level expression
+	// statement's own leading-token resolution (ExpressionParser) never
+	// consumes its trailing ';', so AssemblerUnit itself must swallow it
+	// before resolving the next statement. Without that, the leftover ';'
+	// would be mistaken for the start of a new statement and throw
+	// "Unexpected token", silently dropping the rest of the input.
+	TokenList tokenList = MakeConsecutiveBareAssignmentTokens();
+
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
+		.Times(2)
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 3; // consume 'a', '=', '1' -- NOT the ';'
+			return std::make_unique<AssignExprNode>();
+		})
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 3; // consume 'b', '=', '2' -- NOT the ';'
+			return std::make_unique<AssignExprNode>();
+		});
+
+	std::unique_ptr<SyntaxNode> root = assembler.Parse(tokenList);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->type, Eq(NodeType::Program));
+	EXPECT_THAT(root->children, SizeIs(2));
 }
 
 #endif

@@ -51,6 +51,22 @@ public:
 			MakeToken(TokenType::Semicolon, ";", 0, 5),
 		};
 	}
+
+	// "{ a = 1; b = 2; }" -- two consecutive bare expression-statements
+	TokenList MakeConsecutiveBareAssignmentTokens() {
+		return TokenList{
+			MakeToken(TokenType::LBrace, "{", 0, 0),
+			MakeToken(TokenType::Identifier, "a", 0, 1),
+			MakeToken(TokenType::Assign, "=", 0, 2),
+			MakeToken(TokenType::Number, "1", 0, 3),
+			MakeToken(TokenType::Semicolon, ";", 0, 4),
+			MakeToken(TokenType::Identifier, "b", 0, 5),
+			MakeToken(TokenType::Assign, "=", 0, 6),
+			MakeToken(TokenType::Number, "2", 0, 7),
+			MakeToken(TokenType::Semicolon, ";", 0, 8),
+			MakeToken(TokenType::RBrace, "}", 0, 9),
+		};
+	}
 protected:
 	BlockParser parser;
 
@@ -165,5 +181,34 @@ TEST_F(BlockParserTest, Parse_UnclosedBlock_Throws) {
 
 	size_t pos = 0;
 	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(BlockParserTest, Parse_ConsecutiveBareExpressionStatements_ConsumesEachTrailingSemicolon) {
+	// "{ a = 1; b = 2; }" -- regression test: a bare expression statement's
+	// own leading-token resolution (ExpressionParser) never consumes its
+	// trailing ';', so BlockParser itself must swallow it before resolving
+	// the next statement. Without that, the leftover ';' would be mistaken
+	// for the start of a new statement and throw "Unexpected token inside
+	// block", silently dropping the rest of the block.
+	TokenList tokenList = MakeConsecutiveBareAssignmentTokens();
+
+	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
+		.Times(2)
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 3; // consume 'a', '=', '1' -- NOT the ';'
+			return std::make_unique<AssignExprNode>();
+		})
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 3; // consume 'b', '=', '2' -- NOT the ';'
+			return std::make_unique<AssignExprNode>();
+		});
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	// 2 statements + the closing '}' marker
+	ASSERT_THAT(node->children, SizeIs(3));
+	EXPECT_THAT(pos, Eq(tokenList.size()));
 }
 #endif
