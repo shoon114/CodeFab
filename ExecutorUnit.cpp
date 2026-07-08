@@ -248,9 +248,16 @@ Value_t ExecutorUnit::EvaluateAssignExpr(const SyntaxNode& node) {
 		ResolveIndexElement(target) = value;
 	} else if (target.type == NodeType::MemberAccessExpr) {
 		AssignMemberField(static_cast<const MemberAccessExprNode&>(target), value);
-	} else {
+	} else if (target.type == NodeType::Identifier) {
 		const auto& identifier = static_cast<const IdentifierNode&>(target);
 		ResolveVariable(identifier.token.lexeme, identifier.scopeDistance, node.token.line) = value;
+	} else {
+		// "a + b = 3;"처럼 대입 대상이 변수도, 배열 인덱스도 아닌 임의의
+		// 표현식이면(예: BinaryExpr) 여기서 명확히 거부한다. 이 검사가 없으면
+		// target을 IdentifierNode로 그냥 static_cast해버려서, 예를 들어
+		// BinaryExprNode의 token(연산자 '+')을 변수 이름으로 착각해
+		// "Undefined variable '+'" 같은 엉뚱한 메시지가 나갔다.
+		throw std::runtime_error("Invalid assignment target at line " + std::to_string(node.token.line));
 	}
 	return value;
 }
