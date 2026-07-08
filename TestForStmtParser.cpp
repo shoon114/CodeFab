@@ -299,4 +299,37 @@ TEST_F(ForStmtParserTest, Parse_MissingOpenBrace_ThrowsOnMalformedSyntax) {
 
 	ExpectParseThrows(tokenList, "Expected '{' to start for-loop body at line 0");
 }
+
+TEST_F(ForStmtParserTest, Parse_UnclosedBody_ThrowsOnMalformedSyntax) {
+	// "for (var i = 0; i < 3; i = i + 1) {" -- 닫는 '}' 없이 입력이 끝남
+	TokenList tokenList = {
+		MakeToken(TokenType::KwFor, "for", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 1),
+		MakeToken(TokenType::KwVar, "var", 0, 2),
+		MakeToken(TokenType::Identifier, "i", 0, 3),
+		MakeToken(TokenType::Semicolon, ";", 0, 4),
+		MakeToken(TokenType::Identifier, "i", 0, 5),
+		MakeToken(TokenType::RParen, ")", 0, 6),
+		MakeToken(TokenType::LBrace, "{", 0, 7),
+		MakeToken(TokenType::EndOfFile, "", 0, 8),
+	};
+
+	EXPECT_CALL(*mockInitParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 1; // consume 'var' only (opaque init clause)
+			return std::make_unique<VarDeclareStatementNode>();
+		});
+	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
+		.Times(2)
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 1; // consume condition 'i' only (opaque condition clause)
+			return std::make_unique<BinaryExprNode>();
+		})
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 1; // consume update 'i' only (opaque update clause)
+			return std::make_unique<AssignExprNode>();
+		});
+
+	ExpectParseThrows(tokenList, "Expected '}' to close for-loop body at line 0");
+}
 #endif

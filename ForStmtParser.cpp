@@ -39,7 +39,7 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	ExpectToken(tokenList, pos, TokenType::RParen, "')' after for-loop update expression");
 
 	ExpectToken(tokenList, pos, TokenType::LBrace, "'{' to start for-loop body");
-	pos++; // '}'  (empty body for now)
+	ExpectToken(tokenList, pos, TokenType::RBrace, "'}' to close for-loop body"); // empty body for now
 
 	auto bodyNode = std::make_unique<BlockStmtNode>();
 
