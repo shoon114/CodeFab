@@ -6,30 +6,62 @@
 namespace {
 	StatementParserRegistrar<IfStatementParser> registrar(TokenType::KwIf);
 
-	void ExpectToken(const TokenList& tokenList, size_t& pos, TokenType expected, const char* symbol) {
-		if (tokenList[pos].type != expected) {
-			throw std::runtime_error(std::string("Invalid Syntax. '") + symbol + "' is Missing");
+	TokenType PeekType(const TokenList& tokenList, size_t pos) {
+		return pos < tokenList.size() ? tokenList[pos].type : TokenType::EndOfFile;
+	}
+
+	int PeekLine(const TokenList& tokenList, size_t pos) {
+		return pos < tokenList.size() ? tokenList[pos].line : tokenList.back().line;
+	}
+
+	std::unique_ptr<SyntaxNode> ResolveAndParse(const TokenList& tokenList, size_t& pos, const char* what) {
+		std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(PeekType(tokenList, pos));
+		if (parser == nullptr) {
+			throw std::runtime_error(std::string("Expected ") + what + " at line " + std::to_string(PeekLine(tokenList, pos)));
+		}
+		return parser->Parse(tokenList, pos);
+	}
+
+	void ExpectToken(const TokenList& tokenList, size_t& pos, TokenType expected, const char* what) {
+		if (PeekType(tokenList, pos) != expected) {
+			throw std::runtime_error(std::string("Expected ") + what + " at line " + std::to_string(PeekLine(tokenList, pos)));
 		}
 		pos++;
+	}
+
+	std::unique_ptr<SyntaxNode> ParseBlock(const TokenList& tokenList, size_t& pos, const char* context) {
+		if (PeekType(tokenList, pos) != TokenType::LBrace) {
+			throw std::runtime_error(std::string("Expected '{' to start ") + context + " at line " + std::to_string(PeekLine(tokenList, pos)));
+		}
+		return ResolveAndParse(tokenList, pos, (std::string("'{' to start ") + context).c_str());
 	}
 }
 
 std::unique_ptr<SyntaxNode> IfStatementParser::Parse(const TokenList& tokenList, size_t& pos) {
-	const Token& ifToken = tokenList[pos++]; // 'if'
+	const Token& ifToken = tokenList[pos++];
 
-	ExpectToken(tokenList, pos, TokenType::LParen, "(");
+	ExpectToken(tokenList, pos, TokenType::LParen, "'(' after 'if'");
 
-	std::shared_ptr<IStatementParser> conditionParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
-	if (conditionParser == nullptr) {
-		throw std::runtime_error("Invalid Syntax. Condition expression is Missing");
-	}
-	auto conditionNode = conditionParser->Parse(tokenList, pos);
+	auto conditionNode = ResolveAndParse(tokenList, pos, "a condition expression in 'if'");
 
-	ExpectToken(tokenList, pos, TokenType::RParen, ")");
+	ExpectToken(tokenList, pos, TokenType::RParen, "')' after if-condition");
+
+	auto thenNode = ParseBlock(tokenList, pos, "if-body");
 
 	auto ifNode = std::make_unique<IfStmtNode>();
 	ifNode->token = ifToken;
 	ifNode->children.push_back(std::move(conditionNode));
+	ifNode->children.push_back(std::move(thenNode));
+
+	if (PeekType(tokenList, pos) == TokenType::KwElse) {
+		pos++;
+
+		if (PeekType(tokenList, pos) == TokenType::KwIf) {
+			ifNode->children.push_back(ResolveAndParse(tokenList, pos, "an 'if' after 'else'"));
+		} else {
+			ifNode->children.push_back(ParseBlock(tokenList, pos, "else-body"));
+		}
+	}
 
 	return ifNode;
 }

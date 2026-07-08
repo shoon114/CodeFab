@@ -1,6 +1,7 @@
 #ifdef _DEBUG
 #include <utility>
 #include "gmock/gmock.h"
+#include "BlockParser.h"
 #include "IfStatementParser.h"
 #include "MockStatementParser.h"
 #include "StatementParserRegistry.h"
@@ -29,12 +30,21 @@ protected:
 	// a mock so this TC doesn't depend on ExpressionParser's real behavior.
 	std::shared_ptr<MockStatementParser> mockConditionParser = std::make_shared<MockStatementParser>();
 
+	// IfStatementParser resolves whatever is registered for the token right
+	// after ')' (LBrace here) via StatementParserRegistry -- in production
+	// that's the real BlockParser. We stand in for it with a mock so this TC
+	// doesn't depend on BlockParser's real behavior.
+	std::shared_ptr<MockStatementParser> mockThenParser = std::make_shared<MockStatementParser>();
+
 	void SetUp() override {
-		// Capture mockConditionParser by value (not `this`): the factory
-		// lambda is stored in the global StatementParserRegistry and can
-		// outlive this fixture.
+		// Capture mocks by value (not `this`): the factory lambdas are
+		// stored in the global StatementParserRegistry and can outlive
+		// this fixture.
 		StatementParserRegistry::Instance().Register(TokenType::Identifier, [conditionParser = mockConditionParser]() {
 			return conditionParser;
+		});
+		StatementParserRegistry::Instance().Register(TokenType::LBrace, [thenParser = mockThenParser]() {
+			return thenParser;
 		});
 	}
 
@@ -46,9 +56,20 @@ protected:
 		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
 			return nullptr;
 		});
+
+		// LBrace's only production owner is the real BlockParser,
+		// self-registered once at static-init time. Resetting it to a
+		// nullptr-returning factory here would permanently destroy that
+		// registration for the rest of the test binary's lifetime -- any
+		// later test (depending on link order) that relies on LBrace
+		// resolving to the real BlockParser would then fail. Restore the
+		// real factory instead of nulling it out.
+		StatementParserRegistry::Instance().Register(TokenType::LBrace, []() {
+			return std::make_shared<BlockParser>();
+		});
 	}
 
-	// "if (a <op> 3)"
+	// "if (a <op> 3) { }"
 	TokenList MakeIfConditionTokens(TokenType opType, const std::string& opLexeme) {
 		return MakeTokens({
 			{TokenType::KwIf, "if"},
@@ -57,6 +78,8 @@ protected:
 			{opType, opLexeme},
 			{TokenType::Number, "3"},
 			{TokenType::RParen, ")"},
+			{TokenType::LBrace, "{"},
+			{TokenType::RBrace, "}"},
 			{TokenType::EndOfFile, ""},
 			});
 	}
@@ -70,6 +93,39 @@ protected:
 			pos += 3;
 			return node;
 				});
+	}
+
+	void StubThenParserToConsumeBody() {
+		EXPECT_CALL(*mockThenParser, Parse(_, _))
+			.Times(1)
+			.WillOnce([](const TokenList& tokens, size_t& pos) {
+				auto node = std::make_unique<BlockStmtNode>();
+				node->token = tokens[pos];
+				pos += 2;
+				return node;
+			});
+	}
+
+	void StubThenParserToConsumeBodies(int times) {
+		EXPECT_CALL(*mockThenParser, Parse(_, _))
+			.Times(times)
+			.WillRepeatedly([](const TokenList& tokens, size_t& pos) {
+				auto node = std::make_unique<BlockStmtNode>();
+				node->token = tokens[pos];
+				pos += 2;
+				return node;
+			});
+	}
+
+	void StubConditionParserToConsumeConditions(int times) {
+		EXPECT_CALL(*mockConditionParser, Parse(_, _))
+			.Times(times)
+			.WillRepeatedly([](const TokenList& tokens, size_t& pos) {
+				auto node = std::make_unique<BinaryExprNode>();
+				node->token = tokens[pos];
+				pos += 3;
+				return node;
+			});
 	}
 
 	void ExpectParseThrows(TokenList tokenList, const char* expectedMessage) {
@@ -87,6 +143,7 @@ protected:
 TEST_F(IfStatementParserTest, Parse_Condition_AttachesExpressionParserResultAsCondition) {
 	TokenList tokenList = MakeIfConditionTokens(TokenType::Gt, ">");
 	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBody();
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
@@ -94,15 +151,19 @@ TEST_F(IfStatementParserTest, Parse_Condition_AttachesExpressionParserResultAsCo
 	ASSERT_THAT(root, NotNull());
 	EXPECT_THAT(root->type, Eq(NodeType::IfStmt));
 	EXPECT_THAT(root->token.lexeme, Eq("if"));
-	ASSERT_THAT(root->children, SizeIs(1));
+	ASSERT_THAT(root->children, SizeIs(2));
 
 	const std::unique_ptr<SyntaxNode>& conditionNode = root->children[0];
 	EXPECT_THAT(conditionNode->type, Eq(NodeType::BinaryExpr));
+
+	const std::unique_ptr<SyntaxNode>& thenNode = root->children[1];
+	EXPECT_THAT(thenNode->type, Eq(NodeType::BlockStmt));
 }
 
 TEST_F(IfStatementParserTest, Parse_Condition_WithGtEqOperator_AttachesExpressionParserResultAsCondition) {
 	TokenList tokenList = MakeIfConditionTokens(TokenType::GtEq, ">=");
 	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBody();
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
@@ -110,10 +171,13 @@ TEST_F(IfStatementParserTest, Parse_Condition_WithGtEqOperator_AttachesExpressio
 	ASSERT_THAT(root, NotNull());
 	EXPECT_THAT(root->type, Eq(NodeType::IfStmt));
 	EXPECT_THAT(root->token.lexeme, Eq("if"));
-	ASSERT_THAT(root->children, SizeIs(1));
+	ASSERT_THAT(root->children, SizeIs(2));
 
 	const std::unique_ptr<SyntaxNode>& conditionNode = root->children[0];
 	EXPECT_THAT(conditionNode->type, Eq(NodeType::BinaryExpr));
+
+	const std::unique_ptr<SyntaxNode>& thenNode = root->children[1];
+	EXPECT_THAT(thenNode->type, Eq(NodeType::BlockStmt));
 }
 
 TEST_F(IfStatementParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSyntax) {
@@ -127,7 +191,7 @@ TEST_F(IfStatementParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSyntax) {
 		{TokenType::EndOfFile, ""},
 		});
 
-	ExpectParseThrows(tokenList, "Invalid Syntax. '(' is Missing");
+	ExpectParseThrows(tokenList, "Expected '(' after 'if' at line 1");
 }
 
 TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
@@ -146,10 +210,194 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<BinaryExprNode>();
 			node->token = tokens[pos];
-			pos += 3; // consume 'a', '>', '3'
+			pos += 3; 
 			return node;
 		});
 
-	ExpectParseThrows(tokenList, "Invalid Syntax. ')' is Missing");
+	ExpectParseThrows(tokenList, "Expected ')' after if-condition at line 1");
+}
+
+TEST_F(IfStatementParserTest, Parse_MissingCondition_ThrowsOnMalformedSyntax) {
+	// if () { }   -- 조건식 누락
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+
+	ExpectParseThrows(tokenList, "Expected a condition expression in 'if' at line 1");
+}
+
+TEST_F(IfStatementParserTest, Parse_MissingBody_ThrowsOnMalformedSyntax) {
+	// if (a > 3)   -- 본문 '{' 누락
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+
+	ExpectParseThrows(tokenList, "Expected '{' to start if-body at line 1");
+}
+
+TEST_F(IfStatementParserTest, Parse_WithElse_AttachesElseBranchAsThirdChild) {
+	// if (a > 3) { } else { }
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBodies(2);
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+
+	const std::unique_ptr<SyntaxNode>& elseNode = root->children[2];
+	EXPECT_THAT(elseNode->type, Eq(NodeType::BlockStmt));
+}
+
+TEST_F(IfStatementParserTest, Parse_WithElseIf_AttachesNestedIfStmtAsThirdChild) {
+	// if (a > 3) { } else if (b < 5) { }
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "b"},
+		{TokenType::Lt, "<"},
+		{TokenType::Number, "5"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(2);
+	StubThenParserToConsumeBodies(2);
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+
+	const std::unique_ptr<SyntaxNode>& elseIfNode = root->children[2];
+	EXPECT_THAT(elseIfNode->type, Eq(NodeType::IfStmt));
+	ASSERT_THAT(elseIfNode->children, SizeIs(2));
+	EXPECT_THAT(elseIfNode->children[0]->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(elseIfNode->children[1]->type, Eq(NodeType::BlockStmt));
+}
+
+TEST_F(IfStatementParserTest, Parse_WithElseIfAndElse_AttachesFullChain) {
+	// if (a > 3) { } else if (b < 5) { } else { }
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "b"},
+		{TokenType::Lt, "<"},
+		{TokenType::Number, "5"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(2);
+	StubThenParserToConsumeBodies(3);
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+	EXPECT_THAT(root->children[0]->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(root->children[1]->type, Eq(NodeType::BlockStmt));
+
+	const std::unique_ptr<SyntaxNode>& elseIfNode = root->children[2];
+	EXPECT_THAT(elseIfNode->type, Eq(NodeType::IfStmt));
+	ASSERT_THAT(elseIfNode->children, SizeIs(3));
+	EXPECT_THAT(elseIfNode->children[0]->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(elseIfNode->children[1]->type, Eq(NodeType::BlockStmt));
+	EXPECT_THAT(elseIfNode->children[2]->type, Eq(NodeType::BlockStmt));
+}
+
+TEST_F(IfStatementParserTest, Parse_ElseMissingBrace_ThrowsOnMalformedSyntax) {
+	// if (a > 3) { } else   -- else 본문 '{' 누락
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBody();
+
+	ExpectParseThrows(tokenList, "Expected '{' to start else-body at line 1");
+}
+
+TEST_F(IfStatementParserTest, Parse_ElseIfPropagatesInnerIfError_ThrowsOnMalformedSyntax) {
+	// if (a > 3) { } else if a   -- else if 안쪽 if에 '(' 누락, 재귀 호출이
+	// 안쪽 에러를 그대로 밖으로 전달하는지 확인
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::KwIf, "if"},
+		{TokenType::Identifier, "a"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBody();
+
+	ExpectParseThrows(tokenList, "Expected '(' after 'if' at line 1");
 }
 #endif
