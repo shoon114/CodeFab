@@ -2,18 +2,47 @@
 #include <stdexcept>
 #include "gmock/gmock.h"
 #include "PrintStatementParser.h"
-#include "MockExpressionParser.h"
+#include "MockStatementParser.h"
+#include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
 
 using namespace testing;
 
 class PrintStatementParserTest : public Test {
 protected:
-	NiceMock<MockExpressionParser> exprParser;
-	PrintStatementParser parser{ exprParser };
+	PrintStatementParser parser;
 
-	void StubExprParserToConsume(int tokenCount, NodeType resultType) {
-		EXPECT_CALL(exprParser, Parse(_, _))
+	// PrintStatementParser resolves whatever is registered for the token
+	// right after 'print' via StatementParserRegistry -- in production
+	// that's the real ExpressionParser. Different tests below lead with
+	// different token types (Number, Identifier), so we register a mock
+	// for each and only set expectations on the one actually exercised.
+	std::shared_ptr<MockStatementParser> mockNumberParser = std::make_shared<MockStatementParser>();
+	std::shared_ptr<MockStatementParser> mockIdentifierParser = std::make_shared<MockStatementParser>();
+
+	void SetUp() override {
+		// Capture mocks by value (not `this`): the factory lambdas are
+		// stored in the global StatementParserRegistry and can outlive
+		// this fixture.
+		StatementParserRegistry::Instance().Register(TokenType::Number, [tailParser = mockNumberParser]() {
+			return tailParser;
+		});
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockIdentifierParser]() {
+			return tailParser;
+		});
+	}
+
+	void TearDown() override {
+		// Release our captured mocks from the global registry so they don't
+		// outlive this fixture (which would otherwise be reported as leaked
+		// mocks, or get called again -- with already-satisfied expectations
+		// -- by a later test).
+		StatementParserRegistry::Instance().Register(TokenType::Number, []() { return nullptr; });
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() { return nullptr; });
+	}
+
+	void StubParserToConsume(const std::shared_ptr<MockStatementParser>& mock, int tokenCount, NodeType resultType) {
+		EXPECT_CALL(*mock, Parse(_, _))
 			.Times(1)
 			.WillOnce([tokenCount, resultType](const TokenList& tokens, size_t& pos) {
 				auto node = std::make_unique<SyntaxNode>();
@@ -24,8 +53,8 @@ protected:
 			});
 	}
 
-	void StubExprParserToThrow(const std::string& message) {
-		EXPECT_CALL(exprParser, Parse(_, _))
+	void StubParserToThrow(const std::shared_ptr<MockStatementParser>& mock, const std::string& message) {
+		EXPECT_CALL(*mock, Parse(_, _))
 			.Times(1)
 			.WillOnce([message](const TokenList&, size_t&) -> std::unique_ptr<SyntaxNode> {
 				throw std::runtime_error(message);
@@ -67,7 +96,7 @@ TEST_F(PrintStatementParserTest, Parse_PrintNumberLiteral_AttachesExpressionAsCh
 		MakeToken(TokenType::Semicolon, ";", 1, 2),
 		MakeToken(TokenType::EndOfFile, "", 1, 3),
 	};
-	StubExprParserToConsume(1, NodeType::NumberLiteral); // "3" 1개 토큰 소비
+	StubParserToConsume(mockNumberParser, 1, NodeType::NumberLiteral); // "3" 1개 토큰 소비
 
 	std::unique_ptr<SyntaxNode> root = ParseTokens(tokenList);
 
@@ -84,7 +113,7 @@ TEST_F(PrintStatementParserTest, Parse_PrintBinaryExpression_AttachesExpressionA
 		MakeToken(TokenType::Semicolon, ";", 1, 4),
 		MakeToken(TokenType::EndOfFile, "", 1, 5),
 	};
-	StubExprParserToConsume(3, NodeType::BinaryExpr); // "2+3" 3개 토큰 소비
+	StubParserToConsume(mockNumberParser, 3, NodeType::BinaryExpr); // "2+3" 3개 토큰 소비
 
 	std::unique_ptr<SyntaxNode> root = ParseTokens(tokenList);
 
@@ -100,7 +129,7 @@ TEST_F(PrintStatementParserTest, Parse_PrintDanglingOperator_ThrowsOnMalformedSy
 		MakeToken(TokenType::Semicolon, ";", 1, 3),
 		MakeToken(TokenType::EndOfFile, "", 1, 4),
 	};
-	StubExprParserToThrow("Unexpected token while parsing expression");
+	StubParserToThrow(mockIdentifierParser, "Unexpected token while parsing expression");
 
 	ExpectParseThrows(tokenList, "Unexpected token while parsing expression");
 }

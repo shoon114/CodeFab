@@ -1,7 +1,6 @@
 #ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "BlockParser.h"
-#include "MockExpressionParser.h"
 #include "MockStatementParser.h"
 #include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
@@ -53,8 +52,7 @@ public:
 		};
 	}
 protected:
-	MockExpressionParser exprParser;
-	BlockParser parser{ exprParser };
+	BlockParser parser;
 
 	// Nested "var ...;" statements are handled by the real VarDeclareParser
 	// (self-registered for KwVar), which itself resolves the token after
@@ -67,7 +65,7 @@ protected:
 		// Capture mockIdentifierParser by value (not `this`): the factory
 		// lambda is stored in the global StatementParserRegistry and can
 		// outlive this fixture.
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockIdentifierParser](IExpressionParser&) {
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockIdentifierParser]() {
 			return tailParser;
 		});
 	}
@@ -77,7 +75,7 @@ protected:
 		// so it doesn't outlive this fixture (which would otherwise be
 		// reported as a leaked mock, or get called again -- with
 		// already-satisfied expectations -- by a later test).
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [](IExpressionParser&) {
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
 			return nullptr;
 		});
 	}

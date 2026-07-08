@@ -1,8 +1,22 @@
 #include "ExpressionParser.h"
+#include "StatementParserRegistry.h"
 #include <optional>
 #include <stdexcept>
 
 namespace {
+	// ExpressionParser is registered under every token type that can start
+	// an expression (see ParsePrimary/ParsePrefix below), so any other
+	// parser can obtain it via StatementParserRegistry::Resolve() without
+	// depending on ExpressionParser directly.
+	StatementParserRegistrar<ExpressionParser> numberRegistrar(TokenType::Number);
+	StatementParserRegistrar<ExpressionParser> stringRegistrar(TokenType::String);
+	StatementParserRegistrar<ExpressionParser> identifierRegistrar(TokenType::Identifier);
+	StatementParserRegistrar<ExpressionParser> trueRegistrar(TokenType::KwTrue);
+	StatementParserRegistrar<ExpressionParser> falseRegistrar(TokenType::KwFalse);
+	StatementParserRegistrar<ExpressionParser> lParenRegistrar(TokenType::LParen);
+	StatementParserRegistrar<ExpressionParser> minusRegistrar(TokenType::Minus);
+	StatementParserRegistrar<ExpressionParser> notRegistrar(TokenType::Not);
+
 	TokenType PeekType(const TokenList& tokenList, size_t pos) {
 		if (pos >= tokenList.size()) {
 			return TokenType::EndOfFile;

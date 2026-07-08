@@ -4,9 +4,8 @@
 #include <unordered_map>
 #include "Token.h"
 #include "IStatementParser.h"
-#include "IExpressionParser.h"
 
-using StatementParserFactory = std::function<std::shared_ptr<IStatementParser>(IExpressionParser&)>;
+using StatementParserFactory = std::function<std::shared_ptr<IStatementParser>()>;
 
 // Global singleton. Each IStatementParser implementation self-registers by
 // declaring a file-scope StatementParserRegistrar<T> in its own .cpp.
@@ -16,7 +15,7 @@ public:
 	static StatementParserRegistry& Instance();
 
 	void Register(TokenType leadingToken, StatementParserFactory factory);
-	std::shared_ptr<IStatementParser> Resolve(TokenType leadingToken, IExpressionParser& exprParser) const;
+	std::shared_ptr<IStatementParser> Resolve(TokenType leadingToken) const;
 
 private:
 	std::unordered_map<TokenType, StatementParserFactory> factories;
@@ -32,8 +31,8 @@ template <typename TParser>
 class StatementParserRegistrar {
 public:
 	explicit StatementParserRegistrar(TokenType leadingToken) {
-		StatementParserRegistry::Instance().Register(leadingToken, [](IExpressionParser& exprParser) {
-			return std::make_shared<TParser>(exprParser);
+		StatementParserRegistry::Instance().Register(leadingToken, []() {
+			return std::make_shared<TParser>();
 		});
 	}
 };

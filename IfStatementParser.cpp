@@ -18,7 +18,13 @@ std::unique_ptr<SyntaxNode> IfStatementParser::Parse(const TokenList& tokenList,
 	const Token& ifToken = tokenList[pos++]; // 'if'
 
 	ExpectToken(tokenList, pos, TokenType::LParen, "(");
-	auto conditionNode = exprParser.Parse(tokenList, pos);
+
+	std::shared_ptr<IStatementParser> conditionParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
+	if (conditionParser == nullptr) {
+		throw std::runtime_error("Invalid Syntax. Condition expression is Missing");
+	}
+	auto conditionNode = conditionParser->Parse(tokenList, pos);
+
 	ExpectToken(tokenList, pos, TokenType::RParen, ")");
 
 	auto ifNode = std::make_unique<SyntaxNode>();

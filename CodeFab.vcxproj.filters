@@ -98,9 +98,6 @@
     <ClInclude Include="IStatementParser.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="IExpressionParser.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="VarDeclareParser.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -108,9 +105,6 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="ExpressionParser.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="MockExpressionParser.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="MockStatementParser.h">

@@ -18,12 +18,11 @@ std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, 
 	}
 
 	// Resolve whatever statement parser is registered for the token right
-	// after 'var' (e.g. an ExprStmtParser registered for Identifier, which
-	// itself decides whether this is a plain identifier or an assignment
-	// via exprParser) instead of calling exprParser directly. This lets new
+	// after 'var' (e.g. ExpressionParser registered for Identifier) instead
+	// of depending on a specific parser type directly. This lets new
 	// statement forms after 'var' be supported purely by registering them
 	// elsewhere, without VarDeclareParser knowing about them.
-	std::shared_ptr<IStatementParser> stmtParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type, exprParser);
+	std::shared_ptr<IStatementParser> stmtParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
 	if (stmtParser == nullptr) {
 		throw std::runtime_error("Expected a variable name after 'var' at line " + std::to_string(tokenList[pos].line));
 	}
