@@ -137,9 +137,76 @@ TEST_F(ForStmtParserTest, Parse_WithEmptyBody_BuildsForStmtTree) {
 	EXPECT_THAT(updateNode->type, Eq(NodeType::AssignExpr));
 	EXPECT_THAT(updateNode->token.lexeme, Eq("="));
 
+	// body delegates to the real BlockParser (registered for LBrace), whose
+	// own convention appends a marker child for the closing '}'.
 	const std::unique_ptr<SyntaxNode>& bodyNode = root->children[3];
 	EXPECT_THAT(bodyNode->type, Eq(NodeType::BlockStmt));
-	EXPECT_THAT(bodyNode->children, IsEmpty());
+	ASSERT_THAT(bodyNode->children, SizeIs(1));
+	EXPECT_THAT(bodyNode->children[0]->token.type, Eq(TokenType::RBrace));
+}
+
+TEST_F(ForStmtParserTest, Parse_WithStatementInBody_DelegatesBodyToBlockParser) {
+	// "for (var i = 0; i < 3; i = i + 1) { print i; }" -- 빈 블록이 아닌
+	// 실제 문장을 포함한 body가 BlockParser에 위임되어 파싱되는지 검증.
+	TokenList tokenList = {
+		MakeToken(TokenType::KwFor, "for", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 1),
+		MakeToken(TokenType::KwVar, "var", 0, 2),
+		MakeToken(TokenType::Identifier, "i", 0, 3),
+		MakeToken(TokenType::Assign, "=", 0, 4),
+		MakeToken(TokenType::Number, "0", 0, 5),
+		MakeToken(TokenType::Semicolon, ";", 0, 6),
+		MakeToken(TokenType::Identifier, "i", 0, 7),
+		MakeToken(TokenType::Lt, "<", 0, 8),
+		MakeToken(TokenType::Number, "3", 0, 9),
+		MakeToken(TokenType::Semicolon, ";", 0, 10),
+		MakeToken(TokenType::Identifier, "i", 0, 11),
+		MakeToken(TokenType::Assign, "=", 0, 12),
+		MakeToken(TokenType::Identifier, "i", 0, 13),
+		MakeToken(TokenType::Plus, "+", 0, 14),
+		MakeToken(TokenType::Number, "1", 0, 15),
+		MakeToken(TokenType::RParen, ")", 0, 16),
+		MakeToken(TokenType::LBrace, "{", 0, 17),
+		MakeToken(TokenType::Print, "print", 0, 18),
+		MakeToken(TokenType::Identifier, "i", 0, 19),
+		MakeToken(TokenType::Semicolon, ";", 0, 20),
+		MakeToken(TokenType::RBrace, "}", 0, 21),
+		MakeToken(TokenType::EndOfFile, "", 0, 22),
+	};
+
+	EXPECT_CALL(*mockInitParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 5; // 'var', 'i', '=', '0', ';'
+			return std::make_unique<VarDeclareStatementNode>();
+		});
+	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
+		.Times(3)
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 3; // cond: "i < 3"
+			return std::make_unique<BinaryExprNode>();
+		})
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 5; // update: "i = i + 1"
+			return std::make_unique<AssignExprNode>();
+		})
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 1; // print's operand: "i"
+			return std::make_unique<IdentifierNode>();
+		});
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(4));
+
+	// body is the real BlockParser's output: [PrintStmt, '}' marker]
+	const std::unique_ptr<SyntaxNode>& bodyNode = root->children[3];
+	EXPECT_THAT(bodyNode->type, Eq(NodeType::BlockStmt));
+	ASSERT_THAT(bodyNode->children, SizeIs(2));
+	EXPECT_THAT(bodyNode->children[0]->type, Eq(NodeType::PrintStmt));
+	EXPECT_THAT(bodyNode->children[1]->token.type, Eq(TokenType::RBrace));
+	EXPECT_THAT(pos, Eq(tokenList.size() - 1));
 }
 
 TEST_F(ForStmtParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSyntax) {
@@ -311,7 +378,7 @@ TEST_F(ForStmtParserTest, Parse_UnclosedBody_ThrowsOnMalformedSyntax) {
 		MakeToken(TokenType::Identifier, "i", 0, 5),
 		MakeToken(TokenType::RParen, ")", 0, 6),
 		MakeToken(TokenType::LBrace, "{", 0, 7),
-		MakeToken(TokenType::EndOfFile, "", 0, 8),
+		// no EndOfFile sentinel: input truly ends here, with no closing '}'
 	};
 
 	EXPECT_CALL(*mockInitParser, Parse(_, _))
@@ -330,6 +397,8 @@ TEST_F(ForStmtParserTest, Parse_UnclosedBody_ThrowsOnMalformedSyntax) {
 			return std::make_unique<AssignExprNode>();
 		});
 
-	ExpectParseThrows(tokenList, "Expected '}' to close for-loop body at line 0");
+	// Body parsing is now delegated to the real BlockParser (registered for
+	// LBrace), so an unclosed body surfaces BlockParser's own error message.
+	ExpectParseThrows(tokenList, "Expected '}' to close block");
 }
 #endif
