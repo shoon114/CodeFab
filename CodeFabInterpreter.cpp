@@ -20,22 +20,39 @@ int main() {
 	CheckerUnit checker;
 	ExecutorUnit executor;
 
-	// 한 줄 입력 -> Enter 시 그 줄까지 바로 토큰화/파싱/실행해 결과를 출력한다.
+	// 줄 단위로 입력을 누적하다가, 누적된 버퍼를 토큰화했을 때 '{'/'}' 개수가
+	// 맞아떨어지는 시점(블록이 전부 닫힌 시점)에만 그 버퍼 전체를 토큰화/파싱/실행한다.
+	// 이렇게 하지 않으면 블록이 여러 줄에 걸친 입력(if/for 등)이 첫 줄만으로
+	// 파싱을 시도하다가 '}'를 못 찾고 실패한다.
 	// Tokenizer::GetCodeFromUser()는 std::cin을 rdbuf()로 통째로 읽으므로,
-	// 매 줄마다 std::cin을 그 줄만 담은 istringstream으로 잠시 바꿔치기해서 호출한다.
+	// 매번 std::cin을 누적 버퍼만 담은 istringstream으로 잠시 바꿔치기해서 호출한다.
+	std::string buffer;
 	std::string line;
 	while (std::getline(std::cin, line)) {
-		if (line.empty()) {
+		if (buffer.empty() && line.empty()) {
 			continue;
 		}
+		buffer += line + "\n";
 
 		Tokenizer tokenizer;
-		std::istringstream lineInput(line);
-		std::streambuf* originalCinBuffer = std::cin.rdbuf(lineInput.rdbuf());
+		std::istringstream bufferInput(buffer);
+		std::streambuf* originalCinBuffer = std::cin.rdbuf(bufferInput.rdbuf());
 		tokenizer.GetCodeFromUser();
 		std::cin.rdbuf(originalCinBuffer);
 
 		TokenList tokenList = tokenizer.CreateTokenForCode();
+
+		int braceDepth = 0;
+		for (const Token& token : tokenList) {
+			if (token.type == TokenType::LBrace) {
+				braceDepth++;
+			} else if (token.type == TokenType::RBrace) {
+				braceDepth--;
+			}
+		}
+		if (braceDepth > 0) {
+			continue; // 블록이 아직 안 닫혔으니 다음 줄을 더 받는다
+		}
 
 		try {
 			std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
@@ -45,6 +62,7 @@ int main() {
 		} catch (const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 		}
+		buffer.clear();
 	}
 
 	return 0;
