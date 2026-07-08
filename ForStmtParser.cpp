@@ -38,10 +38,16 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	auto updateNode = ResolveAndParse(tokenList, pos, "an update expression in 'for'");
 	ExpectToken(tokenList, pos, TokenType::RParen, "')' after for-loop update expression");
 
-	ExpectToken(tokenList, pos, TokenType::LBrace, "'{' to start for-loop body");
-	ExpectToken(tokenList, pos, TokenType::RBrace, "'}' to close for-loop body"); // empty body for now
-
-	auto bodyNode = std::make_unique<BlockStmtNode>();
+	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::LBrace) {
+		int line = pos < tokenList.size() ? tokenList[pos].line : tokenList.back().line;
+		throw std::runtime_error("Expected '{' to start for-loop body at line " + std::to_string(line));
+	}
+	// The body's '{' ... '}' block (including any statements inside) is
+	// parsed by whatever is registered for LBrace -- in production, the
+	// real BlockParser -- consistent with how init/condition/update
+	// delegate via the registry instead of ForStmtParser re-implementing
+	// block parsing itself.
+	auto bodyNode = ResolveAndParse(tokenList, pos, "'{' to start for-loop body");
 
 	auto forNode = std::make_unique<ForStmtNode>();
 	forNode->token = forToken;
