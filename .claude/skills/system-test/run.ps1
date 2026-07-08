@@ -80,6 +80,7 @@ $cases = @(
     @{ Category = "정적 오류: 초기화식에서 자기 참조"; InputLines = @('{ var a = a; }'); ExpectError = $true }
     @{ Category = "정적 오류: 같은 스코프 중복 선언"; InputLines = @('{ var a = "hi"; var a = 3; }'); ExpectError = $true }
     @{ Category = "런타임 오류: 정의되지 않은 변수 참조"; InputLines = @('print notDefined;'); ExpectError = $true }
+    @{ Category = "런타임 오류: + 연산자에 숫자/문자열 혼용"; InputLines = @('print 1 + "HI";'); ExpectError = $true }
 )
 
 # Piping strings to a native exe (either via the PowerShell pipeline or via
