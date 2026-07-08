@@ -45,7 +45,7 @@ private:
     void EnterScope() { scopeStack.push_back({}); functionScopeStack.push_back({}); classScopeStack.push_back({}); }
     void ExitScope() { scopeStack.pop_back(); functionScopeStack.pop_back(); classScopeStack.pop_back(); }
 
-    bool IsReferencingVar(SyntaxNode* node, const std::string& varName);
+    bool IsReferencingVar(const SyntaxNode* node, const std::string& varName);
     const std::vector<std::string>* LookupFunction(const std::string& name) const;
     const std::optional<std::string>* LookupClass(const std::string& name) const;
     void ReportError(const std::string& message, int line);

@@ -23,18 +23,30 @@ bool CheckerUnit::Check(SyntaxNode* root) {
 }
 
 void CheckerUnit::Visit(const VarDeclareStatementNode& node) {
-    std::string varName = node.token.lexeme;
+    // VarDeclareStatementNode 자신의 token은 항상 'var' 키워드다. 실제 변수
+    // 이름은 children[0]에 있는데(VarDeclareParser 참고), 초기화식이 있으면
+    // children[0]이 AssignExpr(Identifier, initializer)이고, 없으면
+    // children[0]이 Identifier 노드 하나뿐이다.
+    const SyntaxNode& declared = *node.children[0];
+    const SyntaxNode* identifierNode = &declared;
+    const SyntaxNode* initializerNode = nullptr;
+    if (declared.type == NodeType::AssignExpr) {
+        identifierNode = declared.children[0].get();
+        initializerNode = declared.children[1].get();
+    }
+    const std::string& varName = identifierNode->token.lexeme;
+    int line = identifierNode->token.line;
 
     // 1. 중복 선언 검사 (현재 스코프만 확인)
     if (scopeStack.back().count(varName)) {
-        ReportError("변수 '" + varName + "' 중복 선언.", node.token.line);
+        ReportError("변수 '" + varName + "' 중복 선언.", line);
     }
 
-    // 2. 자기 참조 검사: 초기화식 노드(보통 자식 노드에 위치) 탐색
-    // var a = a + 1; 구조에서 우항이 첫 번째 자식이라고 가정
-    if (!node.children.empty()) {
-        if (IsReferencingVar(node.children[0].get(), varName)) {
-            ReportError("자신의 초기화식에서 변수 '" + varName + "'을(를) 참조할 수 없습니다.", node.token.line);
+    // 2. 자기 참조 검사: 초기화식이 있는 경우에만 그 안에서 자기 자신을
+    // 참조하는지 확인한다(초기화식이 없으면 검사할 대상이 없다).
+    if (initializerNode != nullptr) {
+        if (IsReferencingVar(initializerNode, varName)) {
+            ReportError("자신의 초기화식에서 변수 '" + varName + "'을(를) 참조할 수 없습니다.", line);
         }
     }
 
@@ -428,7 +440,7 @@ std::string CheckerUnit::FormatNumber(double value) const {
     return std::to_string(value);
 }
 
-bool CheckerUnit::IsReferencingVar(SyntaxNode* node, const std::string& varName) {
+bool CheckerUnit::IsReferencingVar(const SyntaxNode* node, const std::string& varName) {
     if (!node) return false;
 
     // Identifier 타입이고 이름이 같다면 자기 참조
