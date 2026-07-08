@@ -881,4 +881,140 @@ TEST_F(TokenizerTest, CreateTokenForCode_InstanceofExpression) {
 		TokenType::Semicolon,
 		TokenType::EndOfFile));
 }
+
+// ===== Static array: creation, index write, index read =====
+
+TEST_F(TokenizerTest, SplitIntoWords_ArrayCreationAndIndexAccess) {
+	EXPECT_THAT(SplitWords(
+		"var arr = Array(3);\n"
+		"arr[0] = 10;\n"
+		"print arr[0];\n"),
+		ElementsAre(
+			"var", "arr", "=", "Array", "(", "3", ")", ";",
+			"arr", "[", "0", "]", "=", "10", ";",
+			"print", "arr", "[", "0", "]", ";"));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ArrayCreationProducesExpectedTypeSequence) {
+	TokenList tokens = CreateTokens("var arr = Array(3);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwVar, TokenType::Identifier, TokenType::Assign,
+		TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ArrayIndexWriteProducesExpectedTypeSequence) {
+	TokenList tokens = CreateTokens("arr[0] = 10;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LBracket, TokenType::Number, TokenType::RBracket,
+		TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::EndOfFile));
+
+	EXPECT_EQ(tokens[0].lexeme, "arr");
+	EXPECT_DOUBLE_EQ(tokens[2].realValue, 0.0);
+	EXPECT_DOUBLE_EQ(tokens[5].realValue, 10.0);
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ArrayIndexReadInsidePrint) {
+	TokenList tokens = CreateTokens("print arr[0];\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::Identifier, TokenType::LBracket, TokenType::Number, TokenType::RBracket,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ArrayIndexWriteWithExpressionIndex) {
+	TokenList tokens = CreateTokens(
+		"var i = 2;\n"
+		"arr[i - 1] = 7;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwVar, TokenType::Identifier, TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::Identifier, TokenType::LBracket, TokenType::Identifier, TokenType::Minus, TokenType::Number, TokenType::RBracket,
+		TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+// ===== Static array: lexically-valid-but-semantically-invalid inputs =====
+// (범위 초과/타입 오류 같은 의미 검증은 CheckerUnit/ExecutorUnit 몫이며, 토크나이저는
+//  아래 입력들도 그대로 토큰화만 하면 된다.)
+
+TEST_F(TokenizerTest, CreateTokenForCode_ArrayIndexWithOutOfRangeNumberStillTokenizes) {
+	TokenList tokens = CreateTokens("print arr[5];\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::Identifier, TokenType::LBracket, TokenType::Number, TokenType::RBracket,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ArrayIndexWithStringStillTokenizes) {
+	TokenList tokens = CreateTokens("print arr[\"hello\"];\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::Identifier, TokenType::LBracket, TokenType::String, TokenType::RBracket,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_IndexingNonArrayVariableStillTokenizes) {
+	TokenList tokens = CreateTokens("print x[0];\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::Identifier, TokenType::LBracket, TokenType::Number, TokenType::RBracket,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ArrayCreationWithStringSizeStillTokenizes) {
+	TokenList tokens = CreateTokens("var brr = Array(\"hi\");\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwVar, TokenType::Identifier, TokenType::Assign,
+		TokenType::Identifier, TokenType::LParen, TokenType::String, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
 #endif
