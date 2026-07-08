@@ -1,4 +1,4 @@
-#ifdef _DEBUG
+﻿#ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "ExecutorUnit.h"
 #include "SyntaxNode.h"
