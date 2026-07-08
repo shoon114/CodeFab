@@ -97,8 +97,13 @@ TEST_F(AssemblerUnitTest, Parse_VarDeclare_DelegatesToRegisteredParser) {
 
 	std::unique_ptr<SyntaxNode> root = assembler.Parse(tokenList);
 
+	// AssemblerUnit wraps every top-level statement in a Program node so
+	// ExecutorUnit::Execute (which only runs NodeType::Program trees) can
+	// execute multi-statement input.
 	ASSERT_THAT(root, NotNull());
-	EXPECT_THAT(root->type, Eq(NodeType::VarDeclareStatement));
+	ASSERT_THAT(root->type, Eq(NodeType::Program));
+	ASSERT_THAT(root->children, SizeIs(1));
+	EXPECT_THAT(root->children[0]->type, Eq(NodeType::VarDeclareStatement));
 }
 
 TEST_F(AssemblerUnitTest, Parse_ExpressionTest) {
@@ -109,11 +114,14 @@ TEST_F(AssemblerUnitTest, Parse_ExpressionTest) {
 
 	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			pos += 3; // consume 'a', '+', '1'
+			pos += 4; // consume 'a', '+', '1', ';'
 			return nullptr;
 		});
 
-	assembler.Parse(tokenList);
+	std::unique_ptr<SyntaxNode> root = assembler.Parse(tokenList);
+
+	ASSERT_THAT(root, NotNull());
+	EXPECT_THAT(root->type, Eq(NodeType::Program));
 }
 
 #endif
