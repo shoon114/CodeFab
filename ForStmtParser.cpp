@@ -38,7 +38,7 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	auto updateNode = ResolveAndParse(tokenList, pos, "an update expression in 'for'");
 	ExpectToken(tokenList, pos, TokenType::RParen, "')' after for-loop update expression");
 
-	pos++; // '{'
+	ExpectToken(tokenList, pos, TokenType::LBrace, "'{' to start for-loop body");
 	pos++; // '}'  (empty body for now)
 
 	auto bodyNode = std::make_unique<BlockStmtNode>();
