@@ -1,4 +1,5 @@
 #ifdef _DEBUG
+#include <stdexcept>
 #include "gmock/gmock.h"
 #include "ReturnStatementParser.h"
 #include "MockStatementParser.h"
@@ -83,5 +84,51 @@ TEST_F(ReturnStatementParserTest, Parse_BareReturn_HasNoExpressionChild) {
 	EXPECT_THAT(root->type, Eq(NodeType::ReturnStmt));
 	EXPECT_THAT(root->token.lexeme, Eq(RETURN));
 	EXPECT_THAT(root->children, SizeIs(0));
+}
+
+// return a + b  -- 표현식 뒤 ';' 누락
+TEST_F(ReturnStatementParserTest, Parse_MissingSemicolonAfterExpression_ThrowsOnMalformedSyntax) {
+	TokenList tokenList = {
+		MakeToken(TokenType::KwReturn, RETURN, 1, 0),
+		MakeToken(TokenType::Identifier, "a", 1, 1),
+		MakeToken(TokenType::Plus, "+", 1, 2),
+		MakeToken(TokenType::Identifier, "b", 1, 3),
+		MakeToken(TokenType::EndOfFile, "", 1, 4),
+	};
+
+	EXPECT_CALL(*mockExprParser, Parse(_, _))
+		.Times(1)
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			auto node = std::make_unique<BinaryExprNode>();
+			node->token = tokens[pos];
+			pos += 3;
+			return node;
+		});
+
+	size_t pos = 0;
+	try {
+		parser.Parse(tokenList, pos);
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_STREQ(e.what(), "Expected ';' after return statement at line 1");
+	}
+}
+
+// return  -- 'return' 뒤에 표현식도 ';'도 없이 바로 끝남
+TEST_F(ReturnStatementParserTest, Parse_NothingAfterReturn_ThrowsOnMalformedSyntax) {
+	TokenList tokenList = {
+		MakeToken(TokenType::KwReturn, RETURN, 1, 0),
+		MakeToken(TokenType::EndOfFile, "", 1, 1),
+	};
+
+	size_t pos = 0;
+	try {
+		parser.Parse(tokenList, pos);
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_STREQ(e.what(), "Expected ';' after return statement at line 1");
+	}
 }
 #endif
