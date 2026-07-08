@@ -2,6 +2,7 @@
 #include "NodeVisitor.h"
 #include "SyntaxNode.h"
 #include "Value.h"
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -31,8 +32,25 @@ public:
 	void Visit(const CallExprNode& node) override;
 	void Visit(const ArrExprNode& node) override;
 	void Visit(const IndexExprNode& node) override;
+	void Visit(const ThisExprNode& node) override;
+	void Visit(const SuperExprNode& node) override;
+	void Visit(const MemberAccessExprNode& node) override;
+	void Visit(const ClassDeclStmtNode& node) override;
 
 private:
+	// 클래스 하나의 런타임 정보: 부모 이름(없으면 nullopt) + 메서드 이름 -> AST(FuncDeclStmtNode) 포인터.
+	// 트리는 Execute() 호출 동안 계속 살아있으므로 raw pointer로 충분하다(FunctionObject::body와 동일한 관례).
+	struct ClassInfo {
+		std::optional<std::string> parentName;
+		std::unordered_map<std::string, const SyntaxNode*> methods;
+	};
+
+	// FindMethod의 결과: 실제로 메서드를 찾았는지, 그리고 그 메서드가 어느 클래스에
+	// "정의"되어 있는지(Super 호출 시 이 값을 기준으로 그 부모부터 다시 찾아야 한다).
+	struct ResolvedMethod {
+		const SyntaxNode* method = nullptr;
+		std::string owningClassName;
+	};
 	void ExecuteStmt(const SyntaxNode& node);
 	Value_t Evaluate(const SyntaxNode& node);
 
@@ -51,6 +69,9 @@ private:
 	Value_t EvaluateUnaryExpr(const UnaryExprNode& node);
 	Value_t EvaluateArrExpr(const SyntaxNode& node);
 	Value_t EvaluateIndexExpr(const SyntaxNode& node);
+	Value_t EvaluateCallExpr(const CallExprNode& node);
+	Value_t EvaluateMethodCall(const CallExprNode& node);
+	Value_t EvaluateMemberAccess(const MemberAccessExprNode& node);
 
 	void EnterScope();
 	void ExitScope();
@@ -65,8 +86,32 @@ private:
 	bool IsTruthy(const Value_t& value);
 	void EnsureNonZeroDivisor(double divisor, int line);
 
+	// r.field = value; / this.field = value; 등 MemberAccessExprNode를 대입 대상으로
+	// 쓸 때 호출된다. 필드가 없으면 새로 생성한다(슬라이드 "필드 쓰기" 명세).
+	void AssignMemberField(const MemberAccessExprNode& node, const Value_t& value);
+	// Robot(...) / Robot("AndOr", 10)처럼 클래스 이름을 호출해 인스턴스를 생성한다.
+	// init 메서드가 있으면 callNode의 인자로 즉시 호출한다.
+	Value_t InstantiateClass(const std::string& className, const SyntaxNode& callNode);
+	// 메서드(또는 init) 본문 하나를 this/파라미터를 바인딩한 새 스코프에서 실행한다.
+	// return문은 ReturnSignal 예외로 구현되어 있어 이 함수가 잡아 반환값으로 변환한다.
+	Value_t InvokeMethod(const SyntaxNode& methodNode, const std::string& owningClassName,
+		std::shared_ptr<InstanceObject> instance, const std::vector<Value_t>& args);
+	// startClassName부터 부모 방향으로 올라가며 methodName을 찾는다. Super 호출은
+	// startClassName으로 "현재 메서드가 정의된 클래스의 부모"를 넘겨 받아 재사용한다.
+	ResolvedMethod FindMethod(const std::string& startClassName, const std::string& methodName) const;
+	// actualClassName이 targetClassName 자신이거나, 그 조상 클래스 중 하나인지 검사한다.
+	bool IsInstanceOf(const std::string& actualClassName, const std::string& targetClassName) const;
+
 	// scopes[0]이 Global 스코프, 이후 요소는 BlockStmt 진입마다 추가되는 Local 스코프.
 	std::vector<std::unordered_map<std::string, Value_t>> scopes;
+
+	// 클래스 이름 -> 런타임 정보. ClassDeclStmtNode를 실행(Visit)할 때 등록된다.
+	std::unordered_map<std::string, ClassInfo> classes;
+	// 현재 실행 중인 메서드들의 this 인스턴스 스택(메서드 호출마다 push/pop).
+	std::vector<std::shared_ptr<InstanceObject>> thisStack;
+	// 현재 실행 중인 메서드가 "정의된" 클래스 이름 스택(인스턴스의 실제 클래스가 아니라
+	// lexical하게 그 메서드를 담고 있는 클래스 — Super 호출의 시작점을 정하는 데 쓰인다).
+	std::vector<std::string> currentClassNameStack;
 
 	// Evaluate()가 Accept()를 통해 식 노드를 방문한 뒤 결과를 꺼내가는 임시 저장소.
 	Value_t lastValue;

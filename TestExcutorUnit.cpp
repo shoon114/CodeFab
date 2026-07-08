@@ -170,6 +170,118 @@ namespace {
 		return node;
 	}
 
+	// this
+	std::unique_ptr<SyntaxNode> MakeThisExpr(int line = 1) {
+		auto node = std::make_unique<ThisExprNode>();
+		node->token.type = TokenType::KwThis;
+		node->token.lexeme = "this";
+		node->token.line = line;
+		return node;
+	}
+
+	// Super
+	std::unique_ptr<SyntaxNode> MakeSuperExpr(int line = 1) {
+		auto node = std::make_unique<SuperExprNode>();
+		node->token.type = TokenType::KwSuper;
+		node->token.lexeme = "Super";
+		node->token.line = line;
+		return node;
+	}
+
+	// <target>.<memberName>
+	std::unique_ptr<SyntaxNode> MakeMemberAccess(std::unique_ptr<SyntaxNode> target, const std::string& memberName, int line = 1) {
+		auto node = std::make_unique<MemberAccessExprNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = memberName;
+		node->token.line = line;
+		node->children.push_back(std::move(target));
+		return node;
+	}
+
+	// <memberAccess> = <value> (예: r.speed = 10;). 대입 대상 노드를 그대로 받는다.
+	std::unique_ptr<SyntaxNode> MakeMemberAssignExpr(std::unique_ptr<SyntaxNode> memberAccess, std::unique_ptr<SyntaxNode> value, int line = 1) {
+		auto node = std::make_unique<AssignExprNode>();
+		node->token.type = TokenType::Assign;
+		node->token.lexeme = "=";
+		node->token.line = line;
+		node->children.push_back(std::move(memberAccess));
+		node->children.push_back(std::move(value));
+		return node;
+	}
+
+	// <name>(<params>...) { <body> } — 클래스 메서드/생성자(init) 선언.
+	// FuncDeclStmtNode를 그대로 재사용한다: children = [파라미터(Identifier)..., body(BlockStmt)].
+	std::unique_ptr<SyntaxNode> MakeMethodDecl(const std::string& name, std::vector<std::string> params,
+		std::unique_ptr<SyntaxNode> body, int line = 1) {
+		auto node = std::make_unique<FuncDeclStmtNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = name;
+		node->token.line = line;
+		for (const auto& param : params) {
+			node->children.push_back(MakeIdentifier(param, line));
+		}
+		node->children.push_back(std::move(body));
+		return node;
+	}
+
+	// Class <name> [: <parentName>] { <methods>... }. parentName이 빈 문자열이면 부모 없음.
+	std::unique_ptr<SyntaxNode> MakeClassDecl(const std::string& name, const std::string& parentName,
+		std::vector<std::unique_ptr<SyntaxNode>> methods, int line = 1) {
+		auto node = std::make_unique<ClassDeclStmtNode>();
+		node->token.type = TokenType::KwClass;
+		node->token.lexeme = name;
+		node->token.line = line;
+		if (!parentName.empty()) {
+			node->parentNameToken.type = TokenType::Identifier;
+			node->parentNameToken.lexeme = parentName;
+			node->parentNameToken.line = line;
+		}
+		for (auto& method : methods) {
+			node->children.push_back(std::move(method));
+		}
+		return node;
+	}
+
+	// <className>(<args>...) — 클래스 이름을 함수처럼 호출해 인스턴스를 생성한다(Robot()).
+	// 기존 CallExprNode 구조 그대로: token.lexeme = 클래스 이름, children = 인자들.
+	std::unique_ptr<SyntaxNode> MakeInstantiateExpr(const std::string& className,
+		std::vector<std::unique_ptr<SyntaxNode>> args = {}, int line = 1) {
+		auto node = std::make_unique<CallExprNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = className;
+		node->token.line = line;
+		for (auto& arg : args) {
+			node->children.push_back(std::move(arg));
+		}
+		return node;
+	}
+
+	// <target>.<methodName>(<args>...) — 메서드 호출. children[0]이 MemberAccessExprNode면
+	// 메서드 호출로 처리한다는 ExecutorUnit의 관례를 따른다: children[0] = 대상.메서드, 나머지 = 인자.
+	std::unique_ptr<SyntaxNode> MakeMethodCallExpr(std::unique_ptr<SyntaxNode> target, const std::string& methodName,
+		std::vector<std::unique_ptr<SyntaxNode>> args = {}, int line = 1) {
+		auto node = std::make_unique<CallExprNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = methodName;
+		node->token.line = line;
+		node->children.push_back(MakeMemberAccess(std::move(target), methodName, line));
+		for (auto& arg : args) {
+			node->children.push_back(std::move(arg));
+		}
+		return node;
+	}
+
+	// <instanceExpr> instanceof <className>. 우변은 값으로 평가되지 않는 클래스 이름이므로
+	// 그냥 Identifier로 표현한다(변수로 조회되지 않음).
+	std::unique_ptr<SyntaxNode> MakeInstanceofExpr(std::unique_ptr<SyntaxNode> instanceExpr, const std::string& className, int line = 1) {
+		auto node = std::make_unique<BinaryExprNode>();
+		node->token.type = TokenType::KwInstanceof;
+		node->token.line = line;
+		node->children.push_back(std::move(instanceExpr));
+		node->children.push_back(MakeIdentifier(className, line));
+		return node;
+	}
+
 }
 
 // 모든 ExecutorUnitTest 케이스가 공유하는 실행/검증 로직을 헬퍼로 모아
@@ -759,5 +871,215 @@ TEST_F(ExecutorUnitTest, Execute_IndexNonInteger_ThrowsRuntimeError) {
 	);
 
 	ExpectRuntimeError(*program, "Array index out of range at line 1");
+}
+
+// ---- 클래스(Class) 관련 테스트 ----
+
+// Class Robot { } var r = Robot(); r.name = "SpeedRobot"; r.speed = 10; print r.name;
+TEST_F(ExecutorUnitTest, Execute_FieldWriteThenRead_PrintsAssignedValue) {
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", {}),
+		MakeVarDeclStmt("r", MakeInstantiateExpr("Robot")),
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeIdentifier("r"), "name"), MakeStringLiteral("SpeedRobot"))),
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeIdentifier("r"), "speed"), MakeNumberLiteral(10))),
+		MakePrintStmt(MakeMemberAccess(MakeIdentifier("r"), "name"))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("SpeedRobot"));
+}
+
+// r.speed = 10; r.speed = r.speed + 5; print r.speed; -> 15 (필드 갱신)
+TEST_F(ExecutorUnitTest, Execute_FieldUpdate_AddsToExistingValue) {
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", {}),
+		MakeVarDeclStmt("r", MakeInstantiateExpr("Robot")),
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeIdentifier("r"), "speed"), MakeNumberLiteral(10))),
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeIdentifier("r"), "speed"),
+			MakeBinaryExpr(TokenType::Plus, MakeMemberAccess(MakeIdentifier("r"), "speed"), MakeNumberLiteral(5)))),
+		MakePrintStmt(MakeMemberAccess(MakeIdentifier("r"), "speed"))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("15"));
+}
+
+// Class Robot {} var r = Robot(); print r.power; -> 존재하지 않는 필드를 읽으면 런타임 오류.
+TEST_F(ExecutorUnitTest, Execute_ReadUndefinedField_ThrowsRuntimeError) {
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", {}),
+		MakeVarDeclStmt("r", MakeInstantiateExpr("Robot")),
+		MakePrintStmt(MakeMemberAccess(MakeIdentifier("r"), "power", 1), 1)
+	);
+
+	ExpectRuntimeError(*program, "존재하지 않는 필드");
+}
+
+// Class Robot { move(dist) { this.position = this.position + dist; } report() { print this.position; } }
+// var r = Robot(); r.position = 0; r.move(5); r.report(); -> "5"
+TEST_F(ExecutorUnitTest, Execute_MethodWithThis_MutatesAndReadsOwnField) {
+	auto moveBody = MakeBlockStmt(
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeThisExpr(), "position"),
+			MakeBinaryExpr(TokenType::Plus, MakeMemberAccess(MakeThisExpr(), "position"), MakeIdentifier("dist"))))
+	);
+	auto reportBody = MakeBlockStmt(MakePrintStmt(MakeMemberAccess(MakeThisExpr(), "position")));
+
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeMethodDecl("move", { "dist" }, std::move(moveBody)));
+	methods.push_back(MakeMethodDecl("report", {}, std::move(reportBody)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> args;
+	args.push_back(MakeNumberLiteral(5));
+
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", std::move(methods)),
+		MakeVarDeclStmt("r", MakeInstantiateExpr("Robot")),
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeIdentifier("r"), "position"), MakeNumberLiteral(0))),
+		MakeExprStmt(MakeMethodCallExpr(MakeIdentifier("r"), "move", std::move(args))),
+		MakeExprStmt(MakeMethodCallExpr(MakeIdentifier("r"), "report"))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("5"));
+}
+
+// Class Robot { init(name, speed) { this.name = name; this.speed = speed; } }
+// var r = Robot("AndOr", 10); print r.name; -> "AndOr"
+TEST_F(ExecutorUnitTest, Execute_ConstructorInit_BindsArgsToFields) {
+	auto initBody = MakeBlockStmt(
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeThisExpr(), "name"), MakeIdentifier("name"))),
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeThisExpr(), "speed"), MakeIdentifier("speed")))
+	);
+
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeMethodDecl("init", { "name", "speed" }, std::move(initBody)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> args;
+	args.push_back(MakeStringLiteral("AndOr"));
+	args.push_back(MakeNumberLiteral(10));
+
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", std::move(methods)),
+		MakeVarDeclStmt("r", MakeInstantiateExpr("Robot", std::move(args))),
+		MakePrintStmt(MakeMemberAccess(MakeIdentifier("r"), "name"))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("AndOr"));
+}
+
+// Class Robot { move(dist) { print "move"; } }
+// Class SpeedRobot : Robot { move(dist) { Super.move(dist); print "Speeeed!"; } }
+// SpeedRobot().move(3); -> "moveSpeeeed!" (Super로 부모 메서드를 먼저 호출한 뒤 자기 코드 실행)
+TEST_F(ExecutorUnitTest, Execute_SuperCall_InvokesParentMethodThenContinues) {
+	auto parentMoveBody = MakeBlockStmt(MakePrintStmt(MakeStringLiteral("move")));
+	std::vector<std::unique_ptr<SyntaxNode>> parentMethods;
+	parentMethods.push_back(MakeMethodDecl("move", { "dist" }, std::move(parentMoveBody)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> superArgs;
+	superArgs.push_back(MakeIdentifier("dist"));
+	auto childMoveBody = MakeBlockStmt(
+		MakeExprStmt(MakeMethodCallExpr(MakeSuperExpr(), "move", std::move(superArgs))),
+		MakePrintStmt(MakeStringLiteral("Speeeed!"))
+	);
+	std::vector<std::unique_ptr<SyntaxNode>> childMethods;
+	childMethods.push_back(MakeMethodDecl("move", { "dist" }, std::move(childMoveBody)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> callArgs;
+	callArgs.push_back(MakeNumberLiteral(3));
+
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", std::move(parentMethods)),
+		MakeClassDecl("SpeedRobot", "Robot", std::move(childMethods)),
+		MakeExprStmt(MakeMethodCallExpr(MakeInstantiateExpr("SpeedRobot"), "move", std::move(callArgs)))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("moveSpeeeed!"));
+}
+
+// Class Robot { init(name) { this.name = name; } }
+// Class SpeedRobot : Robot { init(name) { Super.init(name); } }
+// var w = SpeedRobot("Sam");
+// print (w instanceof SpeedRobot); print (w instanceof Robot); -> "truetrue"
+TEST_F(ExecutorUnitTest, Execute_Instanceof_TrueForSelfAndAncestor) {
+	auto parentInitBody = MakeBlockStmt(
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeThisExpr(), "name"), MakeIdentifier("name")))
+	);
+	std::vector<std::unique_ptr<SyntaxNode>> parentMethods;
+	parentMethods.push_back(MakeMethodDecl("init", { "name" }, std::move(parentInitBody)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> superArgs;
+	superArgs.push_back(MakeIdentifier("name"));
+	auto childInitBody = MakeBlockStmt(
+		MakeExprStmt(MakeMethodCallExpr(MakeSuperExpr(), "init", std::move(superArgs)))
+	);
+	std::vector<std::unique_ptr<SyntaxNode>> childMethods;
+	childMethods.push_back(MakeMethodDecl("init", { "name" }, std::move(childInitBody)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> ctorArgs;
+	ctorArgs.push_back(MakeStringLiteral("Sam"));
+
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", std::move(parentMethods)),
+		MakeClassDecl("SpeedRobot", "Robot", std::move(childMethods)),
+		MakeVarDeclStmt("w", MakeInstantiateExpr("SpeedRobot", std::move(ctorArgs))),
+		MakePrintStmt(MakeInstanceofExpr(MakeIdentifier("w"), "SpeedRobot")),
+		MakePrintStmt(MakeInstanceofExpr(MakeIdentifier("w"), "Robot"))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("truetrue"));
+}
+
+// var x = 10; print (x instanceof Robot); -> 인스턴스가 아니면 항상 false.
+TEST_F(ExecutorUnitTest, Execute_Instanceof_FalseForNonInstance) {
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", {}),
+		MakeVarDeclStmt("x", MakeNumberLiteral(10)),
+		MakePrintStmt(MakeInstanceofExpr(MakeIdentifier("x"), "Robot"))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("false"));
+}
+
+// var x = 10; x.move(); -> 인스턴스가 아닌 값의 메서드를 호출하면 런타임 오류.
+TEST_F(ExecutorUnitTest, Execute_MethodCallOnNonInstance_ThrowsRuntimeError) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("x", MakeNumberLiteral(10)),
+		MakeExprStmt(MakeMethodCallExpr(MakeIdentifier("x"), "move", {}, 1), 1)
+	);
+
+	ExpectRuntimeError(*program, "인스턴스가 아닌 값의 메서드");
+}
+
+// Class Robot {} var r = Robot(); r.notExist(); -> 존재하지 않는 메서드를 호출하면 런타임 오류.
+TEST_F(ExecutorUnitTest, Execute_CallUndefinedMethod_ThrowsRuntimeError) {
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", {}),
+		MakeVarDeclStmt("r", MakeInstantiateExpr("Robot")),
+		MakeExprStmt(MakeMethodCallExpr(MakeIdentifier("r"), "notExist", {}, 1), 1)
+	);
+
+	ExpectRuntimeError(*program, "존재하지 않는 메서드");
+}
+
+// var x = "hello"; print x.field; -> 인스턴스가 아닌 값에 멤버 접근하면 런타임 오류
+// (변수를 거치는 경우라 CheckerUnit은 잡지 않고 여기 ExecutorUnit이 처리한다).
+TEST_F(ExecutorUnitTest, Execute_MemberAccessOnNonInstanceVariable_ThrowsRuntimeError) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("x", MakeStringLiteral("hello")),
+		MakePrintStmt(MakeMemberAccess(MakeIdentifier("x"), "field", 1), 1)
+	);
+
+	ExpectRuntimeError(*program, "인스턴스가 아닌 값에 멤버");
+}
+
+// var a = Robot(); var b = a; b.speed = 10; print a.speed;
+// 인스턴스는 shared_ptr<InstanceObject>로 다뤄지므로 변수 대입은 참조를 공유한다(배열과 동일한 의미).
+TEST_F(ExecutorUnitTest, Execute_InstanceAssignedToAnotherVariable_SharesUnderlyingStorage) {
+	auto program = MakeProgram(
+		MakeClassDecl("Robot", "", {}),
+		MakeVarDeclStmt("a", MakeInstantiateExpr("Robot")),
+		MakeVarDeclStmt("b", MakeIdentifier("a")),
+		MakeExprStmt(MakeMemberAssignExpr(MakeMemberAccess(MakeIdentifier("b"), "speed"), MakeNumberLiteral(10))),
+		MakePrintStmt(MakeMemberAccess(MakeIdentifier("a"), "speed"))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("10"));
 }
 #endif

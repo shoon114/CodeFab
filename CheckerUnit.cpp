@@ -7,8 +7,12 @@ bool CheckerUnit::Check(SyntaxNode* root) {
     if (!root) return true;
     scopeStack.clear();
     functionScopeStack.clear();
+    classScopeStack.clear();
     hasError = false;
     functionDepth = 0;
+    classMethodDepth = 0;
+    insideInit = false;
+    classHasParentStack.clear();
     EnterScope(); // Global 스코프
     root->Accept(*this);
     ExitScope();
@@ -82,6 +86,8 @@ void CheckerUnit::Visit(const FuncDeclStmtNode& node) {
 void CheckerUnit::Visit(const ReturnStmtNode& node) {
     if (functionDepth == 0) {
         ReportError("return문은 함수 내부에서만 사용할 수 있습니다.", node.token.line);
+    } else if (insideInit) {
+        ReportError("생성자(init)에서는 return을 사용할 수 없습니다.", node.token.line);
     }
     Traverse(node);
 }
@@ -253,7 +259,7 @@ void CheckerUnit::Visit(const IndexExprNode& node) {
     const SyntaxNode& arrayExpr = *node.children[0];
     const SyntaxNode& indexExpr = *node.children[1];
 
-    if (IsObviouslyNotArray(arrayExpr)) {
+    if (IsObviouslyScalarLiteral(arrayExpr)) {
         ReportError("배열이 아닌 값에 '[]'를 사용할 수 없습니다.", node.token.line);
     }
 
@@ -281,7 +287,128 @@ void CheckerUnit::Visit(const IndexExprNode& node) {
     }
 }
 
-bool CheckerUnit::IsObviouslyNotArray(const SyntaxNode& node) const {
+void CheckerUnit::Visit(const ThisExprNode& node) {
+    if (classMethodDepth == 0) {
+        ReportError("클래스 외부에서 'this'를 사용할 수 없습니다.", node.token.line);
+    }
+}
+
+void CheckerUnit::Visit(const SuperExprNode& node) {
+    if (classMethodDepth == 0) {
+        ReportError("클래스 외부에서 'Super'를 사용할 수 없습니다.", node.token.line);
+        return;
+    }
+    if (classHasParentStack.empty() || !classHasParentStack.back()) {
+        ReportError("부모 클래스가 없는 클래스에서 'Super'를 사용할 수 없습니다.", node.token.line);
+    }
+}
+
+void CheckerUnit::Visit(const MemberAccessExprNode& node) {
+    Traverse(node);
+
+    // 리터럴 기반 확정 오류만 잡는다: "hello".field 처럼 대상이 명백히 인스턴스가
+    // 아닌 리터럴인 경우만 여기서 검사하고, 변수를 거치는 경우(var x = "hello"; x.field)는
+    // 값 흐름 추적이 필요해 실행 시점(ExecutorUnit)에 맡긴다.
+    const SyntaxNode& target = *node.children[0];
+    if (IsObviouslyScalarLiteral(target)) {
+        ReportError("인스턴스가 아닌 값에 멤버 '" + node.token.lexeme + "'로 접근할 수 없습니다.", node.token.line);
+    }
+}
+
+void CheckerUnit::Visit(const ClassDeclStmtNode& node) {
+    const std::string& className = node.token.lexeme;
+    const std::string& parentName = node.parentNameToken.lexeme;
+    bool hasParent = !parentName.empty();
+
+    // 1. 클래스 이름 중복 선언 검사 (현재 스코프만 확인)
+    if (classScopeStack.back().count(className)) {
+        ReportError("클래스 '" + className + "' 중복 선언.", node.token.line);
+    }
+
+    // 2. 자기 자신 상속 검사
+    if (hasParent && parentName == className) {
+        ReportError("클래스 '" + className + "'은(는) 자기 자신을 상속할 수 없습니다.", node.token.line);
+    } else if (hasParent) {
+        // 3. 클래스가 아닌 대상/정의되지 않은 대상을 상속했는지 검사
+        if (!LookupClass(parentName)) {
+            bool isVar = false;
+            for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
+                if (it->count(parentName)) { isVar = true; break; }
+            }
+            if (isVar) {
+                ReportError("'" + parentName + "'은(는) 클래스가 아니므로 상속할 수 없습니다.", node.token.line);
+            } else {
+                ReportError("정의되지 않은 클래스 '" + parentName + "'을(를) 상속했습니다.", node.token.line);
+            }
+        }
+    }
+
+    // 4. 검사 후 현재 스코프에 등록(자기 자신을 포함해 재귀적으로 인스턴스를 참조하는
+    // 메서드 본문을 검사할 수 있도록 메서드 검사 전에 등록한다)
+    classScopeStack.back()[className] = hasParent ? std::optional<std::string>(parentName) : std::nullopt;
+
+    // 5. 메서드 이름 중복 검사
+    std::unordered_set<std::string> seenMethods;
+    for (const auto& methodNode : node.children) {
+        const std::string& methodName = methodNode->token.lexeme;
+        if (seenMethods.count(methodName)) {
+            ReportError("클래스 '" + className + "'에 메서드 '" + methodName + "'이(가) 중복 선언되었습니다.", methodNode->token.line);
+        }
+        seenMethods.insert(methodName);
+    }
+
+    // 6. 각 메서드 본문을 this/Super/return(init) 컨텍스트를 갖춰 검사
+    classHasParentStack.push_back(hasParent);
+    for (const auto& methodNode : node.children) {
+        CheckClassMethod(*methodNode, className);
+    }
+    classHasParentStack.pop_back();
+}
+
+void CheckerUnit::CheckClassMethod(const SyntaxNode& methodNode, const std::string& className) {
+    const std::string& methodName = methodNode.token.lexeme;
+
+    if (methodNode.children.empty()) {
+        ReportError("클래스 '" + className + "'의 메서드 '" + methodName + "'에 본문이 없습니다.", methodNode.token.line);
+        return;
+    }
+
+    // FuncDeclStmtNode와 동일한 구조: 마지막 child가 body(BlockStmt), 그 앞은 파라미터.
+    // 메서드는 일반 함수 호출 네임스페이스(functionScopeStack)에는 등록하지 않는다 —
+    // r.move(...)처럼 반드시 인스턴스를 통해서만 호출 가능해야 하며, 전역 함수와
+    // 이름이 같아도 서로 간섭하면 안 되기 때문이다.
+    const SyntaxNode* body = methodNode.children.back().get();
+
+    std::unordered_set<std::string> seenParams;
+    std::vector<std::string> paramNames;
+    for (size_t i = 0; i + 1 < methodNode.children.size(); ++i) {
+        const std::string& paramName = methodNode.children[i]->token.lexeme;
+        if (seenParams.count(paramName)) {
+            ReportError("클래스 '" + className + "'의 메서드 '" + methodName + "'의 파라미터 이름 '" + paramName + "'이(가) 중복되었습니다.", methodNode.token.line);
+        }
+        seenParams.insert(paramName);
+        paramNames.push_back(paramName);
+    }
+
+    bool isInit = (methodName == "init");
+    bool previousInsideInit = insideInit;
+    insideInit = isInit;
+    functionDepth++;   // return문이 유효하도록 "함수(메서드) 내부" 컨텍스트로 취급
+    classMethodDepth++; // this/Super가 유효하도록 "클래스 메서드 내부" 컨텍스트로 취급
+
+    EnterScope();
+    for (const auto& paramName : paramNames) {
+        scopeStack.back().insert(paramName);
+    }
+    body->Accept(*this);
+    ExitScope();
+
+    classMethodDepth--;
+    functionDepth--;
+    insideInit = previousInsideInit;
+}
+
+bool CheckerUnit::IsObviouslyScalarLiteral(const SyntaxNode& node) const {
     return node.type == NodeType::NumberLiteral ||
         node.type == NodeType::StringLiteral ||
         node.type == NodeType::BoolLiteral;
@@ -315,6 +442,14 @@ bool CheckerUnit::IsReferencingVar(SyntaxNode* node, const std::string& varName)
 
 const std::vector<std::string>* CheckerUnit::LookupFunction(const std::string& name) const {
     for (auto it = functionScopeStack.rbegin(); it != functionScopeStack.rend(); ++it) {
+        auto found = it->find(name);
+        if (found != it->end()) return &found->second;
+    }
+    return nullptr;
+}
+
+const std::optional<std::string>* CheckerUnit::LookupClass(const std::string& name) const {
+    for (auto it = classScopeStack.rbegin(); it != classScopeStack.rend(); ++it) {
         auto found = it->find(name);
         if (found != it->end()) return &found->second;
     }
