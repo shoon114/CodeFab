@@ -65,7 +65,7 @@ int main() {
 		// 그렇지 않으면 계속 버퍼링한다.
 		bool endsWithSemicolon = tokenList.size() >= 2
 			&& tokenList[tokenList.size() - 2].type == TokenType::Semicolon;
-		if (!sawOpenBrace && !endsWithSemicolon) {
+		if (!(sawOpenBrace || endsWithSemicolon)) {
 			continue;
 		}
 
