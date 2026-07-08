@@ -16,6 +16,10 @@ enum class TokenType {
 	KwTrue,
 	KwFalse,
 	Print,
+	KwClass,
+	KwThis,
+	KwSuper,
+	KwInstanceof,
 
 	Plus,
 	Minus,
@@ -41,6 +45,8 @@ enum class TokenType {
 	RBracket,
 	Comma,
 	Semicolon,
+	Dot,
+	Colon,
 
 	EndOfFile
 };
