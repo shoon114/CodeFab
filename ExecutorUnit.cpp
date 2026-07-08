@@ -40,19 +40,19 @@ Value_t& ExecutorUnit::ResolveVariable(const std::string& name, int distance, in
 			return found->second;
 		}
 	}
-	throw std::runtime_error("[" + std::to_string(line) + "번째줄] 미정의된 변수 '" + name + "'");
+	throw std::runtime_error("Undefined variable '" + name + "' at line " + std::to_string(line));
 }
 
 double ExecutorUnit::AsNumber(const Value_t& value, int line) {
 	if (!std::holds_alternative<double>(value)) {
-		throw std::runtime_error("[" + std::to_string(line) + "번째줄] 피연산자는 반드시 숫자여야 한다.");
+		throw std::runtime_error("Operand must be a number at line " + std::to_string(line));
 	}
 	return std::get<double>(value);
 }
 
 void ExecutorUnit::EnsureNonZeroDivisor(double divisor, int line) {
 	if (divisor == 0.0) {
-		throw std::runtime_error("[" + std::to_string(line) + "번째줄] 0으로 나눈 오류");
+		throw std::runtime_error("Division by zero at line " + std::to_string(line));
 	}
 }
 
@@ -101,7 +101,7 @@ void ExecutorUnit::Visit(const BinaryExprNode& node) { lastValue = EvaluateBinar
 void ExecutorUnit::Visit(const UnaryExprNode& node) { lastValue = EvaluateUnaryExpr(node); }
 
 void ExecutorUnit::Visit(const CallExprNode& node) {
-	throw std::runtime_error("함수 호출은 아직 지원되지 않습니다 at line " + std::to_string(node.token.line));
+	throw std::runtime_error("Function calls are not supported yet at line " + std::to_string(node.token.line));
 }
 
 void ExecutorUnit::Visit(const ArrExprNode& node) { lastValue = EvaluateArrExpr(node); }
