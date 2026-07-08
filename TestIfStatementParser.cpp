@@ -194,4 +194,34 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 
 	ExpectParseThrows(tokenList, "Expected ')' after if-condition at line 1");
 }
+
+TEST_F(IfStatementParserTest, Parse_MissingCondition_ThrowsOnMalformedSyntax) {
+	// if () { }   -- 조건식 누락
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+
+	ExpectParseThrows(tokenList, "Expected a condition expression in 'if' at line 1");
+}
+
+TEST_F(IfStatementParserTest, Parse_MissingBody_ThrowsOnMalformedSyntax) {
+	// if (a > 3)   -- 본문 '{' 누락
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+
+	ExpectParseThrows(tokenList, "Expected '{' to start if-body at line 1");
+}
 #endif
