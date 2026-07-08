@@ -152,4 +152,16 @@ TEST_F(ForStmtParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSyntax) {
 
 	ExpectParseThrows(tokenList, "Expected '(' after 'for' at line 0");
 }
+
+TEST_F(ForStmtParserTest, Parse_MissingInitializer_ThrowsOnMalformedSyntax) {
+	// "for (; i < 3; i = i + 1) {}" -- 초기화 문 누락 (';'는 등록된 파서가 없음)
+	TokenList tokenList = {
+		MakeToken(TokenType::KwFor, "for", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 1),
+		MakeToken(TokenType::Semicolon, ";", 0, 2),
+		MakeToken(TokenType::EndOfFile, "", 0, 3),
+	};
+
+	ExpectParseThrows(tokenList, "Expected an initializer statement in 'for' at line 0");
+}
 #endif
