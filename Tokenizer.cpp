@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-namespace {
+namespace { 
 	const std::unordered_map<std::string, TokenType> keywords = {
 		{"var", TokenType::KwVar}, {"if", TokenType::KwIf}, {"else", TokenType::KwElse},
 		{"for", TokenType::KwFor}, {"func", TokenType::KwFunc}, {"return", TokenType::KwReturn},
@@ -18,6 +18,7 @@ namespace {
 		{"%", TokenType::Percent}, {"=", TokenType::Assign}, {"==", TokenType::Eq}, {"!=", TokenType::NotEq},
 		{"<", TokenType::Lt}, {">", TokenType::Gt}, {"<=", TokenType::LtEq}, {">=", TokenType::GtEq},
 		{"(", TokenType::LParen}, {")", TokenType::RParen}, {"{", TokenType::LBrace}, {"}", TokenType::RBrace},
+		{"[", TokenType::LBracket}, {"]", TokenType::RBracket},
 		{",", TokenType::Comma}, {";", TokenType::Semicolon}, {".", TokenType::Dot}, {":", TokenType::Colon},
 	};
 
@@ -43,7 +44,7 @@ bool Tokenizer::CanExtendToTwoCharOperator(char c)
 
 bool Tokenizer::IsSingleCharPunctuation(char c)
 {
-	static const std::string punctuation = "(){};,+-*/%.:";
+	static const std::string punctuation = "(){}[];,+-*/%.:";
 	return punctuation.find(c) != std::string::npos;
 }
 
