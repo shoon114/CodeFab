@@ -98,14 +98,11 @@ public:
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
 };
 
-// token은 callee 식별자 토큰(호출 대상 이름). closeParenToken은 닫는 ')' 토큰
-// (트리 출력 등에서 호출 구문의 괄호를 함께 보여주기 위함).
+// token은 callee 식별자 토큰(호출 대상 이름).
 class CallExprNode : public SyntaxNode {
 public:
 	CallExprNode() { type = NodeType::CallExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
-
-	Token closeParenToken;
 };
 
 // Array(size) 배열 생성 전용 노드. children = [size식]. token은 'Array' 식별자 토큰.
@@ -115,18 +112,13 @@ class ArrExprNode : public SyntaxNode {
 public:
 	ArrExprNode() { type = NodeType::ArrExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
-
-	Token closeParenToken;
 };
 
-// children = [array식, index식]. token은 여는 '[' 토큰(위치 정보용),
-// closeBracketToken은 닫는 ']' 토큰(트리 출력 등에서 여는/닫는 토큰을 함께 보여주기 위함).
+// children = [array식, index식]. token은 여는 '[' 토큰(위치 정보용).
 class IndexExprNode : public SyntaxNode {
 public:
 	IndexExprNode() { type = NodeType::IndexExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
-
-	Token closeBracketToken;
 };
 
 class VarDeclareStatementNode : public SyntaxNode {

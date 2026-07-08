@@ -329,13 +329,13 @@ TEST_F(ExpressionParserTest, Parse_CallExpr_OneArg) {
 	EXPECT_THAT(node->children[0]->type, Eq(NodeType::NumberLiteral));
 }
 
-TEST_F(ExpressionParserTest, Parse_ArrExpr_Arr3) {
-	// "Arr(3)"
+TEST_F(ExpressionParserTest, Parse_ArrExpr_Array3) {
+	// "Array(3)"
 	TokenList tokenList = MakeTokens({
-		MakeToken(TokenType::Identifier, "Arr", 0, 0),
-		MakeToken(TokenType::LParen, "(", 0, 3),
-		MakeToken(TokenType::Number, "3", 0, 4),
-		MakeToken(TokenType::RParen, ")", 0, 5),
+		MakeToken(TokenType::Identifier, "Array", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 5),
+		MakeToken(TokenType::Number, "3", 0, 6),
+		MakeToken(TokenType::RParen, ")", 0, 7),
 		});
 	size_t pos = 0;
 
@@ -343,21 +343,21 @@ TEST_F(ExpressionParserTest, Parse_ArrExpr_Arr3) {
 
 	ASSERT_THAT(node, NotNull());
 	EXPECT_THAT(node->type, Eq(NodeType::ArrExpr));
-	EXPECT_THAT(node->token.lexeme, Eq("Arr"));
+	EXPECT_THAT(node->token.lexeme, Eq("Array"));
 	ASSERT_THAT(node->children.size(), Eq(1u));
 	EXPECT_THAT(node->children[0]->type, Eq(NodeType::NumberLiteral));
 	EXPECT_THAT(node->children[0]->token.lexeme, Eq("3"));
 }
 
 TEST_F(ExpressionParserTest, Parse_ArrExpr_SizeIsExpression) {
-	// "Arr(n + 1)"
+	// "Array(n + 1)"
 	TokenList tokenList = MakeTokens({
-		MakeToken(TokenType::Identifier, "Arr", 0, 0),
-		MakeToken(TokenType::LParen, "(", 0, 3),
-		MakeToken(TokenType::Identifier, "n", 0, 4),
-		MakeToken(TokenType::Plus, "+", 0, 6),
-		MakeToken(TokenType::Number, "1", 0, 8),
-		MakeToken(TokenType::RParen, ")", 0, 9),
+		MakeToken(TokenType::Identifier, "Array", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 5),
+		MakeToken(TokenType::Identifier, "n", 0, 6),
+		MakeToken(TokenType::Plus, "+", 0, 8),
+		MakeToken(TokenType::Number, "1", 0, 10),
+		MakeToken(TokenType::RParen, ")", 0, 11),
 		});
 	size_t pos = 0;
 
@@ -370,11 +370,11 @@ TEST_F(ExpressionParserTest, Parse_ArrExpr_SizeIsExpression) {
 }
 
 TEST_F(ExpressionParserTest, Parse_ArrExpr_MissingSizeArgument_Throws) {
-	// "Arr()" -- Arr는 크기 인자가 반드시 있어야 한다
+	// "Array()" -- Array는 크기 인자가 반드시 있어야 한다
 	TokenList tokenList = MakeTokens({
-		MakeToken(TokenType::Identifier, "Arr", 0, 0),
-		MakeToken(TokenType::LParen, "(", 0, 3),
-		MakeToken(TokenType::RParen, ")", 0, 4),
+		MakeToken(TokenType::Identifier, "Array", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 5),
+		MakeToken(TokenType::RParen, ")", 0, 6),
 		});
 	size_t pos = 0;
 
@@ -382,14 +382,14 @@ TEST_F(ExpressionParserTest, Parse_ArrExpr_MissingSizeArgument_Throws) {
 }
 
 TEST_F(ExpressionParserTest, Parse_ArrExpr_TooManyArguments_Throws) {
-	// "Arr(3, 4)" -- Arr는 인자를 하나만 받는다
+	// "Array(3, 4)" -- Array는 인자를 하나만 받는다
 	TokenList tokenList = MakeTokens({
-		MakeToken(TokenType::Identifier, "Arr", 0, 0),
-		MakeToken(TokenType::LParen, "(", 0, 3),
-		MakeToken(TokenType::Number, "3", 0, 4),
-		MakeToken(TokenType::Comma, ",", 0, 5),
-		MakeToken(TokenType::Number, "4", 0, 7),
-		MakeToken(TokenType::RParen, ")", 0, 8),
+		MakeToken(TokenType::Identifier, "Array", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 5),
+		MakeToken(TokenType::Number, "3", 0, 6),
+		MakeToken(TokenType::Comma, ",", 0, 7),
+		MakeToken(TokenType::Number, "4", 0, 9),
+		MakeToken(TokenType::RParen, ")", 0, 10),
 		});
 	size_t pos = 0;
 
@@ -397,11 +397,11 @@ TEST_F(ExpressionParserTest, Parse_ArrExpr_TooManyArguments_Throws) {
 }
 
 TEST_F(ExpressionParserTest, Parse_ArrExpr_UnclosedParenthesis_Throws) {
-	// "Arr(3" -- missing ')'
+	// "Array(3" -- missing ')'
 	TokenList tokenList = MakeTokens({
-		MakeToken(TokenType::Identifier, "Arr", 0, 0),
-		MakeToken(TokenType::LParen, "(", 0, 3),
-		MakeToken(TokenType::Number, "3", 0, 4),
+		MakeToken(TokenType::Identifier, "Array", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 5),
+		MakeToken(TokenType::Number, "3", 0, 6),
 		});
 	size_t pos = 0;
 
@@ -448,6 +448,19 @@ TEST_F(ExpressionParserTest, Parse_CallExpr_UnclosedArgs_Throws) {
 		MakeToken(TokenType::Identifier, "func", 0, 0),
 		MakeToken(TokenType::LParen, "(", 0, 4),
 		MakeToken(TokenType::Number, "1", 0, 5),
+		});
+	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(ExpressionParserTest, Parse_IndexExpr_NonIdentifierArray_Throws) {
+	// "3[0]" -- only identifiers can be indexed
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Number, "3", 0, 0),
+		MakeToken(TokenType::LBracket, "[", 0, 1),
+		MakeToken(TokenType::Number, "0", 0, 2),
+		MakeToken(TokenType::RBracket, "]", 0, 3),
 		});
 	size_t pos = 0;
 
@@ -530,14 +543,14 @@ TEST_F(ExpressionParserTest, Parse_AssignToIndexExpr) {
 }
 
 TEST_F(ExpressionParserTest, Parse_VarDeclareInitializer_ArrExpr) {
-	// "Arr(3)" used as a var-declare initializer -- exercised here at the
+	// "Array(3)" used as a var-declare initializer -- exercised here at the
 	// expression level since VarDeclareParser just delegates to whatever
 	// parser is registered for the initializer's leading token.
 	TokenList tokenList = MakeTokens({
-		MakeToken(TokenType::Identifier, "Arr", 0, 0),
-		MakeToken(TokenType::LParen, "(", 0, 3),
-		MakeToken(TokenType::Number, "3", 0, 4),
-		MakeToken(TokenType::RParen, ")", 0, 5),
+		MakeToken(TokenType::Identifier, "Array", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 5),
+		MakeToken(TokenType::Number, "3", 0, 6),
+		MakeToken(TokenType::RParen, ")", 0, 7),
 		});
 	size_t pos = 0;
 
@@ -545,7 +558,7 @@ TEST_F(ExpressionParserTest, Parse_VarDeclareInitializer_ArrExpr) {
 
 	ASSERT_THAT(node, NotNull());
 	EXPECT_THAT(node->type, Eq(NodeType::ArrExpr));
-	EXPECT_THAT(node->token.lexeme, Eq("Arr"));
+	EXPECT_THAT(node->token.lexeme, Eq("Array"));
 }
 
 #endif
