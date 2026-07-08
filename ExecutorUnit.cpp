@@ -88,9 +88,20 @@ void ExecutorUnit::Visit(const IfStmtNode& node) { ExecuteIfStmt(node); }
 void ExecutorUnit::Visit(const ExprStmtNode& node) { ExecuteExprStmt(node); }
 void ExecutorUnit::Visit(const ForStmtNode& node) { ExecuteForStmt(node); }
 
-// 함수는 아직 실행 단계에서 지원하지 않는다(체커 단계까지만 검증 대상).
-void ExecutorUnit::Visit(const FuncDeclStmtNode&) {}
-void ExecutorUnit::Visit(const ReturnStmtNode&) {}
+void ExecutorUnit::Visit(const FuncDeclStmtNode& node) {
+	// children = [파라미터 Identifier..., body(BlockStmt)]. 마지막 원소가 body.
+	auto function = std::make_shared<FunctionObject>();
+	for (size_t i = 0; i + 1 < node.children.size(); ++i) {
+		function->parameters.push_back(node.children[i]->token.lexeme);
+	}
+	function->body = node.children.back().get();
+	scopes.back()[node.token.lexeme] = function;
+}
+
+void ExecutorUnit::Visit(const ReturnStmtNode& node) {
+	returnValue = node.children.empty() ? Value_t{ std::monostate{} } : Evaluate(*node.children[0]);
+	isReturning = true;
+}
 
 void ExecutorUnit::Visit(const NumberLiteralNode& node) { lastValue = node.token.realValue; }
 void ExecutorUnit::Visit(const StringLiteralNode& node) { lastValue = node.token.lexeme; }
@@ -100,9 +111,7 @@ void ExecutorUnit::Visit(const AssignExprNode& node) { lastValue = EvaluateAssig
 void ExecutorUnit::Visit(const BinaryExprNode& node) { lastValue = EvaluateBinaryExpr(node); }
 void ExecutorUnit::Visit(const UnaryExprNode& node) { lastValue = EvaluateUnaryExpr(node); }
 
-void ExecutorUnit::Visit(const CallExprNode& node) {
-	throw std::runtime_error("Function calls are not supported yet at line " + std::to_string(node.token.line));
-}
+void ExecutorUnit::Visit(const CallExprNode& node) { lastValue = EvaluateCallExpr(node); }
 
 void ExecutorUnit::Visit(const ArrExprNode& node) { lastValue = EvaluateArrExpr(node); }
 void ExecutorUnit::Visit(const IndexExprNode& node) { lastValue = EvaluateIndexExpr(node); }
@@ -145,6 +154,9 @@ void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
 	EnterScope();
 	for (const auto& stmt : node.children) {
 		ExecuteStmt(*stmt);
+		if (isReturning) {
+			break;
+		}
 	}
 	ExitScope();
 }
@@ -170,6 +182,9 @@ void ExecutorUnit::ExecuteForStmt(const SyntaxNode& node) {
 	ExecuteStmt(init);
 	while (IsTruthy(Evaluate(condition))) {
 		ExecuteStmt(body);
+		if (isReturning) {
+			break;
+		}
 		Evaluate(increment);
 	}
 }
@@ -236,6 +251,51 @@ Value_t& ExecutorUnit::ResolveIndexElement(const SyntaxNode& node) {
 	}
 
 	return array->elements[static_cast<size_t>(indexNumber)];
+}
+
+Value_t ExecutorUnit::EvaluateCallExpr(const SyntaxNode& node) {
+	// CallExprNode의 token은 callee 식별자 토큰이고, scopeDistance가 없으므로
+	// 항상 동적(선형) 탐색으로 함수 값을 찾는다.
+	Value_t calleeValue = ResolveVariable(node.token.lexeme, -1, node.token.line);
+	if (!std::holds_alternative<std::shared_ptr<FunctionObject>>(calleeValue)) {
+		throw std::runtime_error("'" + node.token.lexeme + "' is not callable at line " + std::to_string(node.token.line));
+	}
+	auto function = std::get<std::shared_ptr<FunctionObject>>(calleeValue);
+
+	if (node.children.size() != function->parameters.size()) {
+		throw std::runtime_error("Expected " + std::to_string(function->parameters.size()) +
+			" argument(s) but got " + std::to_string(node.children.size()) +
+			" at line " + std::to_string(node.token.line));
+	}
+
+	std::vector<Value_t> args;
+	args.reserve(node.children.size());
+	for (const auto& argExpr : node.children) {
+		args.push_back(Evaluate(*argExpr));
+	}
+
+	// 함수 본문은 caller의 지역 스코프를 보지 못해야 하므로, global(scopes[0])만
+	// 남기고 나머지 프레임은 잠시 떼어둔 뒤 파라미터 스코프 하나만 새로 쌓는다.
+	std::vector<std::unordered_map<std::string, Value_t>> savedLocalFrames(
+		std::make_move_iterator(scopes.begin() + 1), std::make_move_iterator(scopes.end()));
+	scopes.resize(1);
+
+	EnterScope();
+	for (size_t i = 0; i < function->parameters.size(); ++i) {
+		scopes.back()[function->parameters[i]] = args[i];
+	}
+
+	ExecuteStmt(*function->body);
+
+	Value_t result = isReturning ? returnValue : Value_t{ std::monostate{} };
+	isReturning = false;
+
+	scopes.resize(1);
+	for (auto& frame : savedLocalFrames) {
+		scopes.push_back(std::move(frame));
+	}
+
+	return result;
 }
 
 Value_t ExecutorUnit::EvaluateBinaryExpr(const BinaryExprNode& node) {

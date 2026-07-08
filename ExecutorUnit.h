@@ -51,6 +51,7 @@ private:
 	Value_t EvaluateUnaryExpr(const UnaryExprNode& node);
 	Value_t EvaluateArrExpr(const SyntaxNode& node);
 	Value_t EvaluateIndexExpr(const SyntaxNode& node);
+	Value_t EvaluateCallExpr(const SyntaxNode& node);
 
 	void EnterScope();
 	void ExitScope();
@@ -70,4 +71,10 @@ private:
 
 	// Evaluate()가 Accept()를 통해 식 노드를 방문한 뒤 결과를 꺼내가는 임시 저장소.
 	Value_t lastValue;
+
+	// ReturnStmt 실행 시 true로 설정되고, EvaluateCallExpr가 함수 호출을 마치며
+	// returnValue를 꺼내가고 다시 false로 되돌린다. Block/For 실행 루프는 매 문장
+	// 실행 후 이 플래그를 확인해 참이면 남은 문장을 건너뛴다(return의 조기 종료).
+	bool isReturning = false;
+	Value_t returnValue;
 };
