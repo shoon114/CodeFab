@@ -186,6 +186,7 @@
     <ClCompile Include="TestBlockParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="NodeVisitor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
@@ -204,6 +205,7 @@
     <ClInclude Include="MockStatementParser.h" />
     <ClInclude Include="TestTokenHelpers.h" />
     <ClInclude Include="ExecutorUnit.h" />
+    <ClInclude Include="NodeVisitor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

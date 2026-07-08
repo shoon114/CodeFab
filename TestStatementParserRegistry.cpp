@@ -9,9 +9,7 @@ namespace {
 class StubStatementParser : public IStatementParser {
 public:
 	std::unique_ptr<SyntaxNode> Parse(const TokenList& tokenList, size_t& pos) override {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::Program;
-		return node;
+		return std::make_unique<ProgramNode>();
 	}
 };
 

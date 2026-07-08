@@ -105,8 +105,7 @@ TEST_F(BlockParserTest, Parse_SingleStatement_DelegatesToRegisteredStatementPars
 
 	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::AssignExpr;
+		auto node = std::make_unique<AssignExprNode>();
 		node->token = tokens[pos + 1]; // '='
 		pos += 3; // consume 'a', '=', '1'
 		return node;
@@ -158,8 +157,7 @@ TEST_F(BlockParserTest, Parse_UnclosedBlock_Throws) {
 
 	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::AssignExpr;
+		auto node = std::make_unique<AssignExprNode>();
 		node->token = tokens[pos + 1]; // '='
 		pos += 3; // consume 'a', '=', '1'
 		return node;
