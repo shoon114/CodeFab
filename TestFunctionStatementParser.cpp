@@ -36,13 +36,15 @@ protected:
 			return nullptr;
 		});
 	}
+	const std::string FUNC = "func";
+	const std::string FUNC_NAME = "add";
 };
 
 // func add(a, b) { ... }
 TEST_F(FunctionStatementParserTest, Parse_WithParams_AttachesParamsThenBody) {
 	TokenList tokenList = {
-		MakeToken(TokenType::KwFunc, "func", 1, 0),
-		MakeToken(TokenType::Identifier, "add", 1, 1),
+		MakeToken(TokenType::KwFunc, FUNC, 1, 0),
+		MakeToken(TokenType::Identifier, FUNC_NAME, 1, 1),
 		MakeToken(TokenType::LParen, "(", 1, 2),
 		MakeToken(TokenType::Identifier, "a", 1, 3),
 		MakeToken(TokenType::Comma, ",", 1, 4),
@@ -58,7 +60,7 @@ TEST_F(FunctionStatementParserTest, Parse_WithParams_AttachesParamsThenBody) {
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<BlockStmtNode>();
 			node->token = tokens[pos];
-			pos += 2; // consume '{' and '}'
+			pos += 2;
 			return node;
 		});
 
@@ -67,7 +69,7 @@ TEST_F(FunctionStatementParserTest, Parse_WithParams_AttachesParamsThenBody) {
 
 	ASSERT_THAT(root, NotNull());
 	EXPECT_THAT(root->type, Eq(NodeType::FuncDeclStmt));
-	EXPECT_THAT(root->token.lexeme, Eq("add"));
+	EXPECT_THAT(root->token.lexeme, Eq(FUNC_NAME));
 	ASSERT_THAT(root->children, SizeIs(3));
 
 	EXPECT_THAT(root->children[0]->type, Eq(NodeType::Identifier));

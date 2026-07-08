@@ -6,12 +6,12 @@ StatementParserRegistrar<ReturnStatementParser> registrar(TokenType::KwReturn);
 }
 
 std::unique_ptr<SyntaxNode> ReturnStatementParser::Parse(const TokenList& tokenList, size_t& pos) {
-	const Token& returnToken = tokenList[pos++]; // 'return'
+	const Token& returnToken = tokenList[pos++];
 
 	std::shared_ptr<IStatementParser> exprParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
 	auto exprNode = exprParser->Parse(tokenList, pos);
 
-	pos++; // ';'
+	pos++;
 
 	auto returnNode = std::make_unique<ReturnStmtNode>();
 	returnNode->token = returnToken;

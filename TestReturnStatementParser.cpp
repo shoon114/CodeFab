@@ -35,12 +35,13 @@ protected:
 			return nullptr;
 		});
 	}
+	const std::string RETURN = "return";
 };
 
 // return a + b;
 TEST_F(ReturnStatementParserTest, Parse_ReturnBinaryExpression_AttachesExpressionAsChild) {
 	TokenList tokenList = {
-		MakeToken(TokenType::KwReturn, "return", 1, 0),
+		MakeToken(TokenType::KwReturn, RETURN, 1, 0),
 		MakeToken(TokenType::Identifier, "a", 1, 1),
 		MakeToken(TokenType::Plus, "+", 1, 2),
 		MakeToken(TokenType::Identifier, "b", 1, 3),
@@ -53,7 +54,7 @@ TEST_F(ReturnStatementParserTest, Parse_ReturnBinaryExpression_AttachesExpressio
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<BinaryExprNode>();
 			node->token = tokens[pos];
-			pos += 3; // consume 'a', '+', 'b'
+			pos += 3;
 			return node;
 		});
 
@@ -62,7 +63,7 @@ TEST_F(ReturnStatementParserTest, Parse_ReturnBinaryExpression_AttachesExpressio
 
 	ASSERT_THAT(root, NotNull());
 	EXPECT_THAT(root->type, Eq(NodeType::ReturnStmt));
-	EXPECT_THAT(root->token.lexeme, Eq("return"));
+	EXPECT_THAT(root->token.lexeme, Eq(RETURN));
 	ASSERT_THAT(root->children, SizeIs(1));
 	EXPECT_THAT(root->children[0]->type, Eq(NodeType::BinaryExpr));
 }
