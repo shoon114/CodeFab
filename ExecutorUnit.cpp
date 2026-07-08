@@ -57,7 +57,13 @@ bool ExecutorUnit::IsTruthy(const Value_t& value) {
 	if (std::holds_alternative<double>(value)) {
 		return std::get<double>(value) != 0.0;
 	}
-	return !std::get<std::string>(value).empty();
+	if (std::holds_alternative<std::monostate>(value)) {
+		return false;
+	}
+	if (std::holds_alternative<std::string>(value)) {
+		return !std::get<std::string>(value).empty();
+	}
+	return true; // 함수/배열 값은 항상 참으로 취급한다.
 }
 
 void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
@@ -92,6 +98,9 @@ void ExecutorUnit::Visit(const CallExprNode& node) {
 	throw std::runtime_error("함수 호출은 아직 지원되지 않습니다 at line " + std::to_string(node.token.line));
 }
 
+void ExecutorUnit::Visit(const ArrExprNode& node) { lastValue = EvaluateArrExpr(node); }
+void ExecutorUnit::Visit(const IndexExprNode& node) { lastValue = EvaluateIndexExpr(node); }
+
 void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
 	const auto& expression = *node.children[0];
 	Value_t value = Evaluate(expression);
@@ -99,13 +108,17 @@ void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
 		std::cout << std::get<std::string>(value);
 	} else if (std::holds_alternative<bool>(value)) {
 		std::cout << (std::get<bool>(value) ? "true" : "false");
-	} else {
+	} else if (std::holds_alternative<std::monostate>(value)) {
+		std::cout << "null";
+	} else if (std::holds_alternative<double>(value)) {
 		double number = std::get<double>(value);
 		if (number == std::floor(number)) {
 			std::cout << static_cast<long long>(number);
 		} else {
 			std::cout << number;
 		}
+	} else {
+		throw std::runtime_error("Unsupported value type for print at line " + std::to_string(node.token.line));
 	}
 }
 
@@ -161,12 +174,62 @@ Value_t ExecutorUnit::EvaluateIdentifier(const IdentifierNode& node) {
 
 Value_t ExecutorUnit::EvaluateAssignExpr(const SyntaxNode& node) {
 	// ExpressionParser는 AssignExpr의 token을 '=' 연산자로, children을
-	// [Identifier, valueExpr] 순서로 둔다.
-	const auto& identifier = static_cast<const IdentifierNode&>(*node.children[0]);
+	// [대입 대상, valueExpr] 순서로 둔다. 대입 대상은 일반 변수(Identifier)이거나
+	// 배열 인덱스(IndexExpr, 예: arr[0] = 10)일 수 있다.
+	const auto& target = *node.children[0];
 	const auto& valueExpr = *node.children[1];
 	Value_t value = Evaluate(valueExpr);
-	ResolveVariable(identifier.token.lexeme, identifier.scopeDistance, node.token.line) = value;
+	if (target.type == NodeType::IndexExpr) {
+		ResolveIndexElement(target) = value;
+	} else {
+		const auto& identifier = static_cast<const IdentifierNode&>(target);
+		ResolveVariable(identifier.token.lexeme, identifier.scopeDistance, node.token.line) = value;
+	}
 	return value;
+}
+
+Value_t ExecutorUnit::EvaluateArrExpr(const SyntaxNode& node) {
+	const auto& sizeExpr = *node.children[0];
+	Value_t sizeValue = Evaluate(sizeExpr);
+	if (!std::holds_alternative<double>(sizeValue)) {
+		throw std::runtime_error("Expected a number for array size at line " + std::to_string(node.token.line));
+	}
+	double sizeNumber = std::get<double>(sizeValue);
+	if (sizeNumber < 0 || sizeNumber != std::floor(sizeNumber)) {
+		throw std::runtime_error("Expected a non-negative integer for array size at line " + std::to_string(node.token.line));
+	}
+
+	auto array = std::make_shared<ArrayObject>();
+	array->elements.assign(static_cast<size_t>(sizeNumber), Value_t{ std::monostate{} });
+	return array;
+}
+
+Value_t ExecutorUnit::EvaluateIndexExpr(const SyntaxNode& node) {
+	return ResolveIndexElement(node);
+}
+
+Value_t& ExecutorUnit::ResolveIndexElement(const SyntaxNode& node) {
+	const auto& arrayExpr = *node.children[0];
+	const auto& indexExpr = *node.children[1];
+
+	Value_t arrayValue = Evaluate(arrayExpr);
+	if (!std::holds_alternative<std::shared_ptr<ArrayObject>>(arrayValue)) {
+		throw std::runtime_error("Expected an array at line " + std::to_string(node.token.line));
+	}
+	auto array = std::get<std::shared_ptr<ArrayObject>>(arrayValue);
+
+	Value_t indexValue = Evaluate(indexExpr);
+	if (!std::holds_alternative<double>(indexValue)) {
+		throw std::runtime_error("Expected a number as array index at line " + std::to_string(node.token.line));
+	}
+	double indexNumber = std::get<double>(indexValue);
+
+	if (indexNumber < 0 || indexNumber != std::floor(indexNumber) ||
+		static_cast<size_t>(indexNumber) >= array->elements.size()) {
+		throw std::runtime_error("Array index out of range at line " + std::to_string(node.token.line));
+	}
+
+	return array->elements[static_cast<size_t>(indexNumber)];
 }
 
 Value_t ExecutorUnit::EvaluateBinaryExpr(const BinaryExprNode& node) {
