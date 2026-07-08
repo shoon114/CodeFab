@@ -115,3 +115,4 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 런타임 오류: 잘못된 할당 대상 | `var a = 1;` → `var b = 2;` → `a + b = 3;` | (에러 발생 여부만 확인) |
 | 구문 오류: 표현식 자리에 엉뚱한 토큰 | `print * 5;` | (에러 발생 여부만 확인) |
 | 정적 오류: 초기화식에서 자기 참조 | `{ var a = a; }` | (에러 발생 여부만 확인) |
+| 정적 오류: 같은 스코프 중복 선언 | `{ var a = "hi"; var a = 3; }` | (에러 발생 여부만 확인) |
