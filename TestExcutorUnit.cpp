@@ -604,6 +604,24 @@ TEST(ExecutorUnitTest, Execute_TypeMismatch_NumberMinusString_ThrowsWithLineMess
 	}
 }
 
+// print -"FabCoding"; -> 단항 마이너스의 피연산자가 문자열이면
+// AsNumber 타입 가드에 의해 [1번째줄] 피연산자는 반드시 숫자여야 한다. 가 발생해야 한다.
+TEST(ExecutorUnitTest, Execute_TypeMismatch_UnaryMinusOnString_ThrowsWithLineMessage) {
+	ExecutorUnit executor;
+	SyntaxNode program = MakeProgram(
+		MakePrintStmt(
+			MakeUnaryExpr(TokenType::Minus, MakeStringLiteral("FabCoding", 1), 1)
+		)
+	);
+
+	try {
+		executor.Execute(program);
+		FAIL() << "std::runtime_error가 던져지길 기대했습니다.";
+	} catch (const std::runtime_error& e) {
+		EXPECT_THAT(std::string(e.what()), HasSubstr("[1번째줄] 피연산자는 반드시 숫자여야 한다."));
+	}
+}
+
 // PDF p.87: 선언 없이 x = 5; -> [1번째줄] 미정의된 변수 'x'
 TEST(ExecutorUnitTest, Execute_UndefinedVariableAssignment_ThrowsWithLineMessage) {
 	ExecutorUnit executor;
