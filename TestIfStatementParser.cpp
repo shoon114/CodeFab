@@ -106,9 +106,6 @@ protected:
 			});
 	}
 
-	// then/else if/else 본문이 전부 '{'로 시작하므로, 체인 길이만큼 같은
-	// mockThenParser가 여러 번 호출된다 -- 매번 '{' '}' 2개 토큰을 소비하는
-	// BlockStmtNode로 stub.
 	void StubThenParserToConsumeBodies(int times) {
 		EXPECT_CALL(*mockThenParser, Parse(_, _))
 			.Times(times)
@@ -120,8 +117,6 @@ protected:
 			});
 	}
 
-	// else if 체인마다 안쪽 if가 다시 조건식을 resolve하므로, 체인 길이만큼
-	// stub해준다.
 	void StubConditionParserToConsumeConditions(int times) {
 		EXPECT_CALL(*mockConditionParser, Parse(_, _))
 			.Times(times)
@@ -345,7 +340,7 @@ TEST_F(IfStatementParserTest, Parse_WithElseIfAndElse_AttachesFullChain) {
 		{TokenType::EndOfFile, ""},
 		});
 	StubConditionParserToConsumeConditions(2);
-	StubThenParserToConsumeBodies(3); // if 본문, else-if 본문, else 본문
+	StubThenParserToConsumeBodies(3);
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
