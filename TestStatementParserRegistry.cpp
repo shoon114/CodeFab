@@ -16,7 +16,7 @@ public:
 } // namespace
 
 TEST(StatementParserRegistryTest, Resolve_UnregisteredToken_ReturnsNull) {
-	std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(TokenType::KwFunc);
+	std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(TokenType::KwElse);
 
 	EXPECT_THAT(parser, IsNull());
 }
