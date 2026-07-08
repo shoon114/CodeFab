@@ -360,9 +360,6 @@ TEST_F(ExecutorUnitTest, Execute_BlockScope_LocalVariableDestroyedAfterBlockEnds
 
 // PDF p.84: var ga = 3; { var a = 2; { var a = 7; { print a; print ga; } print a; } }
 // 안쪽 스코프에 a가 없으면 바깥으로 탐색하며(a: C->B, ga: C->B->A->Global), 가장 가까운 스코프의 값을 사용한다.
-// 다만 이 예제의 모든 print는 a=7로 재선언된 B 스코프가 닫히기 전에 실행되므로,
-// 현재의 flat map 구현으로도 우연히 "737"이 출력되어 이 테스트만으로는 Red를 보장하지 못한다
-// (스코프 복원 여부는 아래 Execute_NestedBlockShadowing_RestoresOuterValueAfterInnerBlockEnds에서 검증한다).
 TEST_F(ExecutorUnitTest, Execute_NestedBlockShadowing_PrintsInnerAndGlobalValues) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("ga", MakeNumberLiteral(3)),
