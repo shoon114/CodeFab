@@ -47,10 +47,10 @@ protected:
 		return node;
 	}
 
-	// Arr(sizeExpr)
+	// Array(sizeExpr)
 	std::unique_ptr<SyntaxNode> MakeArrExpr(std::unique_ptr<SyntaxNode> sizeExpr) {
 		auto node = std::make_unique<ArrExprNode>();
-		node->token = MakeToken(TokenType::Identifier, "Arr", 1, 1);
+		node->token = MakeToken(TokenType::Identifier, "Array", 1, 1);
 		node->children.push_back(std::move(sizeExpr));
 		return node;
 	}
