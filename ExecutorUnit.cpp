@@ -40,14 +40,20 @@ Value_t& ExecutorUnit::ResolveVariable(const std::string& name, int distance, in
 			return found->second;
 		}
 	}
-	throw std::runtime_error("Undefined variable '" + name + "' at line " + std::to_string(line));
+	throw std::runtime_error("[" + std::to_string(line) + "번째줄] 미정의된 변수 '" + name + "'");
 }
 
 double ExecutorUnit::AsNumber(const Value_t& value, int line) {
 	if (!std::holds_alternative<double>(value)) {
-		throw std::runtime_error("Expected a number at line " + std::to_string(line));
+		throw std::runtime_error("[" + std::to_string(line) + "번째줄] 피연산자는 반드시 숫자여야 한다.");
 	}
 	return std::get<double>(value);
+}
+
+void ExecutorUnit::EnsureNonZeroDivisor(double divisor, int line) {
+	if (divisor == 0.0) {
+		throw std::runtime_error("[" + std::to_string(line) + "번째줄] 0으로 나눈 오류");
+	}
 }
 
 bool ExecutorUnit::IsTruthy(const Value_t& value) {
@@ -215,18 +221,10 @@ Value_t ExecutorUnit::EvaluateBinaryExpr(const BinaryExprNode& node) {
 	case TokenType::Minus: return left - right;
 	case TokenType::Star:  return left * right;
 	case TokenType::Slash:
-		if (right == 0.0) {
-			throw std::runtime_error(
-				"Division by zero at line " + std::to_string(node.token.line) +
-				", column " + std::to_string(node.token.column));
-		}
+		EnsureNonZeroDivisor(right, node.token.line);
 		return left / right;
 	case TokenType::Percent:
-		if (right == 0.0) {
-			throw std::runtime_error(
-				"Division by zero at line " + std::to_string(node.token.line) +
-				", column " + std::to_string(node.token.column));
-		}
+		EnsureNonZeroDivisor(right, node.token.line);
 		return std::fmod(left, right);
 	case TokenType::Gt:   return left > right;
 	case TokenType::Lt:   return left < right;
