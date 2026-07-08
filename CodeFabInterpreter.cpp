@@ -89,11 +89,26 @@ int main() {
 		// 다음 줄에 올 '{'를 기다리는 중인 미완성 상태다. 이 상태에서 그대로
 		// 파싱을 시도하면 예외가 나서 버퍼가 통째로 비워지고, 뒤이어 입력되는
 		// '{ ... }' 블록이 앞의 if/for 조건과 분리된 채 무조건 실행되어 버린다.
-		// '{'가 한 번도 안 나왔다면, 문장이 ';'로 완전히 끝난 경우에만 실행하고
-		// 그렇지 않으면 계속 버퍼링한다.
-		bool endsWithSemicolon = tokenList.size() >= 2
-			&& tokenList[tokenList.size() - 2].type == TokenType::Semicolon;
-		if (!(sawOpenBrace || endsWithSemicolon)) {
+		//
+		// 다만 "블록을 기다리는 중"인지 판단하는 조건은 좁게 잡아야 한다. 처음엔
+		// "'{'도 없고 ';'로 끝나지도 않았으면 무조건 대기"로 했었는데, 이러면
+		// "print 1 + 2"처럼 단순히 ';'을 빼먹은 진짜 구문 오류까지도 계속
+		// 대기 상태에 빠져서(대화형 콘솔에서는 EOF가 오지 않으므로) 아무 반응
+		// 없이 멈춘 것처럼 보이는 문제가 있었다. if/for의 조건 '(...)'가 막
+		// 끝났거나, else가 막 끝난 경우처럼 "다음이 반드시 '{'여야 하는" 패턴만
+		// 좁게 감지해서 그 경우에만 대기한다.
+		bool pendingControlBlock = false;
+		if (!sawOpenBrace && tokenList.size() >= 2) {
+			TokenType firstType = tokenList[0].type;
+			TokenType lastRealType = tokenList[tokenList.size() - 2].type;
+			if (lastRealType == TokenType::KwElse) {
+				pendingControlBlock = true; // "... else" 다음에 '{' 또는 'if'를 기다리는 중
+			} else if (lastRealType == TokenType::RParen
+				&& (firstType == TokenType::KwIf || firstType == TokenType::KwFor)) {
+				pendingControlBlock = true; // "if (...)"/"for (...)" 다음에 '{'를 기다리는 중
+			}
+		}
+		if (pendingControlBlock) {
 			continue;
 		}
 
