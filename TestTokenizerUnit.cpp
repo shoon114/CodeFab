@@ -562,4 +562,115 @@ TEST_F(TokenizerTest, CreateTokenForCode_RecursiveFunctionDeclarationProducesExp
 		TokenType::RBrace,
 		TokenType::EndOfFile));
 }
+
+// ===== Function call argument-count variations =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_FunctionCallWithNoArguments) {
+	TokenList tokens = CreateTokens("hello();\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_FunctionCallWithSingleArgument) {
+	TokenList tokens = CreateTokens("add(5);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_FunctionCallWithThreeArguments) {
+	TokenList tokens = CreateTokens("sum(1, 2, 3);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen,
+		TokenType::Number, TokenType::Comma, TokenType::Number, TokenType::Comma, TokenType::Number,
+		TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+// ===== Nested function calls =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_NestedFunctionCallAsArgument) {
+	TokenList tokens = CreateTokens("add(add(1, 2), 3);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen,
+		TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::Comma, TokenType::Number, TokenType::RParen,
+		TokenType::Comma, TokenType::Number,
+		TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_SingleArgumentNestedFunctionCall) {
+	TokenList tokens = CreateTokens("fact(fact(2));\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen,
+		TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::RParen,
+		TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+// ===== Function calls combined with operators in an expression =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_FunctionCallsCombinedWithArithmeticOperators) {
+	TokenList tokens = CreateTokens("ret = add(1, 2) + add(3, 4) * 2;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::Assign,
+		TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::Comma, TokenType::Number, TokenType::RParen,
+		TokenType::Plus,
+		TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::Comma, TokenType::Number, TokenType::RParen,
+		TokenType::Star, TokenType::Number,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_PrintOfFunctionCallResult) {
+	TokenList tokens = CreateTokens("print add(1, 2);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print,
+		TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::Comma, TokenType::Number, TokenType::RParen,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
 #endif
