@@ -86,3 +86,4 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 블록 스코프(여러 줄) | `var outer = "A";` → `{` → `  var inner = "B";` → `  {` → `    print outer + inner;` → `  }` → `}` | `AB` (중첩 블록에서 바깥 스코프 변수 접근) |
 | if/else | `if (true) { print "bbq"; }` | `bbq` |
 | if/else | `if (false) { print "no"; } else { print "kfc"; }` | `kfc` |
+| if/else(여러 줄, 중첩) | `if (true)` → `{` → `  if (false) { print "kfc"; }` → `  else { print "bbq"; }` → `}` | `bbq` (Allman 스타일로 조건과 `{`가 다른 줄에 있는 경우) |

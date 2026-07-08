@@ -56,6 +56,7 @@ $cases = @(
     @{ Category = "블록 스코프(여러 줄)"; InputLines = @('var outer = "A";', '{', '  var inner = "B";', '  {', '    print outer + inner;', '  }', '}'); Expect = "AB" }
     @{ Category = "if/else"; InputLines = @('if (true) { print "bbq"; }'); Expect = "bbq" }
     @{ Category = "if/else"; InputLines = @('if (false) { print "no"; } else { print "kfc"; }'); Expect = "kfc" }
+    @{ Category = "if/else(여러 줄, 중첩)"; InputLines = @('if (true)', '{', '  if (false) { print "kfc"; }', '  else { print "bbq"; }', '}'); Expect = "bbq" }
 )
 
 # Piping strings to a native exe (either via the PowerShell pipeline or via
