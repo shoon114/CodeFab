@@ -1,4 +1,5 @@
 #ifdef _DEBUG
+#include <stdexcept>
 #include "gmock/gmock.h"
 #include "ReturnStatementParser.h"
 #include "MockStatementParser.h"
@@ -35,7 +36,31 @@ protected:
 			return nullptr;
 		});
 	}
+
 	const std::string RETURN = "return";
+
+	// "a + b" 3개 토큰을 소비하는 BinaryExprNode를 돌려주도록 mockExprParser를 stub한다.
+	void StubExprParserToConsumeBinaryExpr() {
+		EXPECT_CALL(*mockExprParser, Parse(_, _))
+			.Times(1)
+			.WillOnce([](const TokenList& tokens, size_t& pos) {
+				auto node = std::make_unique<BinaryExprNode>();
+				node->token = tokens[pos];
+				pos += 3;
+				return node;
+			});
+	}
+
+	void ExpectParseThrows(const TokenList& tokenList, const char* expectedMessage) {
+		size_t pos = 0;
+		try {
+			parser.Parse(tokenList, pos);
+			FAIL();
+		}
+		catch (const std::runtime_error& e) {
+			EXPECT_STREQ(e.what(), expectedMessage);
+		}
+	}
 };
 
 // return a + b;
@@ -48,15 +73,7 @@ TEST_F(ReturnStatementParserTest, Parse_ReturnBinaryExpression_AttachesExpressio
 		MakeToken(TokenType::Semicolon, ";", 1, 4),
 		MakeToken(TokenType::EndOfFile, "", 1, 5),
 	};
-
-	EXPECT_CALL(*mockExprParser, Parse(_, _))
-		.Times(1)
-		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<BinaryExprNode>();
-			node->token = tokens[pos];
-			pos += 3;
-			return node;
-		});
+	StubExprParserToConsumeBinaryExpr();
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
@@ -66,5 +83,46 @@ TEST_F(ReturnStatementParserTest, Parse_ReturnBinaryExpression_AttachesExpressio
 	EXPECT_THAT(root->token.lexeme, Eq(RETURN));
 	ASSERT_THAT(root->children, SizeIs(1));
 	EXPECT_THAT(root->children[0]->type, Eq(NodeType::BinaryExpr));
+}
+
+// return;  -- 값 없는 bare return
+TEST_F(ReturnStatementParserTest, Parse_BareReturn_HasNoExpressionChild) {
+	TokenList tokenList = {
+		MakeToken(TokenType::KwReturn, RETURN, 1, 0),
+		MakeToken(TokenType::Semicolon, ";", 1, 1),
+		MakeToken(TokenType::EndOfFile, "", 1, 2),
+	};
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	EXPECT_THAT(root->type, Eq(NodeType::ReturnStmt));
+	EXPECT_THAT(root->token.lexeme, Eq(RETURN));
+	EXPECT_THAT(root->children, SizeIs(0));
+}
+
+// return a + b  -- 표현식 뒤 ';' 누락
+TEST_F(ReturnStatementParserTest, Parse_MissingSemicolonAfterExpression_ThrowsOnMalformedSyntax) {
+	TokenList tokenList = {
+		MakeToken(TokenType::KwReturn, RETURN, 1, 0),
+		MakeToken(TokenType::Identifier, "a", 1, 1),
+		MakeToken(TokenType::Plus, "+", 1, 2),
+		MakeToken(TokenType::Identifier, "b", 1, 3),
+		MakeToken(TokenType::EndOfFile, "", 1, 4),
+	};
+	StubExprParserToConsumeBinaryExpr();
+
+	ExpectParseThrows(tokenList, "Expected ';' after return statement at line 1");
+}
+
+// return  -- 'return' 뒤에 표현식도 ';'도 없이 바로 끝남
+TEST_F(ReturnStatementParserTest, Parse_NothingAfterReturn_ThrowsOnMalformedSyntax) {
+	TokenList tokenList = {
+		MakeToken(TokenType::KwReturn, RETURN, 1, 0),
+		MakeToken(TokenType::EndOfFile, "", 1, 1),
+	};
+
+	ExpectParseThrows(tokenList, "Expected ';' after return statement at line 1");
 }
 #endif

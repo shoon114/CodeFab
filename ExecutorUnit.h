@@ -63,6 +63,7 @@ private:
 	Value_t& ResolveIndexElement(const SyntaxNode& node);
 	double AsNumber(const Value_t& value, int line);
 	bool IsTruthy(const Value_t& value);
+	void EnsureNonZeroDivisor(double divisor, int line);
 
 	// scopes[0]이 Global 스코프, 이후 요소는 BlockStmt 진입마다 추가되는 Local 스코프.
 	std::vector<std::unordered_map<std::string, Value_t>> scopes;

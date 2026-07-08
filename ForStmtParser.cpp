@@ -12,11 +12,20 @@ namespace {
 		}
 		return parser->Parse(tokenList, pos);
 	}
+
+	void ExpectToken(const TokenList& tokenList, size_t& pos, TokenType expected, const char* what) {
+		if (pos >= tokenList.size() || tokenList[pos].type != expected) {
+			int line = pos < tokenList.size() ? tokenList[pos].line : tokenList.back().line;
+			throw std::runtime_error(std::string("Expected ") + what + " at line " + std::to_string(line));
+		}
+		pos++;
+	}
 }
 
 std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, size_t& pos) {
 	const Token& forToken = tokenList[pos++]; // 'for'
-	pos++; // '('
+
+	ExpectToken(tokenList, pos, TokenType::LParen, "'(' after 'for'");
 
 	// init resolves whatever is registered for its leading token (e.g.
 	// VarDeclareParser for 'var') and consumes up to and including its own
@@ -24,15 +33,21 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	auto initNode = ResolveAndParse(tokenList, pos, "an initializer statement in 'for'");
 
 	auto condNode = ResolveAndParse(tokenList, pos, "a condition expression in 'for'");
-	pos++; // ';'
+	ExpectToken(tokenList, pos, TokenType::Semicolon, "';' after for-loop condition");
 
 	auto updateNode = ResolveAndParse(tokenList, pos, "an update expression in 'for'");
-	pos++; // ')'
+	ExpectToken(tokenList, pos, TokenType::RParen, "')' after for-loop update expression");
 
-	pos++; // '{'
-	pos++; // '}'  (empty body for now)
-
-	auto bodyNode = std::make_unique<BlockStmtNode>();
+	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::LBrace) {
+		int line = pos < tokenList.size() ? tokenList[pos].line : tokenList.back().line;
+		throw std::runtime_error("Expected '{' to start for-loop body at line " + std::to_string(line));
+	}
+	// The body's '{' ... '}' block (including any statements inside) is
+	// parsed by whatever is registered for LBrace -- in production, the
+	// real BlockParser -- consistent with how init/condition/update
+	// delegate via the registry instead of ForStmtParser re-implementing
+	// block parsing itself.
+	auto bodyNode = ResolveAndParse(tokenList, pos, "'{' to start for-loop body");
 
 	auto forNode = std::make_unique<ForStmtNode>();
 	forNode->token = forToken;

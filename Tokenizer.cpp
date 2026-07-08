@@ -3,20 +3,31 @@
 #include <sstream>
 #include <cctype>
 #include <unordered_map>
+#include <algorithm>
 
-namespace {
+namespace { 
 	const std::unordered_map<std::string, TokenType> keywords = {
 		{"var", TokenType::KwVar}, {"if", TokenType::KwIf}, {"else", TokenType::KwElse},
 		{"for", TokenType::KwFor}, {"func", TokenType::KwFunc}, {"return", TokenType::KwReturn},
 		{"true", TokenType::KwTrue}, {"false", TokenType::KwFalse}, {"print", TokenType::Print},
+		{"class", TokenType::KwClass}, {"this", TokenType::KwThis}, {"super", TokenType::KwSuper},
+		{"instanceof", TokenType::KwInstanceof},
 	};
 	const std::unordered_map<std::string, TokenType> operators = {
 		{"+", TokenType::Plus}, {"-", TokenType::Minus}, {"*", TokenType::Star}, {"/", TokenType::Slash},
 		{"%", TokenType::Percent}, {"=", TokenType::Assign}, {"==", TokenType::Eq}, {"!=", TokenType::NotEq},
 		{"<", TokenType::Lt}, {">", TokenType::Gt}, {"<=", TokenType::LtEq}, {">=", TokenType::GtEq},
 		{"(", TokenType::LParen}, {")", TokenType::RParen}, {"{", TokenType::LBrace}, {"}", TokenType::RBrace},
-		{",", TokenType::Comma}, {";", TokenType::Semicolon},
+		{"[", TokenType::LBracket}, {"]", TokenType::RBracket},
+		{",", TokenType::Comma}, {";", TokenType::Semicolon}, {".", TokenType::Dot}, {":", TokenType::Colon},
 	};
+
+	std::string ToLower(const std::string& text) {
+		std::string lowered = text;
+		std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return lowered;
+	}
 }
 
 void Tokenizer::GetCodeFromUser()
@@ -33,7 +44,7 @@ bool Tokenizer::CanExtendToTwoCharOperator(char c)
 
 bool Tokenizer::IsSingleCharPunctuation(char c)
 {
-	static const std::string punctuation = "(){};,+-*/%";
+	static const std::string punctuation = "(){}[];,+-*/%.:";
 	return punctuation.find(c) != std::string::npos;
 }
 
@@ -79,6 +90,22 @@ std::vector<Token> Tokenizer::ScanWords()
 			}
 			if (i < n) {
 				i++; // closing quote
+			}
+			addWord(originalCode.substr(start, i - start));
+			continue;
+		}
+
+		if (std::isdigit(static_cast<unsigned char>(c))) {
+			size_t start = i;
+			while (i < n && std::isdigit(static_cast<unsigned char>(originalCode[i]))) {
+				i++;
+			}
+			// '.'을 맴버 접근 연산자(Dot)로도 쓰기 때문에, 소수점은 뒤에 숫자가 붙어있을 때만 흡수한다.
+			if (i + 1 < n && originalCode[i] == '.' && std::isdigit(static_cast<unsigned char>(originalCode[i + 1]))) {
+				i++;
+				while (i < n && std::isdigit(static_cast<unsigned char>(originalCode[i]))) {
+					i++;
+				}
 			}
 			addWord(originalCode.substr(start, i - start));
 			continue;
@@ -136,7 +163,7 @@ void Tokenizer::ClassifyToken(Token& token)
 		return;
 	}
 
-	auto keywordIt = keywords.find(raw);
+	auto keywordIt = keywords.find(ToLower(raw));
 	if (keywordIt != keywords.end()) {
 		token.type = keywordIt->second;
 		return;
