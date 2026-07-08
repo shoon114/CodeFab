@@ -189,4 +189,23 @@ TEST_F(ForStmtParserTest, Parse_MissingSemicolonAfterCondition_ThrowsOnMalformed
 
 	ExpectParseThrows(tokenList, "Expected ';' after for-loop condition at line 0");
 }
+
+TEST_F(ForStmtParserTest, Parse_MissingCondition_ThrowsOnMalformedSyntax) {
+	// "for (var i = 0; ; i = i + 1) {}" -- 조건식 누락 (';'는 등록된 파서가 없음)
+	TokenList tokenList = {
+		MakeToken(TokenType::KwFor, "for", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 1),
+		MakeToken(TokenType::KwVar, "var", 0, 2),
+		MakeToken(TokenType::Semicolon, ";", 0, 3),
+		MakeToken(TokenType::EndOfFile, "", 0, 4),
+	};
+
+	EXPECT_CALL(*mockInitParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 1; // consume 'var' only (opaque init clause)
+			return std::make_unique<VarDeclareStatementNode>();
+		});
+
+	ExpectParseThrows(tokenList, "Expected a condition expression in 'for' at line 0");
+}
 #endif
