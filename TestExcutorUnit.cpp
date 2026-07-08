@@ -179,8 +179,6 @@ TEST_F(ExecutorUnitTest, Execute_PrintBinaryAddition_PrintsFive) {
 
 // PDF p.78: var a = 10; if (a > 5) { print 3 + 2; } 실행 시 조건이 참이므로
 // thenBranch가 실행되어 stdout에 5가 출력되어야 한다.
-// NOTE: ExecutorUnit이 아직 VarDeclStmt/Identifier/IfStmt/BlockStmt를 지원하지 않아
-// 현재는 실패(Red)한다. 해당 기능 구현 후 통과해야 한다.
 TEST_F(ExecutorUnitTest, Execute_IfConditionTrue_ExecutesThenBranch_PrintsFive) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
@@ -212,7 +210,6 @@ TEST_F(ExecutorUnitTest, Execute_IfConditionFalse_SkipsThenBranch_PrintsNothing)
 
 // PDF p.79: var a = 10; if (a > 0) a = 3 + 7 * 5; 실행 시 조건이 참이므로
 // 블록 없는 단일 문(ExprStmt -> AssignExpr)이 실행되어 a가 38(3 + 7*5)이 되어야 한다.
-// NOTE: ExecutorUnit이 아직 ExprStmt/AssignExpr를 지원하지 않아 현재는 실패(Red)한다.
 TEST_F(ExecutorUnitTest, Execute_IfWithoutBlockConditionTrue_AssignsExpressionResult) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
@@ -252,7 +249,6 @@ TEST_F(ExecutorUnitTest, Execute_IfWithoutBlockConditionFalse_KeepsOriginalValue
 
 // PDF p.80: for (var i = 0; i < 3; i = i + 1) { print "#"; } 실행 시
 // i = 0, 1, 2 세 번 반복하며 "#"을 출력하고, i = 3이 되면 조건이 거짓이 되어 종료해야 한다.
-// NOTE: ExecutorUnit이 아직 ForStmt/StringLiteral을 지원하지 않아 현재는 실패(Red)한다.
 TEST_F(ExecutorUnitTest, Execute_ForLoop_PrintsHashThreeTimes) {
 	auto program = MakeProgram(
 		MakeForStmt(
@@ -350,8 +346,6 @@ TEST_F(ExecutorUnitTest, Execute_BlockScope_AccessesOuterVariable_PrintsSum) {
 }
 
 // PDF p.83: "{ } 블록이 끝나면 지역 변수는 사라진다"를 검증한다.
-// NOTE: 현재 ExecutorUnit은 스코프가 없는 flat map이라 블록이 끝나도 b가 남아있어
-// 이 테스트는 실패(Red)한다. 스코프 구현 후 통과해야 한다.
 TEST_F(ExecutorUnitTest, Execute_BlockScope_LocalVariableDestroyedAfterBlockEnds) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
@@ -390,7 +384,6 @@ TEST_F(ExecutorUnitTest, Execute_NestedBlockShadowing_PrintsInnerAndGlobalValues
 
 // PDF p.84 개념의 확장: 안쪽 블록에서 같은 이름(a)을 재선언(shadowing)해도,
 // 블록이 끝나면 바깥 스코프의 원래 값(2)으로 복원되어야 한다.
-// NOTE: 현재 flat map 구현은 재선언 시 덮어쓰기만 하고 복원하지 않아 실패(Red)한다.
 TEST_F(ExecutorUnitTest, Execute_NestedBlockShadowing_RestoresOuterValueAfterInnerBlockEnds) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(2)),
@@ -407,8 +400,6 @@ TEST_F(ExecutorUnitTest, Execute_NestedBlockShadowing_RestoresOuterValueAfterInn
 // 문자열 변수에 대한 블록 스코프 검증:
 // var x = "global"; { var x = "inner"; print x; } print x;
 // 블록 안에서는 섀도잉된 "inner"가, 블록 밖에서는 원래의 "global"이 출력되어야 한다.
-// NOTE: 현재 ExecutorUnit은 변수를 double로만 저장하므로(Evaluate가 StringLiteral을
-// 지원하지 않음) 이 테스트는 실패(Red)한다. 문자열 값을 지원하는 Value 타입 도입 후 통과해야 한다.
 TEST_F(ExecutorUnitTest, Execute_BlockScope_StringVariableShadowing_RestoresOuterValueAfterBlockEnds) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("x", MakeStringLiteral("global")),
@@ -443,10 +434,6 @@ TEST_F(ExecutorUnitTest, Execute_AssignInsideBlock_MutatesOuterVariable_NotShado
 
 // 중첩 블록에서 서로 다른 스코프에 있는 문자열 변수들을 + 로 연결한다:
 // var outer = "A"; { var inner = "B"; { print outer + inner; } } -> expect "AB"
-// NOTE: 현재 BinaryExpr의 Plus는 AsNumber로 항상 숫자 변환을 강제하므로,
-// 문자열 피연산자에 대해서는 "Expected a number" 예외가 던져져 실패(Red)한다.
-// 문자열 연결(+)을 지원하려면 BinaryExpr의 Plus 케이스에서 두 피연산자가 모두
-// 문자열일 때 std::string 연결을 수행하도록 분기를 추가해야 한다.
 TEST_F(ExecutorUnitTest, Execute_NestedBlockScope_ConcatenatesStringsFromDifferentScopes) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("outer", MakeStringLiteral("A")),
@@ -476,8 +463,6 @@ TEST_F(ExecutorUnitTest, Execute_UnaryMinus_NegatesVariableValue) {
 }
 
 // var a = true; var b = !a; print b; -> expect "false"
-// NOTE: Evaluate가 아직 NodeType::BoolLiteral을 지원하지 않아 이 테스트는 실패(Red)한다.
-// BoolLiteral 평가(token.lexeme == "true" 여부를 bool로 반환)를 Evaluate에 추가해야 통과한다.
 TEST_F(ExecutorUnitTest, Execute_UnaryNot_NegatesBooleanVariable) {
 	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeBoolLiteral(true)),
