@@ -100,8 +100,16 @@ void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
 }
 
 void ExecutorUnit::ExecuteVarDeclareStatement(const SyntaxNode& node) {
-	const auto& initializer = *node.children[0];
-	scopes.back()[node.token.lexeme] = Evaluate(initializer);
+	// VarDeclareParser는 초기화식이 있으면 children[0]에 AssignExpr(Identifier, value)를,
+	// 초기화식이 없으면 children[0]에 Identifier만 둔다.
+	const auto& declared = *node.children[0];
+	if (declared.type == NodeType::AssignExpr) {
+		const auto& identifier = *declared.children[0];
+		const auto& initializer = *declared.children[1];
+		scopes.back()[identifier.token.lexeme] = Evaluate(initializer);
+	} else {
+		scopes.back()[declared.token.lexeme] = 0.0;
+	}
 }
 
 void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
@@ -164,9 +172,12 @@ Value_t ExecutorUnit::EvaluateIdentifier(const SyntaxNode& node) {
 }
 
 Value_t ExecutorUnit::EvaluateAssignExpr(const SyntaxNode& node) {
-	const auto& valueExpr = *node.children[0];
+	// ExpressionParser는 AssignExpr의 token을 '=' 연산자로, children을
+	// [Identifier, valueExpr] 순서로 둔다.
+	const auto& identifier = *node.children[0];
+	const auto& valueExpr = *node.children[1];
 	Value_t value = Evaluate(valueExpr);
-	ResolveVariable(node.token.lexeme, node.token.line) = value;
+	ResolveVariable(identifier.token.lexeme, node.token.line) = value;
 	return value;
 }
 
