@@ -3,6 +3,7 @@
 #include <vector>
 #include "Token.h"
 #include "NodeVisitor.h"
+#include "Value.h"
 
 enum class NodeType {
 	// expression
@@ -64,18 +65,29 @@ class IdentifierNode : public SyntaxNode {
 public:
 	IdentifierNode() { type = NodeType::Identifier; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	// CheckerUnit이 정적 바인딩 단계에서 채워두는, 선언된 스코프까지의 거리(홉 수).
+	// -1이면 미해결(체커가 못 찾음) 상태이며, ExecutorUnit은 이 경우 기존 동적 탐색으로 폴백한다.
+	mutable int scopeDistance = -1;
 };
 
 class BinaryExprNode : public SyntaxNode {
 public:
 	BinaryExprNode() { type = NodeType::BinaryExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	// CheckerUnit이 상수 폴딩 단계에서 채워두는, 컴파일 타임에 미리 계산된 값.
+	mutable bool isConstantFolded = false;
+	mutable Value_t foldedValue{};
 };
 
 class UnaryExprNode : public SyntaxNode {
 public:
 	UnaryExprNode() { type = NodeType::UnaryExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	mutable bool isConstantFolded = false;
+	mutable Value_t foldedValue{};
 };
 
 class AssignExprNode : public SyntaxNode {

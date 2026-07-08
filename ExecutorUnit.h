@@ -43,14 +43,16 @@ private:
 	void ExecuteForStmt(const SyntaxNode& node);
 
 	// Visit(Expr)가 위임하는 식(expression)별 평가 메서드
-	Value_t EvaluateIdentifier(const SyntaxNode& node);
+	Value_t EvaluateIdentifier(const IdentifierNode& node);
 	Value_t EvaluateAssignExpr(const SyntaxNode& node);
-	Value_t EvaluateBinaryExpr(const SyntaxNode& node);
-	Value_t EvaluateUnaryExpr(const SyntaxNode& node);
+	Value_t EvaluateBinaryExpr(const BinaryExprNode& node);
+	Value_t EvaluateUnaryExpr(const UnaryExprNode& node);
 
 	void EnterScope();
 	void ExitScope();
-	Value_t& ResolveVariable(const std::string& name, int line);
+	// distance는 CheckerUnit이 미리 계산해둔, 선언 스코프까지의 홉 수(정적 바인딩).
+	// -1이면 미해결 상태이므로 기존 동적(선형) 탐색으로 폴백한다.
+	Value_t& ResolveVariable(const std::string& name, int distance, int line);
 	double AsNumber(const Value_t& value, int line);
 	bool IsTruthy(const Value_t& value);
 

@@ -16,6 +16,9 @@ public:
     void Visit(const FuncDeclStmtNode& node) override;
     void Visit(const ReturnStmtNode& node) override;
     void Visit(const CallExprNode& node) override;
+    void Visit(const IdentifierNode& node) override;
+    void Visit(const BinaryExprNode& node) override;
+    void Visit(const UnaryExprNode& node) override;
 
 private:
     // 스코프 스택: 각 블록마다 선언된 변수명 저장
@@ -30,4 +33,9 @@ private:
     bool IsReferencingVar(SyntaxNode* node, const std::string& varName);
     const std::vector<std::string>* LookupFunction(const std::string& name) const;
     void ReportError(const std::string& message, int line);
+
+    // 상수 폴딩(Constant Folding): node가 리터럴이거나 이미 폴딩된 상수식이면
+    // 그 값을 outValue에 담아 true를 반환한다.
+    bool TryGetConstantValue(const SyntaxNode& node, Value_t& outValue) const;
+    bool ToBool(const Value_t& value) const;
 };
