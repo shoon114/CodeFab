@@ -65,8 +65,7 @@ protected:
 		EXPECT_CALL(*mockConditionParser, Parse(_, _))
 			.Times(1)
 			.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::BinaryExpr;
+			auto node = std::make_unique<BinaryExprNode>();
 			node->token = tokens[pos];
 			pos += 3;
 			return node;
@@ -145,8 +144,7 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 	EXPECT_CALL(*mockConditionParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::BinaryExpr;
+			auto node = std::make_unique<BinaryExprNode>();
 			node->token = tokens[pos];
 			pos += 3; // consume 'a', '>', '3'
 			return node;

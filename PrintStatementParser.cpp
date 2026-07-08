@@ -17,8 +17,7 @@ std::unique_ptr<SyntaxNode> PrintStatementParser::Parse(const TokenList& tokenLi
 
 	pos++; // ';'
 
-	auto printNode = std::make_unique<SyntaxNode>();
-	printNode->type = NodeType::PrintStmt;
+	auto printNode = std::make_unique<PrintStmtNode>();
 	printNode->token = printToken;
 	printNode->children.push_back(std::move(exprNode));
 

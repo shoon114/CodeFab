@@ -9,8 +9,7 @@ namespace {
 std::unique_ptr<SyntaxNode> BlockParser::Parse(const TokenList& tokenList, size_t& pos) {
 	const Token& braceToken = tokenList[pos++]; // '{'
 
-	auto blockNode = std::make_unique<SyntaxNode>();
-	blockNode->type = NodeType::BlockStmt;
+	auto blockNode = std::make_unique<BlockStmtNode>();
 	blockNode->token = braceToken;
 
 	while (pos < tokenList.size() && tokenList[pos].type != TokenType::RBrace) {
@@ -26,8 +25,7 @@ std::unique_ptr<SyntaxNode> BlockParser::Parse(const TokenList& tokenList, size_
 		throw std::runtime_error("Expected '}' to close block");
 	}
 
-	auto endNode = std::make_unique<SyntaxNode>();
-	endNode->type = NodeType::BlockStmt;
+	auto endNode = std::make_unique<BlockStmtNode>();
 	endNode->token = tokenList[pos++]; // '}'
 	blockNode->children.push_back(std::move(endNode));
 
