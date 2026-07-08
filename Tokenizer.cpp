@@ -20,6 +20,7 @@ namespace {
 		{"(", TokenType::LParen}, {")", TokenType::RParen}, {"{", TokenType::LBrace}, {"}", TokenType::RBrace},
 		{"[", TokenType::LBracket}, {"]", TokenType::RBracket},
 		{",", TokenType::Comma}, {";", TokenType::Semicolon}, {".", TokenType::Dot}, {":", TokenType::Colon},
+		{"!", TokenType::Not}, {"&&", TokenType::And}, {"||", TokenType::Or},
 	};
 
 	std::string ToLower(const std::string& text) {
@@ -40,6 +41,11 @@ void Tokenizer::GetCodeFromUser()
 bool Tokenizer::CanExtendToTwoCharOperator(char c)
 {
 	return c == '=' || c == '!' || c == '<' || c == '>';
+}
+
+bool Tokenizer::IsDoubledOperatorStart(char c)
+{
+	return c == '&' || c == '|';
 }
 
 bool Tokenizer::IsSingleCharPunctuation(char c)
@@ -118,6 +124,16 @@ std::vector<Token> Tokenizer::ScanWords()
 			continue;
 		}
 
+		if (IsDoubledOperatorStart(c)) {
+			// '&&', '||'만 유효한 연산자다. 짝이 안 맞는 단독 '&'/'|'는 언어에서
+			// 정의되지 않은 문자이지만, 토크나이저는 그냥 한 글자로 떼어서 넘긴다
+			// (분류는 ClassifyToken이 Identifier로 처리).
+			bool isDoubled = (i + 1 < n && originalCode[i + 1] == c);
+			addWord(originalCode.substr(i, isDoubled ? 2 : 1));
+			i += isDoubled ? 2 : 1;
+			continue;
+		}
+
 		if (IsSingleCharPunctuation(c)) {
 			addWord(std::string(1, c));
 			i++;
@@ -129,6 +145,7 @@ std::vector<Token> Tokenizer::ScanWords()
 			&& !std::isspace(static_cast<unsigned char>(originalCode[i]))
 			&& originalCode[i] != '"'
 			&& !CanExtendToTwoCharOperator(originalCode[i])
+			&& !IsDoubledOperatorStart(originalCode[i])
 			&& !IsSingleCharPunctuation(originalCode[i])) {
 			i++;
 		}
