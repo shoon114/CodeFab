@@ -83,12 +83,19 @@ namespace {
 		return node;
 	}
 
-	// if (<condition>) <thenBranch>
-	std::unique_ptr<SyntaxNode> MakeIfStmt(std::unique_ptr<SyntaxNode> condition, std::unique_ptr<SyntaxNode> thenBranch, int line = 1) {
+	// if (<condition>) <thenBranch> [else <elseBranch>]
+	// IfStatementParser는 else가 있으면 children[2]에 else-branch(또는 else-if
+	// 노드)를 붙인다. elseBranch를 생략하면(nullptr) children이 2개뿐인 기존
+	// if-without-else 모양 그대로다.
+	std::unique_ptr<SyntaxNode> MakeIfStmt(std::unique_ptr<SyntaxNode> condition, std::unique_ptr<SyntaxNode> thenBranch,
+		std::unique_ptr<SyntaxNode> elseBranch = nullptr, int line = 1) {
 		auto node = std::make_unique<IfStmtNode>();
 		node->token.line = line;
 		node->children.push_back(std::move(condition));
 		node->children.push_back(std::move(thenBranch));
+		if (elseBranch) {
+			node->children.push_back(std::move(elseBranch));
+		}
 		return node;
 	}
 
@@ -277,6 +284,34 @@ TEST_F(ExecutorUnitTest, Execute_IfWithoutBlockConditionFalse_KeepsOriginalValue
 	);
 
 	EXPECT_THAT(RunAndCapture(*program), HasSubstr("-1"));
+}
+
+// if (true) { print "bbq"; } 조건이 참이므로 thenBranch만 실행되고
+// elseBranch는 실행되지 않아야 한다.
+TEST_F(ExecutorUnitTest, Execute_IfElseConditionTrue_ExecutesThenBranch_SkipsElseBranch) {
+	auto program = MakeProgram(
+		MakeIfStmt(
+			MakeBoolLiteral(true),
+			MakeBlockStmt(MakePrintStmt(MakeStringLiteral("bbq"))),
+			MakeBlockStmt(MakePrintStmt(MakeStringLiteral("kfc")))
+		)
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("bbq"));
+}
+
+// if (false) { print "no"; } else { print "kfc"; } 조건이 거짓이므로
+// elseBranch가 실행되어야 한다.
+TEST_F(ExecutorUnitTest, Execute_IfElseConditionFalse_ExecutesElseBranch) {
+	auto program = MakeProgram(
+		MakeIfStmt(
+			MakeBoolLiteral(false),
+			MakeBlockStmt(MakePrintStmt(MakeStringLiteral("no"))),
+			MakeBlockStmt(MakePrintStmt(MakeStringLiteral("kfc")))
+		)
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("kfc"));
 }
 
 // PDF p.80: for (var i = 0; i < 3; i = i + 1) { print "#"; } 실행 시

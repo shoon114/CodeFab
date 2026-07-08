@@ -81,3 +81,10 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | boolean 출력 | `print false;` | `false` |
 | 변수 선언과 할당 | `var a = 10;` → `var b = 20;` → `print a + b;` | `30` |
 | 변수 재할당 | `var a = 10;` → `var b = 20;` → `a = a + 5;` → `print a;` | `15` |
+| 블록 스코프(여러 줄) | `var x = "global";` → `{` → `  var x = "inner";` → `  print x;` → `}` → `print x;` | `inner` (첫 print), `global` (두 번째 print) |
+| 블록 스코프(여러 줄) | `var count = 0;` → `{` → `  count = count + 1;` → `}` → `print count;` | `1` (재선언이 아니라 바깥 변수를 수정) |
+| 블록 스코프(여러 줄) | `var outer = "A";` → `{` → `  var inner = "B";` → `  {` → `    print outer + inner;` → `  }` → `}` | `AB` (중첩 블록에서 바깥 스코프 변수 접근) |
+| if/else | `if (true) { print "bbq"; }` | `bbq` |
+| if/else | `if (false) { print "no"; } else { print "kfc"; }` | `kfc` |
+| if/else(여러 줄, 중첩) | `if (true)` → `{` → `  if (false) { print "kfc"; }` → `  else { print "bbq"; }` → `}` | `bbq` (Allman 스타일로 조건과 `{`가 다른 줄에 있는 경우) |
+| for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
