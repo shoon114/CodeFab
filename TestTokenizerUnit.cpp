@@ -468,4 +468,98 @@ TEST_F(TokenizerTest, CreateTokenForCode_HandlesEmptyInputWithoutCrashing) {
 	ASSERT_EQ(tokens.size(), 1u);
 	EXPECT_EQ(tokens[0].type, TokenType::EndOfFile);
 }
+
+// ===== Function declaration / call =====
+
+TEST_F(TokenizerTest, SplitIntoWords_FunctionDeclaration) {
+	EXPECT_THAT(SplitWords(
+		"func add(a, b) {\n"
+		"return a + b;\n"
+		"}\n"),
+		ElementsAre(
+			"func", "add", "(", "a", ",", "b", ")", "{",
+			"return", "a", "+", "b", ";",
+			"}"));
+}
+
+TEST_F(TokenizerTest, SplitIntoWords_FunctionCallAndAssignment) {
+	EXPECT_THAT(SplitWords("ret = add(3, 7);\n"),
+		ElementsAre("ret", "=", "add", "(", "3", ",", "7", ")", ";"));
+}
+
+TEST_F(TokenizerTest, SplitIntoWords_BareReturnStatement) {
+	EXPECT_THAT(SplitWords("return;\n"),
+		ElementsAre("return", ";"));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_FunctionDeclarationProducesExpectedTypeSequence) {
+	TokenList tokens = CreateTokens(
+		"func add(a, b) {\n"
+		"return a + b;\n"
+		"}\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwFunc, TokenType::Identifier, TokenType::LParen,
+		TokenType::Identifier, TokenType::Comma, TokenType::Identifier, TokenType::RParen,
+		TokenType::LBrace,
+		TokenType::KwReturn, TokenType::Identifier, TokenType::Plus, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::RBrace,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_FunctionCallAssignedToVariable) {
+	TokenList tokens = CreateTokens("ret = add(3, 7);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::Assign, TokenType::Identifier, TokenType::LParen,
+		TokenType::Number, TokenType::Comma, TokenType::Number, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+
+	EXPECT_EQ(tokens[0].lexeme, "ret");
+	EXPECT_EQ(tokens[2].lexeme, "add");
+	EXPECT_DOUBLE_EQ(tokens[4].realValue, 3.0);
+	EXPECT_DOUBLE_EQ(tokens[6].realValue, 7.0);
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_BareReturnStatementHasNoOperand) {
+	TokenList tokens = CreateTokens("return;\n");
+
+	ASSERT_EQ(tokens.size(), 3u);
+	EXPECT_EQ(tokens[0].type, TokenType::KwReturn);
+	EXPECT_EQ(tokens[1].type, TokenType::Semicolon);
+	EXPECT_EQ(tokens[2].type, TokenType::EndOfFile);
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_RecursiveFunctionDeclarationProducesExpectedTypeSequence) {
+	TokenList tokens = CreateTokens(
+		"func fact(n) {\n"
+		"if (n <= 1) return 1;\n"
+		"return n * fact(n - 1);\n"
+		"}\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwFunc, TokenType::Identifier, TokenType::LParen, TokenType::Identifier, TokenType::RParen,
+		TokenType::LBrace,
+		TokenType::KwIf, TokenType::LParen, TokenType::Identifier, TokenType::LtEq, TokenType::Number, TokenType::RParen,
+		TokenType::KwReturn, TokenType::Number, TokenType::Semicolon,
+		TokenType::KwReturn, TokenType::Identifier, TokenType::Star, TokenType::Identifier,
+		TokenType::LParen, TokenType::Identifier, TokenType::Minus, TokenType::Number, TokenType::RParen, TokenType::Semicolon,
+		TokenType::RBrace,
+		TokenType::EndOfFile));
+}
 #endif
