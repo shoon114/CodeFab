@@ -29,6 +29,8 @@ public:
 	void Visit(const BinaryExprNode& node) override;
 	void Visit(const UnaryExprNode& node) override;
 	void Visit(const CallExprNode& node) override;
+	void Visit(const ArrExprNode& node) override;
+	void Visit(const IndexExprNode& node) override;
 
 private:
 	void ExecuteStmt(const SyntaxNode& node);
@@ -47,12 +49,18 @@ private:
 	Value_t EvaluateAssignExpr(const SyntaxNode& node);
 	Value_t EvaluateBinaryExpr(const BinaryExprNode& node);
 	Value_t EvaluateUnaryExpr(const UnaryExprNode& node);
+	Value_t EvaluateArrExpr(const SyntaxNode& node);
+	Value_t EvaluateIndexExpr(const SyntaxNode& node);
 
 	void EnterScope();
 	void ExitScope();
 	// distance는 CheckerUnit이 미리 계산해둔, 선언 스코프까지의 홉 수(정적 바인딩).
 	// -1이면 미해결 상태이므로 기존 동적(선형) 탐색으로 폴백한다.
 	Value_t& ResolveVariable(const std::string& name, int distance, int line);
+	// arr[index] 형태의 노드(children = [array식, index식])를 평가해 배열/인덱스를
+	// 검증한 뒤 해당 칸의 참조를 돌려준다. 읽기(EvaluateIndexExpr)와 쓰기
+	// (EvaluateAssignExpr)가 이 함수 하나를 공유해 검증 로직이 중복되지 않게 한다.
+	Value_t& ResolveIndexElement(const SyntaxNode& node);
 	double AsNumber(const Value_t& value, int line);
 	bool IsTruthy(const Value_t& value);
 	void EnsureNonZeroDivisor(double divisor, int line);
