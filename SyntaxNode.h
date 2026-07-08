@@ -3,6 +3,7 @@
 #include <vector>
 #include "Token.h"
 #include "NodeVisitor.h"
+#include "Value.h"
 
 enum class NodeType {
 	// expression
@@ -14,6 +15,8 @@ enum class NodeType {
 	UnaryExpr,
 	AssignExpr,
 	CallExpr,
+	ArrExpr,
+	IndexExpr,
 
 	// statement
 	VarDeclareStatement,
@@ -64,18 +67,29 @@ class IdentifierNode : public SyntaxNode {
 public:
 	IdentifierNode() { type = NodeType::Identifier; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	// CheckerUnit이 정적 바인딩 단계에서 채워두는, 선언된 스코프까지의 거리(홉 수).
+	// -1이면 미해결(체커가 못 찾음) 상태이며, ExecutorUnit은 이 경우 기존 동적 탐색으로 폴백한다.
+	mutable int scopeDistance = -1;
 };
 
 class BinaryExprNode : public SyntaxNode {
 public:
 	BinaryExprNode() { type = NodeType::BinaryExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	// CheckerUnit이 상수 폴딩 단계에서 채워두는, 컴파일 타임에 미리 계산된 값.
+	mutable bool isConstantFolded = false;
+	mutable Value_t foldedValue{};
 };
 
 class UnaryExprNode : public SyntaxNode {
 public:
 	UnaryExprNode() { type = NodeType::UnaryExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	mutable bool isConstantFolded = false;
+	mutable Value_t foldedValue{};
 };
 
 class AssignExprNode : public SyntaxNode {
@@ -84,10 +98,35 @@ public:
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
 };
 
+// token은 callee 식별자 토큰(호출 대상 이름). closeParenToken은 닫는 ')' 토큰
+// (트리 출력 등에서 호출 구문의 괄호를 함께 보여주기 위함).
 class CallExprNode : public SyntaxNode {
 public:
 	CallExprNode() { type = NodeType::CallExpr; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	Token closeParenToken;
+};
+
+// Array(size) 배열 생성 전용 노드. children = [size식]. token은 'Array' 식별자 토큰.
+// 일반 함수 호출(CallExprNode)과 분리해두면 Checker/Executor가 사용자 정의 함수
+// 호출과 배열 생성을 타입 검사만으로(문자열 이름 비교 없이) 구분할 수 있다.
+class ArrExprNode : public SyntaxNode {
+public:
+	ArrExprNode() { type = NodeType::ArrExpr; }
+	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	Token closeParenToken;
+};
+
+// children = [array식, index식]. token은 여는 '[' 토큰(위치 정보용),
+// closeBracketToken은 닫는 ']' 토큰(트리 출력 등에서 여는/닫는 토큰을 함께 보여주기 위함).
+class IndexExprNode : public SyntaxNode {
+public:
+	IndexExprNode() { type = NodeType::IndexExpr; }
+	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	Token closeBracketToken;
 };
 
 class VarDeclareStatementNode : public SyntaxNode {

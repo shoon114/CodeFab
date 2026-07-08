@@ -1,5 +1,7 @@
 #include "CheckerUnit.h"
+#include <cmath>
 #include <iostream>
+#include <iterator>
 
 bool CheckerUnit::Check(SyntaxNode* root) {
     if (!root) return true;
@@ -109,6 +111,191 @@ void CheckerUnit::Visit(const CallExprNode& node) {
     }
 
     Traverse(node);
+}
+
+void CheckerUnit::Visit(const IdentifierNode& node) {
+    // 정적 바인딩: 현재 스코프부터 바깥으로 훑어 변수가 선언된 스코프까지의
+    // 거리(홉 수)를 미리 계산해둔다. 0이면 현재 스코프에 선언되어 있다는 뜻이다.
+    // 못 찾으면 scopeDistance는 기본값 -1로 남고, ExecutorUnit이 기존 동적 탐색으로 폴백한다.
+    const std::string& name = node.token.lexeme;
+    for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
+        if (it->count(name)) {
+            node.scopeDistance = static_cast<int>(std::distance(scopeStack.rbegin(), it));
+            return;
+        }
+    }
+}
+
+void CheckerUnit::Visit(const BinaryExprNode& node) {
+    Traverse(node); // 하위 표현식부터 먼저 폴딩되어야 이 노드에서 상수 여부를 판단할 수 있다.
+
+    Value_t leftValue, rightValue;
+    if (!TryGetConstantValue(*node.children[0], leftValue) ||
+        !TryGetConstantValue(*node.children[1], rightValue)) {
+        return;
+    }
+
+    if (node.token.type == TokenType::And) {
+        node.foldedValue = ToBool(leftValue) && ToBool(rightValue);
+        node.isConstantFolded = true;
+        return;
+    }
+    if (node.token.type == TokenType::Or) {
+        node.foldedValue = ToBool(leftValue) || ToBool(rightValue);
+        node.isConstantFolded = true;
+        return;
+    }
+    if (node.token.type == TokenType::Eq) {
+        node.foldedValue = (leftValue == rightValue);
+        node.isConstantFolded = true;
+        return;
+    }
+    if (node.token.type == TokenType::NotEq) {
+        node.foldedValue = !(leftValue == rightValue);
+        node.isConstantFolded = true;
+        return;
+    }
+
+    // 나머지(산술/대소비교)는 숫자 상수 폴딩 범위 밖이면(문자열 등) 그대로 두고
+    // 실행 단계에서 기존 로직(및 에러 처리)이 담당하게 한다.
+    if (!std::holds_alternative<double>(leftValue) || !std::holds_alternative<double>(rightValue)) {
+        return;
+    }
+    double left = std::get<double>(leftValue);
+    double right = std::get<double>(rightValue);
+
+    switch (node.token.type) {
+    case TokenType::Plus:  node.foldedValue = left + right; break;
+    case TokenType::Minus: node.foldedValue = left - right; break;
+    case TokenType::Star:  node.foldedValue = left * right; break;
+    case TokenType::Slash:
+        if (right == 0.0) return; // 0으로 나누기는 런타임 에러(라인 정보 포함)로 남겨둔다.
+        node.foldedValue = left / right;
+        break;
+    case TokenType::Percent:
+        if (right == 0.0) return;
+        node.foldedValue = std::fmod(left, right);
+        break;
+    case TokenType::Gt:   node.foldedValue = left > right; break;
+    case TokenType::Lt:   node.foldedValue = left < right; break;
+    case TokenType::GtEq: node.foldedValue = left >= right; break;
+    case TokenType::LtEq: node.foldedValue = left <= right; break;
+    default:
+        return;
+    }
+    node.isConstantFolded = true;
+}
+
+void CheckerUnit::Visit(const UnaryExprNode& node) {
+    Traverse(node);
+
+    Value_t operandValue;
+    if (!TryGetConstantValue(*node.children[0], operandValue)) {
+        return;
+    }
+
+    if (node.token.type == TokenType::Not) {
+        node.foldedValue = !ToBool(operandValue);
+        node.isConstantFolded = true;
+        return;
+    }
+    if (node.token.type == TokenType::Minus) {
+        if (!std::holds_alternative<double>(operandValue)) return;
+        node.foldedValue = -std::get<double>(operandValue);
+        node.isConstantFolded = true;
+    }
+}
+
+bool CheckerUnit::TryGetConstantValue(const SyntaxNode& node, Value_t& outValue) const {
+    switch (node.type) {
+    case NodeType::NumberLiteral:
+        outValue = node.token.realValue;
+        return true;
+    case NodeType::BoolLiteral:
+        outValue = (node.token.lexeme == "true");
+        return true;
+    case NodeType::BinaryExpr: {
+        const auto& binNode = static_cast<const BinaryExprNode&>(node);
+        if (!binNode.isConstantFolded) return false;
+        outValue = binNode.foldedValue;
+        return true;
+    }
+    case NodeType::UnaryExpr: {
+        const auto& unaryNode = static_cast<const UnaryExprNode&>(node);
+        if (!unaryNode.isConstantFolded) return false;
+        outValue = unaryNode.foldedValue;
+        return true;
+    }
+    default:
+        // 문자열 리터럴(및 그 외 타입)은 이번 상수 폴딩 대상 범위(숫자 산술/비교/논리)에서 제외한다.
+        return false;
+    }
+}
+
+bool CheckerUnit::ToBool(const Value_t& value) const {
+    if (std::holds_alternative<bool>(value)) return std::get<bool>(value);
+    if (std::holds_alternative<double>(value)) return std::get<double>(value) != 0.0;
+    return false; // 문자열/함수 값은 TryGetConstantValue에서 이미 걸러지므로 도달하지 않는다.
+}
+
+void CheckerUnit::Visit(const ArrExprNode& node) {
+    Traverse(node); // 크기식 내부의 상수 폴딩(예: Arr(1 + 2))이 먼저 끝나야 판단할 수 있다.
+
+    const SyntaxNode& sizeExpr = *node.children[0];
+    if (IsObviouslyNonNumericLiteral(sizeExpr)) {
+        ReportError("배열 크기는 반드시 숫자여야 합니다.", node.token.line);
+    }
+}
+
+void CheckerUnit::Visit(const IndexExprNode& node) {
+    Traverse(node);
+
+    const SyntaxNode& arrayExpr = *node.children[0];
+    const SyntaxNode& indexExpr = *node.children[1];
+
+    if (IsObviouslyNotArray(arrayExpr)) {
+        ReportError("배열이 아닌 값에 '[]'를 사용할 수 없습니다.", node.token.line);
+    }
+
+    if (IsObviouslyNonNumericLiteral(indexExpr)) {
+        ReportError("배열 인덱스는 반드시 숫자여야 합니다.", node.token.line);
+    }
+
+    // Arr(N)[i]처럼 크기와 인덱스가 모두 컴파일 타임 상수로 확정되는 경우에 한해
+    // 범위를 미리 검사한다. 변수를 거치는 일반적인 경우는 값 흐름 추적이 필요해
+    // 다루지 않고 실행 시점(ExecutorUnit)에 맡긴다.
+    if (arrayExpr.type == NodeType::ArrExpr) {
+        const auto& arrNode = static_cast<const ArrExprNode&>(arrayExpr);
+        Value_t sizeValue, indexValue;
+        if (TryGetConstantValue(*arrNode.children[0], sizeValue) &&
+            TryGetConstantValue(indexExpr, indexValue) &&
+            std::holds_alternative<double>(sizeValue) &&
+            std::holds_alternative<double>(indexValue)) {
+            double size = std::get<double>(sizeValue);
+            double index = std::get<double>(indexValue);
+            if (index < 0 || index >= size) {
+                ReportError("배열 인덱스가 범위를 벗어났습니다. (크기: " + FormatNumber(size) +
+                    ", 인덱스: " + FormatNumber(index) + ")", node.token.line);
+            }
+        }
+    }
+}
+
+bool CheckerUnit::IsObviouslyNotArray(const SyntaxNode& node) const {
+    return node.type == NodeType::NumberLiteral ||
+        node.type == NodeType::StringLiteral ||
+        node.type == NodeType::BoolLiteral;
+}
+
+bool CheckerUnit::IsObviouslyNonNumericLiteral(const SyntaxNode& node) const {
+    return node.type == NodeType::StringLiteral || node.type == NodeType::BoolLiteral;
+}
+
+std::string CheckerUnit::FormatNumber(double value) const {
+    if (value == std::floor(value)) {
+        return std::to_string(static_cast<long long>(value));
+    }
+    return std::to_string(value);
 }
 
 bool CheckerUnit::IsReferencingVar(SyntaxNode* node, const std::string& varName) {

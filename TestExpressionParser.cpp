@@ -292,4 +292,260 @@ TEST_F(ExpressionParserTest, Parse_UnclosedParenthesis_Throws) {
 	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 }
 
+TEST_F(ExpressionParserTest, Parse_CallExpr_NoArgs) {
+	// "func()"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "func", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 4),
+		MakeToken(TokenType::RParen, ")", 0, 5),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::CallExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("func"));
+	EXPECT_THAT(node->children.size(), Eq(0u));
+	EXPECT_THAT(pos, Eq(3u));
+}
+
+TEST_F(ExpressionParserTest, Parse_CallExpr_OneArg) {
+	// "func(3)"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "func", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 4),
+		MakeToken(TokenType::Number, "3", 0, 5),
+		MakeToken(TokenType::RParen, ")", 0, 6),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::CallExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("func"));
+	ASSERT_THAT(node->children.size(), Eq(1u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::NumberLiteral));
+}
+
+TEST_F(ExpressionParserTest, Parse_ArrExpr_Arr3) {
+	// "Arr(3)"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "Arr", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "3", 0, 4),
+		MakeToken(TokenType::RParen, ")", 0, 5),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::ArrExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("Arr"));
+	ASSERT_THAT(node->children.size(), Eq(1u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::NumberLiteral));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("3"));
+}
+
+TEST_F(ExpressionParserTest, Parse_ArrExpr_SizeIsExpression) {
+	// "Arr(n + 1)"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "Arr", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Identifier, "n", 0, 4),
+		MakeToken(TokenType::Plus, "+", 0, 6),
+		MakeToken(TokenType::Number, "1", 0, 8),
+		MakeToken(TokenType::RParen, ")", 0, 9),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::ArrExpr));
+	ASSERT_THAT(node->children.size(), Eq(1u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::BinaryExpr));
+}
+
+TEST_F(ExpressionParserTest, Parse_ArrExpr_MissingSizeArgument_Throws) {
+	// "Arr()" -- Arr는 크기 인자가 반드시 있어야 한다
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "Arr", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::RParen, ")", 0, 4),
+		});
+	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(ExpressionParserTest, Parse_ArrExpr_TooManyArguments_Throws) {
+	// "Arr(3, 4)" -- Arr는 인자를 하나만 받는다
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "Arr", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "3", 0, 4),
+		MakeToken(TokenType::Comma, ",", 0, 5),
+		MakeToken(TokenType::Number, "4", 0, 7),
+		MakeToken(TokenType::RParen, ")", 0, 8),
+		});
+	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(ExpressionParserTest, Parse_ArrExpr_UnclosedParenthesis_Throws) {
+	// "Arr(3" -- missing ')'
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "Arr", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "3", 0, 4),
+		});
+	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(ExpressionParserTest, Parse_CallExpr_MultipleArgs) {
+	// "func(1, 2)"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "func", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 4),
+		MakeToken(TokenType::Number, "1", 0, 5),
+		MakeToken(TokenType::Comma, ",", 0, 6),
+		MakeToken(TokenType::Number, "2", 0, 8),
+		MakeToken(TokenType::RParen, ")", 0, 9),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::CallExpr));
+	ASSERT_THAT(node->children.size(), Eq(2u));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("1"));
+	EXPECT_THAT(node->children[1]->token.lexeme, Eq("2"));
+}
+
+TEST_F(ExpressionParserTest, Parse_CallExpr_NonIdentifierCallee_Throws) {
+	// "1(2)" -- only identifiers can be called
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Number, "1", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 1),
+		MakeToken(TokenType::Number, "2", 0, 2),
+		MakeToken(TokenType::RParen, ")", 0, 3),
+		});
+	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(ExpressionParserTest, Parse_CallExpr_UnclosedArgs_Throws) {
+	// "func(1" -- missing ')'
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "func", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 4),
+		MakeToken(TokenType::Number, "1", 0, 5),
+		});
+	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(ExpressionParserTest, Parse_IndexExpr_NumberIndex) {
+	// "arr[0]"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "arr", 0, 0),
+		MakeToken(TokenType::LBracket, "[", 0, 3),
+		MakeToken(TokenType::Number, "0", 0, 4),
+		MakeToken(TokenType::RBracket, "]", 0, 5),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::IndexExpr));
+	ASSERT_THAT(node->children.size(), Eq(2u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::Identifier));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("arr"));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::NumberLiteral));
+	EXPECT_THAT(pos, Eq(4u));
+}
+
+TEST_F(ExpressionParserTest, Parse_IndexExpr_ExpressionIndex) {
+	// "arr[i - 1]"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "arr", 0, 0),
+		MakeToken(TokenType::LBracket, "[", 0, 3),
+		MakeToken(TokenType::Identifier, "i", 0, 4),
+		MakeToken(TokenType::Minus, "-", 0, 6),
+		MakeToken(TokenType::Number, "1", 0, 8),
+		MakeToken(TokenType::RBracket, "]", 0, 9),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::IndexExpr));
+
+	SyntaxNode* indexNode = node->children[1].get();
+	ASSERT_THAT(indexNode->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(indexNode->token.type, Eq(TokenType::Minus));
+}
+
+TEST_F(ExpressionParserTest, Parse_IndexExpr_Unclosed_Throws) {
+	// "arr[0" -- missing ']'
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "arr", 0, 0),
+		MakeToken(TokenType::LBracket, "[", 0, 3),
+		MakeToken(TokenType::Number, "0", 0, 4),
+		});
+	size_t pos = 0;
+
+	EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
+}
+
+TEST_F(ExpressionParserTest, Parse_AssignToIndexExpr) {
+	// "arr[0] = 10"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "arr", 0, 0),
+		MakeToken(TokenType::LBracket, "[", 0, 3),
+		MakeToken(TokenType::Number, "0", 0, 4),
+		MakeToken(TokenType::RBracket, "]", 0, 5),
+		MakeToken(TokenType::Assign, "=", 0, 7),
+		MakeToken(TokenType::Number, "10", 0, 9),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::AssignExpr));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::IndexExpr));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::NumberLiteral));
+}
+
+TEST_F(ExpressionParserTest, Parse_VarDeclareInitializer_ArrExpr) {
+	// "Arr(3)" used as a var-declare initializer -- exercised here at the
+	// expression level since VarDeclareParser just delegates to whatever
+	// parser is registered for the initializer's leading token.
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "Arr", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "3", 0, 4),
+		MakeToken(TokenType::RParen, ")", 0, 5),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::ArrExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("Arr"));
+}
+
 #endif

@@ -10,12 +10,16 @@ enum class TokenType {
 	KwVar,
 	KwIf,
 	KwElse,
-	KwWhile,
+	KwFor,
 	KwFunc,
 	KwReturn,
 	KwTrue,
 	KwFalse,
 	Print,
+	KwClass,
+	KwThis,
+	KwSuper,
+	KwInstanceof,
 
 	Plus,
 	Minus,
@@ -37,8 +41,12 @@ enum class TokenType {
 	RParen,
 	LBrace,
 	RBrace,
+	LBracket,
+	RBracket,
 	Comma,
 	Semicolon,
+	Dot,
+	Colon,
 
 	EndOfFile
 };

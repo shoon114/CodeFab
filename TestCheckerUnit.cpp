@@ -28,6 +28,71 @@ protected:
 		return node;
 	}
 
+	std::unique_ptr<SyntaxNode> MakeNumberLiteral(double value) {
+		auto node = std::make_unique<NumberLiteralNode>();
+		node->token = MakeToken(TokenType::Number, std::to_string(value), 1, 1);
+		node->token.realValue = value;
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeBoolLiteral(bool value) {
+		auto node = std::make_unique<BoolLiteralNode>();
+		node->token = MakeToken(value ? TokenType::KwTrue : TokenType::KwFalse, value ? "true" : "false", 1, 1);
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeStringLiteral(const std::string& value) {
+		auto node = std::make_unique<StringLiteralNode>();
+		node->token = MakeToken(TokenType::String, value, 1, 1);
+		return node;
+	}
+
+	// Arr(sizeExpr)
+	std::unique_ptr<SyntaxNode> MakeArrExpr(std::unique_ptr<SyntaxNode> sizeExpr) {
+		auto node = std::make_unique<ArrExprNode>();
+		node->token = MakeToken(TokenType::Identifier, "Arr", 1, 1);
+		node->children.push_back(std::move(sizeExpr));
+		return node;
+	}
+
+	// arrayExpr[indexExpr]
+	std::unique_ptr<SyntaxNode> MakeIndexExpr(std::unique_ptr<SyntaxNode> arrayExpr, std::unique_ptr<SyntaxNode> indexExpr) {
+		auto node = std::make_unique<IndexExprNode>();
+		node->token = MakeToken(TokenType::LBracket, "[", 1, 1);
+		node->children.push_back(std::move(arrayExpr));
+		node->children.push_back(std::move(indexExpr));
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeBinaryExpr(TokenType op, std::unique_ptr<SyntaxNode> left, std::unique_ptr<SyntaxNode> right) {
+		auto node = std::make_unique<BinaryExprNode>();
+		node->token = MakeToken(op, "", 1, 1);
+		node->children.push_back(std::move(left));
+		node->children.push_back(std::move(right));
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeUnaryExpr(TokenType op, std::unique_ptr<SyntaxNode> operand) {
+		auto node = std::make_unique<UnaryExprNode>();
+		node->token = MakeToken(op, "", 1, 1);
+		node->children.push_back(std::move(operand));
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeAssignExpr(std::unique_ptr<SyntaxNode> target, std::unique_ptr<SyntaxNode> value) {
+		auto node = std::make_unique<AssignExprNode>();
+		node->token = MakeToken(TokenType::Assign, "=", 1, 1);
+		node->children.push_back(std::move(target));
+		node->children.push_back(std::move(value));
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeExprStmt(std::unique_ptr<SyntaxNode> expr) {
+		auto node = std::make_unique<ExprStmtNode>();
+		node->children.push_back(std::move(expr));
+		return node;
+	}
+
 	std::unique_ptr<SyntaxNode> MakeBlock(std::vector<std::unique_ptr<SyntaxNode>> statements) {
 		auto node = std::make_unique<BlockStmtNode>();
 		node->token = MakeToken(TokenType::LBrace, "{", 1, 1);
@@ -226,5 +291,219 @@ TEST_F(CheckerUnitTest, Check_CallUndefinedFunction_ReportsError) {
 	});
 
 	EXPECT_THAT(output, HasSubstr("정의되지 않은 함수"));
+}
+
+// var a = 0;
+// { { a = a + 1; } }
+// 중첩된 블록 안에서 참조된 a는 전역 스코프까지 2단계 떨어져 있으므로
+// scopeDistance가 2로 미리 계산되어야 한다(정적 바인딩).
+TEST_F(CheckerUnitTest, Check_NestedBlockVariableReference_ComputesScopeDistance) {
+	auto assignTarget = MakeIdentifier("a");
+	auto* assignTargetPtr = static_cast<IdentifierNode*>(assignTarget.get());
+
+	auto readRef = MakeIdentifier("a");
+	auto* readRefPtr = static_cast<IdentifierNode*>(readRef.get());
+
+	auto addExpr = MakeBinaryExpr(TokenType::Plus, std::move(readRef), MakeNumberLiteral(1.0));
+	auto assignExpr = MakeAssignExpr(std::move(assignTarget), std::move(addExpr));
+
+	std::vector<std::unique_ptr<SyntaxNode>> innerStatements;
+	innerStatements.push_back(MakeExprStmt(std::move(assignExpr)));
+	auto innerBlock = MakeBlock(std::move(innerStatements));
+
+	std::vector<std::unique_ptr<SyntaxNode>> outerStatements;
+	outerStatements.push_back(std::move(innerBlock));
+	auto outerBlock = MakeBlock(std::move(outerStatements));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("a", MakeNumberLiteral(0.0)));
+	statements.push_back(std::move(outerBlock));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+	EXPECT_EQ(assignTargetPtr->scopeDistance, 2);
+	EXPECT_EQ(readRefPtr->scopeDistance, 2);
+}
+
+// 선언되지 않은 변수를 참조하면 scopeDistance는 기본값(-1, 미해결)으로 남아야
+// 한다. ExecutorUnit이 이 경우 기존 동적 탐색으로 폴백할 수 있게 하기 위함이다.
+TEST_F(CheckerUnitTest, Check_UndeclaredVariableReference_LeavesScopeDistanceUnresolved) {
+	auto ref = MakeIdentifier("missing");
+	auto* refPtr = static_cast<IdentifierNode*>(ref.get());
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(std::move(ref)));
+	auto root = MakeProgram(std::move(statements));
+
+	checker.Check(root.get());
+
+	EXPECT_EQ(refPtr->scopeDistance, -1);
+}
+
+// var x = 1 + 2 * 3; 처럼 리터럴로만 구성된 산술식은 체크 단계에서
+// 결과값(7)으로 미리 계산되어야 한다(상수 폴딩).
+TEST_F(CheckerUnitTest, Check_ConstantArithmeticExpression_FoldsAtCheckTime) {
+	auto mul = MakeBinaryExpr(TokenType::Star, MakeNumberLiteral(2.0), MakeNumberLiteral(3.0));
+	auto add = MakeBinaryExpr(TokenType::Plus, MakeNumberLiteral(1.0), std::move(mul));
+	auto* addPtr = static_cast<BinaryExprNode*>(add.get());
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("x", std::move(add)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+	ASSERT_TRUE(addPtr->isConstantFolded);
+	ASSERT_TRUE(std::holds_alternative<double>(addPtr->foldedValue));
+	EXPECT_DOUBLE_EQ(std::get<double>(addPtr->foldedValue), 7.0);
+}
+
+// -(5) 처럼 리터럴 단항식도 상수 폴딩 대상이다.
+TEST_F(CheckerUnitTest, Check_ConstantUnaryExpression_FoldsAtCheckTime) {
+	auto unary = MakeUnaryExpr(TokenType::Minus, MakeNumberLiteral(5.0));
+	auto* unaryPtr = static_cast<UnaryExprNode*>(unary.get());
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("x", std::move(unary)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+	ASSERT_TRUE(unaryPtr->isConstantFolded);
+	ASSERT_TRUE(std::holds_alternative<double>(unaryPtr->foldedValue));
+	EXPECT_DOUBLE_EQ(std::get<double>(unaryPtr->foldedValue), -5.0);
+}
+
+// true && (3 > 2) 처럼 논리/비교 연산의 조합도 리터럴로만 이루어져 있으면 폴딩된다.
+TEST_F(CheckerUnitTest, Check_ConstantLogicalExpression_FoldsAtCheckTime) {
+	auto comparison = MakeBinaryExpr(TokenType::Gt, MakeNumberLiteral(3.0), MakeNumberLiteral(2.0));
+	auto logical = MakeBinaryExpr(TokenType::And, MakeBoolLiteral(true), std::move(comparison));
+	auto* logicalPtr = static_cast<BinaryExprNode*>(logical.get());
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("x", std::move(logical)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+	ASSERT_TRUE(logicalPtr->isConstantFolded);
+	ASSERT_TRUE(std::holds_alternative<bool>(logicalPtr->foldedValue));
+	EXPECT_TRUE(std::get<bool>(logicalPtr->foldedValue));
+}
+
+// 1 / 0 처럼 0으로 나누는 상수식은 폴딩하지 않고 그대로 남겨, 기존처럼
+// 실행 단계에서 라인 정보를 포함한 런타임 에러가 나도록 한다.
+TEST_F(CheckerUnitTest, Check_ConstantDivisionByZero_DoesNotFold) {
+	auto div = MakeBinaryExpr(TokenType::Slash, MakeNumberLiteral(1.0), MakeNumberLiteral(0.0));
+	auto* divPtr = static_cast<BinaryExprNode*>(div.get());
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("x", std::move(div)));
+	auto root = MakeProgram(std::move(statements));
+
+	checker.Check(root.get());
+
+	EXPECT_FALSE(divPtr->isConstantFolded);
+}
+
+// var a = 0; var b = a + 1; 처럼 변수가 관여하는 식은 컴파일 타임에 값을
+// 확정할 수 없으므로 폴딩되면 안 된다.
+TEST_F(CheckerUnitTest, Check_ExpressionWithVariable_DoesNotFold) {
+	auto add = MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeNumberLiteral(1.0));
+	auto* addPtr = static_cast<BinaryExprNode*>(add.get());
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("a", MakeNumberLiteral(0.0)));
+	statements.push_back(MakeVarDecl("b", std::move(add)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+	EXPECT_FALSE(addPtr->isConstantFolded);
+}
+
+// Arr("hi")처럼 배열 크기 인자가 숫자 리터럴이 아니면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_ArrSizeStringLiteral_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeArrExpr(MakeStringLiteral("hi"))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("배열 크기"));
+}
+
+// Arr(3)처럼 크기 인자가 숫자 리터럴이면 에러가 없어야 한다.
+TEST_F(CheckerUnitTest, Check_ArrSizeNumberLiteral_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeArrExpr(MakeNumberLiteral(3.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// arr["hello"]처럼 인덱스가 숫자 리터럴이 아니면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_IndexStringLiteral_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeIdentifier("arr"), MakeStringLiteral("hello"))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("인덱스"));
+}
+
+// 10[0]처럼 배열이 아닌 리터럴에 []를 사용하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_IndexOnNumberLiteral_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeNumberLiteral(10.0), MakeNumberLiteral(0.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("배열이 아닌"));
+}
+
+// arr[0]처럼 식별자에 []를 사용하는 경우, 변수의 실제 타입은 정적으로 알 수 없으므로
+// (값 흐름 추적을 하지 않음) 에러를 보고하지 않아야 한다.
+TEST_F(CheckerUnitTest, Check_IndexOnIdentifier_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeIdentifier("arr"), MakeNumberLiteral(0.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Arr(3)[5]처럼 크기와 인덱스가 모두 상수로 확정되고 범위를 벗어나면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_InlineArrIndexOutOfRange_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeArrExpr(MakeNumberLiteral(3.0)), MakeNumberLiteral(5.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("범위를 벗어났습니다"));
+}
+
+// Arr(3)[1]처럼 범위 안이면 에러가 없어야 한다.
+TEST_F(CheckerUnitTest, Check_InlineArrIndexInRange_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeArrExpr(MakeNumberLiteral(3.0)), MakeNumberLiteral(1.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Arr(3)[i]처럼 인덱스가 변수라 상수로 확정되지 않으면 범위 검사를 건너뛰어야 한다.
+TEST_F(CheckerUnitTest, Check_InlineArrIndexWithVariableIndex_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeArrExpr(MakeNumberLiteral(3.0)), MakeIdentifier("i"))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
 }
 #endif

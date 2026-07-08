@@ -16,6 +16,8 @@ void NodeVisitor::Visit(const BinaryExprNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const UnaryExprNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const AssignExprNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const CallExprNode& node) { Traverse(node); }
+void NodeVisitor::Visit(const ArrExprNode& node) { Traverse(node); }
+void NodeVisitor::Visit(const IndexExprNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const VarDeclareStatementNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const ExprStmtNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const PrintStmtNode& node) { Traverse(node); }

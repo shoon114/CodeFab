@@ -26,7 +26,14 @@ void ExecutorUnit::ExitScope() {
 	scopes.pop_back();
 }
 
-Value_t& ExecutorUnit::ResolveVariable(const std::string& name, int line) {
+Value_t& ExecutorUnit::ResolveVariable(const std::string& name, int distance, int line) {
+	if (distance >= 0 && static_cast<size_t>(distance) < scopes.size()) {
+		size_t index = scopes.size() - 1 - static_cast<size_t>(distance);
+		auto found = scopes[index].find(name);
+		if (found != scopes[index].end()) {
+			return found->second;
+		}
+	}
 	for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
 		auto found = it->find(name);
 		if (found != it->end()) {
@@ -154,21 +161,25 @@ void ExecutorUnit::ExecuteForStmt(const SyntaxNode& node) {
 	}
 }
 
-Value_t ExecutorUnit::EvaluateIdentifier(const SyntaxNode& node) {
-	return ResolveVariable(node.token.lexeme, node.token.line);
+Value_t ExecutorUnit::EvaluateIdentifier(const IdentifierNode& node) {
+	return ResolveVariable(node.token.lexeme, node.scopeDistance, node.token.line);
 }
 
 Value_t ExecutorUnit::EvaluateAssignExpr(const SyntaxNode& node) {
 	// ExpressionParser는 AssignExpr의 token을 '=' 연산자로, children을
 	// [Identifier, valueExpr] 순서로 둔다.
-	const auto& identifier = *node.children[0];
+	const auto& identifier = static_cast<const IdentifierNode&>(*node.children[0]);
 	const auto& valueExpr = *node.children[1];
 	Value_t value = Evaluate(valueExpr);
-	ResolveVariable(identifier.token.lexeme, node.token.line) = value;
+	ResolveVariable(identifier.token.lexeme, identifier.scopeDistance, node.token.line) = value;
 	return value;
 }
 
-Value_t ExecutorUnit::EvaluateBinaryExpr(const SyntaxNode& node) {
+Value_t ExecutorUnit::EvaluateBinaryExpr(const BinaryExprNode& node) {
+	if (node.isConstantFolded) {
+		return node.foldedValue;
+	}
+
 	const auto& leftExpr = *node.children[0];
 	const auto& rightExpr = *node.children[1];
 
@@ -225,7 +236,11 @@ Value_t ExecutorUnit::EvaluateBinaryExpr(const SyntaxNode& node) {
 	}
 }
 
-Value_t ExecutorUnit::EvaluateUnaryExpr(const SyntaxNode& node) {
+Value_t ExecutorUnit::EvaluateUnaryExpr(const UnaryExprNode& node) {
+	if (node.isConstantFolded) {
+		return node.foldedValue;
+	}
+
 	const auto& operand = *node.children[0];
 	Value_t value = Evaluate(operand);
 	switch (node.token.type) {

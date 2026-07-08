@@ -114,6 +114,83 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParsePrefix(const TokenList& token
 }
 
 std::unique_ptr<SyntaxNode> ExpressionParser::ParsePrimary(const TokenList& tokenList, size_t& pos) {
+	std::unique_ptr<SyntaxNode> node = ParseAtom(tokenList, pos);
+
+	while (true) {
+		TokenType type = PeekType(tokenList, pos);
+		if (type == TokenType::LParen) {
+			node = ParseCallExpr(tokenList, pos, std::move(node));
+		} else if (type == TokenType::LBracket) {
+			node = ParseIndexExpr(tokenList, pos, std::move(node));
+		} else {
+			break;
+		}
+	}
+
+	return node;
+}
+
+std::unique_ptr<SyntaxNode> ExpressionParser::ParseCallExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> callee) {
+	if (callee->type != NodeType::Identifier) {
+		throw std::runtime_error("Only an identifier can be called at line " + std::to_string(callee->token.line));
+	}
+	Token calleeToken = callee->token;
+	pos++; // '('
+
+	if (calleeToken.lexeme == "Arr") {
+		return ParseArrExpr(tokenList, pos, calleeToken);
+	}
+
+	auto node = std::make_unique<CallExprNode>();
+	node->token = calleeToken;
+
+	if (PeekType(tokenList, pos) != TokenType::RParen) {
+		node->children.push_back(ParseExpression(tokenList, pos, 0));
+		while (PeekType(tokenList, pos) == TokenType::Comma) {
+			pos++; // ','
+			node->children.push_back(ParseExpression(tokenList, pos, 0));
+		}
+	}
+
+	if (PeekType(tokenList, pos) != TokenType::RParen) {
+		throw std::runtime_error("Expected ')' after arguments at line " + std::to_string(calleeToken.line));
+	}
+	node->closeParenToken = tokenList[pos++]; // ')'
+
+	return node;
+}
+
+std::unique_ptr<SyntaxNode> ExpressionParser::ParseArrExpr(const TokenList& tokenList, size_t& pos, Token calleeToken) {
+	auto node = std::make_unique<ArrExprNode>();
+	node->token = calleeToken;
+	node->children.push_back(ParseExpression(tokenList, pos, 0));
+
+	if (PeekType(tokenList, pos) != TokenType::RParen) {
+		throw std::runtime_error("Expected ')' after Array size at line " + std::to_string(calleeToken.line));
+	}
+	node->closeParenToken = tokenList[pos++]; // ')'
+
+	return node;
+}
+
+std::unique_ptr<SyntaxNode> ExpressionParser::ParseIndexExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> array) {
+	Token bracketToken = tokenList[pos++]; // '['
+
+	std::unique_ptr<SyntaxNode> indexExpr = ParseExpression(tokenList, pos, 0);
+	if (PeekType(tokenList, pos) != TokenType::RBracket) {
+		throw std::runtime_error("Expected ']' after index expression at line " + std::to_string(bracketToken.line));
+	}
+	Token closeBracketToken = tokenList[pos++]; // ']'
+
+	auto node = std::make_unique<IndexExprNode>();
+	node->token = bracketToken;
+	node->closeBracketToken = closeBracketToken;
+	node->children.push_back(std::move(array));
+	node->children.push_back(std::move(indexExpr));
+	return node;
+}
+
+std::unique_ptr<SyntaxNode> ExpressionParser::ParseAtom(const TokenList& tokenList, size_t& pos) {
 	TokenType type = PeekType(tokenList, pos);
 
 	if (type == TokenType::Number) {

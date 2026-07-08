@@ -9,6 +9,8 @@ class BinaryExprNode;
 class UnaryExprNode;
 class AssignExprNode;
 class CallExprNode;
+class ArrExprNode;
+class IndexExprNode;
 class VarDeclareStatementNode;
 class ExprStmtNode;
 class PrintStmtNode;
@@ -41,6 +43,8 @@ public:
 	virtual void Visit(const UnaryExprNode& node);
 	virtual void Visit(const AssignExprNode& node);
 	virtual void Visit(const CallExprNode& node);
+	virtual void Visit(const ArrExprNode& node);
+	virtual void Visit(const IndexExprNode& node);
 	virtual void Visit(const VarDeclareStatementNode& node);
 	virtual void Visit(const ExprStmtNode& node);
 	virtual void Visit(const PrintStmtNode& node);
