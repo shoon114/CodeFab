@@ -84,3 +84,5 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 블록 스코프(여러 줄) | `var x = "global";` → `{` → `  var x = "inner";` → `  print x;` → `}` → `print x;` | `inner` (첫 print), `global` (두 번째 print) |
 | 블록 스코프(여러 줄) | `var count = 0;` → `{` → `  count = count + 1;` → `}` → `print count;` | `1` (재선언이 아니라 바깥 변수를 수정) |
 | 블록 스코프(여러 줄) | `var outer = "A";` → `{` → `  var inner = "B";` → `  {` → `    print outer + inner;` → `  }` → `}` | `AB` (중첩 블록에서 바깥 스코프 변수 접근) |
+| if/else | `if (true) { print "bbq"; }` | `bbq` |
+| if/else | `if (false) { print "no"; } else { print "kfc"; }` | `kfc` |
