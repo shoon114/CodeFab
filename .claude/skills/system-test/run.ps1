@@ -52,6 +52,7 @@ $cases = @(
     @{ Category = "변수 선언과 할당";    InputLines = @('var a = 10;', 'var b = 20;', 'print a + b;'); Expect = "30" }
     @{ Category = "변수 재할당";         InputLines = @('var a = 10;', 'var b = 20;', 'a = a + 5;', 'print a;'); Expect = "15" }
     @{ Category = "블록 스코프(여러 줄)"; InputLines = @('var x = "global";', '{', '  var x = "inner";', '  print x;', '}', 'print x;'); Expect = "inner`nglobal" }
+    @{ Category = "블록 스코프(여러 줄)"; InputLines = @('var count = 0;', '{', '  count = count + 1;', '}', 'print count;'); Expect = "1" }
 )
 
 # Piping strings to a native exe (either via the PowerShell pipeline or via

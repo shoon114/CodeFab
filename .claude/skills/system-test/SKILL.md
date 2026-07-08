@@ -82,3 +82,4 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 변수 선언과 할당 | `var a = 10;` → `var b = 20;` → `print a + b;` | `30` |
 | 변수 재할당 | `var a = 10;` → `var b = 20;` → `a = a + 5;` → `print a;` | `15` |
 | 블록 스코프(여러 줄) | `var x = "global";` → `{` → `  var x = "inner";` → `  print x;` → `}` → `print x;` | `inner` (첫 print), `global` (두 번째 print) |
+| 블록 스코프(여러 줄) | `var count = 0;` → `{` → `  count = count + 1;` → `}` → `print count;` | `1` (재선언이 아니라 바깥 변수를 수정) |
