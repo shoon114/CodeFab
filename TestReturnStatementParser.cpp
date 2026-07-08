@@ -67,4 +67,21 @@ TEST_F(ReturnStatementParserTest, Parse_ReturnBinaryExpression_AttachesExpressio
 	ASSERT_THAT(root->children, SizeIs(1));
 	EXPECT_THAT(root->children[0]->type, Eq(NodeType::BinaryExpr));
 }
+
+// return;  -- 값 없는 bare return
+TEST_F(ReturnStatementParserTest, Parse_BareReturn_HasNoExpressionChild) {
+	TokenList tokenList = {
+		MakeToken(TokenType::KwReturn, RETURN, 1, 0),
+		MakeToken(TokenType::Semicolon, ";", 1, 1),
+		MakeToken(TokenType::EndOfFile, "", 1, 2),
+	};
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	EXPECT_THAT(root->type, Eq(NodeType::ReturnStmt));
+	EXPECT_THAT(root->token.lexeme, Eq(RETURN));
+	EXPECT_THAT(root->children, SizeIs(0));
+}
 #endif
