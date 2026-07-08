@@ -20,6 +20,16 @@ namespace {
 		}
 		pos++;
 	}
+
+	// AssemblerUnit/BlockParser가 최상위 statement 뒤에서 하는 것과 동일하게,
+	// body로 쓰인 bare 표현식 문장(ExpressionParser)은 자신의 trailing ';'를
+	// 스스로 소비하지 않으므로 여기서 남은 ';'를 소비해준다. '{' 로 시작하는
+	// 블록 body(BlockParser)처럼 이미 다 소비된 경우엔 아무 일도 하지 않는다.
+	void ConsumeOptionalTrailingSemicolon(const TokenList& tokenList, size_t& pos) {
+		if (pos < tokenList.size() && tokenList[pos].type == TokenType::Semicolon) {
+			pos++;
+		}
+	}
 }
 
 std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, size_t& pos) {
@@ -38,16 +48,11 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	auto updateNode = ResolveAndParse(tokenList, pos, "an update expression in 'for'");
 	ExpectToken(tokenList, pos, TokenType::RParen, "')' after for-loop update expression");
 
-	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::LBrace) {
-		int line = pos < tokenList.size() ? tokenList[pos].line : tokenList.back().line;
-		throw std::runtime_error("Expected '{' to start for-loop body at line " + std::to_string(line));
-	}
-	// The body's '{' ... '}' block (including any statements inside) is
-	// parsed by whatever is registered for LBrace -- in production, the
-	// real BlockParser -- consistent with how init/condition/update
-	// delegate via the registry instead of ForStmtParser re-implementing
-	// block parsing itself.
-	auto bodyNode = ResolveAndParse(tokenList, pos, "'{' to start for-loop body");
+	// body는 '{' 블록일 수도(BlockParser), '{}' 없는 단일 statement(예: print,
+	// var, bare 대입문 등)일 수도 있다. init/condition/update와 마찬가지로
+	// 어떤 형태인지 ForStmtParser가 직접 알 필요 없이 registry에 위임한다.
+	auto bodyNode = ResolveAndParse(tokenList, pos, "a statement to start for-loop body");
+	ConsumeOptionalTrailingSemicolon(tokenList, pos);
 
 	auto forNode = std::make_unique<ForStmtNode>();
 	forNode->token = forToken;
