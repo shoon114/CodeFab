@@ -8,9 +8,10 @@
 
 - `src/skelton.cpp`: 개발자들 간 초안 공유용 임시 파일. 실제 빌드에 포함되지 않으며,
   설계 판단의 근거로 참고하지 말 것.
-- `docs/CodeFab_Design.md`: 초기 설계 문서. 현재 코드(특히 `AssemblerUnit`/파서 구조)와
-  어긋난 부분(예: `IExpressionParser` 생성자 주입 방식)이 있어 **최신 상태가 아님**.
-  파서 아키텍처에 대해서는 이 문서(CLAUDE.md)를 우선 신뢰할 것.
+- `docs/CodeFab_Design.md`: 초기 설계 문서. 현재 코드(특히 `AssemblerUnit`/파서 구조,
+  `SyntaxNode`의 Visitor 패턴 적용)와 어긋난 부분(예: `IExpressionParser` 생성자 주입
+  방식, `SyntaxNode`를 값 타입/단일 클래스로 다루는 서술)이 있어 **최신 상태가 아님**.
+  아키텍처에 대해서는 이 문서(CLAUDE.md)를 우선 신뢰할 것.
 
 ## 2. AssemblerUnit 파서 아키텍처: Strategy + Registry
 
@@ -107,6 +108,10 @@
 - 이 패턴을 빠뜨린 사례가 실제로 있었음 (`TestIfStatementParser.cpp`가 한동안 `this`
   캡처 + `TearDown()` 누락 상태로 남아있었고, 전수 점검 중 발견하여 수정함). 새 테스트
   파일을 작성하거나 리뷰할 때 이 두 가지(값 캡처, TearDown 해제)를 항상 확인할 것.
+- `SyntaxNode`는 추상 베이스라 값으로도, `std::make_unique<SyntaxNode>()`로도 만들 수
+  없다. 파서를 거치지 않고 TC에서 직접 트리를 구성할 때(예: `TestExcutorUnit.cpp`,
+  `TestCheckerUnit.cpp`)는 항상 6절에서 설명하는 구체 서브클래스(`NumberLiteralNode`,
+  `PrintStmtNode` 등)를 `std::make_unique`로 생성해서 쓴다.
 
 ## 4. 개발 프로세스 컨벤션
 
@@ -136,3 +141,65 @@
 새 기능/버그 수정을 검증하더라도, 커밋 전에 기존 TC 전체(`CodeFab.exe` 실행 결과 전체
 테스트 스위트)가 항상 PASS하는지 반드시 확인한다. system test 검증이 유닛 테스트 작성을
 대체하는 것이지, 기존 유닛 테스트를 무시해도 된다는 뜻이 아니다.
+
+## 6. SyntaxNode 트리 순회: GoF Visitor 패턴
+
+`CheckerUnit`/`ExecutorUnit`이 `SyntaxNode::type`을 switch/if-chain으로 직접 분기하던
+방식은 PR #48에서 더블 디스패치 기반 Visitor 패턴으로 교체됐다. **트리를 순회하며
+노드 타입별로 다른 동작을 해야 하는 코드는 앞으로 전부 이 패턴을 따라야 한다** — 새
+switch(node.type)나 node.type에 대한 if-else 체인, `dynamic_cast` 체인을 추가하지 말 것.
+
+### 핵심 구성 요소
+
+- **`SyntaxNode`** (`SyntaxNode.h`): 추상 베이스. `type`/`token`/`children`은 그대로
+  갖지만, 생성자로 직접 만들 수 없고 순수가상함수 `Accept(NodeVisitor&) const`를 갖는다.
+- **`NodeType`마다 존재하는 구체 서브클래스** (`NumberLiteralNode`, `VarDeclareStatementNode`,
+  `ProgramNode` 등, 전부 `SyntaxNode.h`에 정의): 생성자에서 `type`을 스스로 채우고,
+  `Accept()`에서 `visitor.Visit(*this)`를 호출해 자기 자신의 정확한 타입을 되돌려준다
+  (더블 디스패치).
+- **`NodeVisitor`** (`NodeVisitor.h`/`.cpp`): `NodeType` 값마다 하나씩
+  `virtual void Visit(const XxxNode&)`를 선언한 인터페이스. 기본 구현(`.cpp`)은
+  `Traverse(node)`로 자식을 그대로 순회하는 것이므로, 구체 Visitor는 **관심 있는 노드
+  타입만 override**하면 된다. 순회를 직접 제어해야 하면(스코프 진입/이탈 등) override
+  안에서 `Traverse()`를 호출할지 말지 스스로 결정한다.
+- **`CheckerUnit`/`ExecutorUnit`**: `NodeVisitor`를 상속받아 필요한 `Visit()`만
+  override. 트리 진입점은 `root->Accept(*this)` 하나뿐이고, 나머지 분기는 전부
+  더블 디스패치가 처리한다.
+- **값을 반환해야 하는 Visit** (예: `ExecutorUnit`의 식 평가): `Visit()`은 `void`이므로
+  결과를 직접 리턴할 수 없다. `ExecutorUnit`은 `lastValue` 멤버에 결과를 담아두고,
+  `Evaluate(node)`가 `node.Accept(*this)` 호출 직후 `lastValue`를 읽어 반환하는 방식을
+  쓴다. 값을 반환해야 하는 새 Visitor를 만들 때도 이 패턴(out-parameter 멤버)을 따른다.
+
+### 새 NodeType을 추가하는 절차
+
+1. `SyntaxNode.h`의 `NodeType` enum에 새 값 추가.
+2. 같은 파일에 구체 서브클래스 추가:
+   ```cpp
+   class MyNewNode : public SyntaxNode {
+   public:
+       MyNewNode() { type = NodeType::MyNew; }
+       void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+   };
+   ```
+3. `NodeVisitor.h`에 전방 선언 추가 + `virtual void Visit(const MyNewNode& node);` 선언 추가.
+4. `NodeVisitor.cpp`에 기본 구현 추가: `void NodeVisitor::Visit(const MyNewNode& node) { Traverse(node); }`
+   (관심 없는 Visitor는 이 기본 동작으로 자식만 순회하고 지나간다).
+5. 이 노드를 만드는 파서는 `std::make_unique<SyntaxNode>()` + `->type = NodeType::MyNew` 대신
+   반드시 `std::make_unique<MyNewNode>()`로 생성한다 (그래야 `Accept()`가 정확한 타입으로
+   디스패치된다).
+6. 이 노드 타입에 실제로 반응해야 하는 `CheckerUnit`/`ExecutorUnit`(또는 향후 추가되는
+   다른 Visitor)에 `void Visit(const MyNewNode& node) override;`를 선언하고 구현한다.
+   반응할 필요 없는 Visitor는 override하지 않고 기본 `Traverse()` 동작에 맡긴다.
+
+### 이 패턴과 2절(Strategy + Registry)의 관계
+
+둘은 서로 다른 문제를 다루므로 섞지 말 것.
+
+- **2절 (Strategy + Registry)**: *파싱 단계*에서 "다음 토큰을 어떤 파서로 넘길지"를
+  결정하는 문제. `TokenType` → `IStatementParser` 매핑.
+- **6절 (Visitor)**: *파싱 이후* 트리를 순회하며 "이 노드를 만나면 무엇을 할지"를
+  결정하는 문제. `NodeType`(정확히는 구체 노드 클래스) → 동작 매핑.
+
+새 statement 파서를 추가할 때는 2절 절차(레지스트리 self-registration)를, 그 파서가
+만든 노드를 `CheckerUnit`/`ExecutorUnit`이 처리하게 하려면 위 6절 절차(Visitor)를
+**둘 다** 따라야 한다.
