@@ -14,16 +14,9 @@ class FunctionStatementParserTest : public Test {
 protected:
 	FunctionStatementParser parser;
 
-	// FunctionStatementParser resolves whatever is registered for the token
-	// at the function body's position ('{' here) via StatementParserRegistry
-	// -- in production that's the real BlockParser. We stand in for it with
-	// a mock so this TC doesn't depend on BlockParser's real behavior.
 	std::shared_ptr<MockStatementParser> mockBodyParser = std::make_shared<MockStatementParser>();
 
 	void SetUp() override {
-		// Capture mockBodyParser by value (not `this`): the factory lambda
-		// is stored in the global StatementParserRegistry and can outlive
-		// this fixture.
 		StatementParserRegistry::Instance().Register(TokenType::LBrace, [bodyParser = mockBodyParser]() {
 			return bodyParser;
 		});
@@ -46,8 +39,31 @@ protected:
 			return std::make_shared<BlockParser>();
 		});
 	}
+
 	const std::string FUNC = "func";
 	const std::string FUNC_NAME = "add";
+
+	void StubBodyParserToConsume(int tokenCount) {
+		EXPECT_CALL(*mockBodyParser, Parse(_, _))
+			.Times(1)
+			.WillOnce([tokenCount](const TokenList& tokens, size_t& pos) {
+				auto node = std::make_unique<BlockStmtNode>();
+				node->token = tokens[pos];
+				pos += tokenCount;
+				return node;
+			});
+	}
+
+	void ExpectParseThrows(const TokenList& tokenList, const char* expectedMessage) {
+		size_t pos = 0;
+		try {
+			parser.Parse(tokenList, pos);
+			FAIL();
+		}
+		catch (const std::runtime_error& e) {
+			EXPECT_STREQ(e.what(), expectedMessage);
+		}
+	}
 };
 
 // func add(a, b) {
@@ -71,15 +87,7 @@ TEST_F(FunctionStatementParserTest, Parse_WithParams_AttachesParamsThenBody) {
 		MakeToken(TokenType::RBrace, "}", 3, 0),
 		MakeToken(TokenType::EndOfFile, "", 3, 1),
 	};
-
-	EXPECT_CALL(*mockBodyParser, Parse(_, _))
-		.Times(1)
-		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<BlockStmtNode>();
-			node->token = tokens[pos];
-			pos += 7; // '{' return a + b ; '}' 7개 토큰 소비
-			return node;
-		});
+	StubBodyParserToConsume(7); // '{' return a + b ; '}' 7개 토큰 소비
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
@@ -112,15 +120,7 @@ TEST_F(FunctionStatementParserTest, Parse_NoParams_AttachesOnlyBodyAsChild) {
 		MakeToken(TokenType::RBrace, "}", 3, 0),
 		MakeToken(TokenType::EndOfFile, "", 3, 1),
 	};
-
-	EXPECT_CALL(*mockBodyParser, Parse(_, _))
-		.Times(1)
-		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<BlockStmtNode>();
-			node->token = tokens[pos];
-			pos += 5; // '{' return 1 ; '}' 5개 토큰 소비
-			return node;
-		});
+	StubBodyParserToConsume(5); // '{' return 1 ; '}' 5개 토큰 소비
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
@@ -153,14 +153,7 @@ TEST_F(FunctionStatementParserTest, Parse_MissingFunctionName_ThrowsOnMalformedS
 		MakeToken(TokenType::EndOfFile, "", 3, 1),
 	};
 
-	size_t pos = 0;
-	try {
-		parser.Parse(tokenList, pos);
-		FAIL();
-	}
-	catch (const std::runtime_error& e) {
-		EXPECT_STREQ(e.what(), "Expected a function name after 'func' at line 1");
-	}
+	ExpectParseThrows(tokenList, "Expected a function name after 'func' at line 1");
 }
 
 // func add a, b) {
@@ -184,14 +177,7 @@ TEST_F(FunctionStatementParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSynt
 		MakeToken(TokenType::EndOfFile, "", 3, 1),
 	};
 
-	size_t pos = 0;
-	try {
-		parser.Parse(tokenList, pos);
-		FAIL();
-	}
-	catch (const std::runtime_error& e) {
-		EXPECT_STREQ(e.what(), "Invalid Syntax. '(' is Missing");
-	}
+	ExpectParseThrows(tokenList, "Invalid Syntax. '(' is Missing");
 }
 
 // func add(1, b) {
@@ -216,14 +202,7 @@ TEST_F(FunctionStatementParserTest, Parse_NonIdentifierParameter_ThrowsOnMalform
 		MakeToken(TokenType::EndOfFile, "", 3, 1),
 	};
 
-	size_t pos = 0;
-	try {
-		parser.Parse(tokenList, pos);
-		FAIL();
-	}
-	catch (const std::runtime_error& e) {
-		EXPECT_STREQ(e.what(), "Expected a parameter name at line 1");
-	}
+	ExpectParseThrows(tokenList, "Expected a parameter name at line 1");
 }
 
 // func add(a, b {
@@ -247,14 +226,7 @@ TEST_F(FunctionStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyn
 		MakeToken(TokenType::EndOfFile, "", 3, 1),
 	};
 
-	size_t pos = 0;
-	try {
-		parser.Parse(tokenList, pos);
-		FAIL();
-	}
-	catch (const std::runtime_error& e) {
-		EXPECT_STREQ(e.what(), "Invalid Syntax. ')' is Missing");
-	}
+	ExpectParseThrows(tokenList, "Invalid Syntax. ')' is Missing");
 }
 
 // func add(a, b)  -- 본문 '{' 누락
@@ -270,14 +242,7 @@ TEST_F(FunctionStatementParserTest, Parse_MissingBody_ThrowsOnMalformedSyntax) {
 		MakeToken(TokenType::EndOfFile, "", 1, 7),
 	};
 
-	size_t pos = 0;
-	try {
-		parser.Parse(tokenList, pos);
-		FAIL();
-	}
-	catch (const std::runtime_error& e) {
-		EXPECT_STREQ(e.what(), "Expected a function body at line 1");
-	}
+	ExpectParseThrows(tokenList, "Expected a function body at line 1");
 }
 
 // func  -- 'func' 뒤에 아무것도 없음
@@ -287,13 +252,6 @@ TEST_F(FunctionStatementParserTest, Parse_NothingAfterFunc_ThrowsOnMalformedSynt
 		MakeToken(TokenType::EndOfFile, "", 1, 1),
 	};
 
-	size_t pos = 0;
-	try {
-		parser.Parse(tokenList, pos);
-		FAIL();
-	}
-	catch (const std::runtime_error& e) {
-		EXPECT_STREQ(e.what(), "Expected a function name after 'func' at line 1");
-	}
+	ExpectParseThrows(tokenList, "Expected a function name after 'func' at line 1");
 }
 #endif
