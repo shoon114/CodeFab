@@ -362,4 +362,47 @@ TEST_F(IfStatementParserTest, Parse_WithElseIfAndElse_AttachesFullChain) {
 	EXPECT_THAT(elseIfNode->children[1]->type, Eq(NodeType::BlockStmt));
 	EXPECT_THAT(elseIfNode->children[2]->type, Eq(NodeType::BlockStmt));
 }
+
+TEST_F(IfStatementParserTest, Parse_ElseMissingBrace_ThrowsOnMalformedSyntax) {
+	// if (a > 3) { } else   -- else 본문 '{' 누락
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBody();
+
+	ExpectParseThrows(tokenList, "Expected '{' to start else-body at line 1");
+}
+
+TEST_F(IfStatementParserTest, Parse_ElseIfPropagatesInnerIfError_ThrowsOnMalformedSyntax) {
+	// if (a > 3) { } else if a   -- else if 안쪽 if에 '(' 누락, 재귀 호출이
+	// 안쪽 에러를 그대로 밖으로 전달하는지 확인
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::KwIf, "if"},
+		{TokenType::Identifier, "a"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBody();
+
+	ExpectParseThrows(tokenList, "Expected '(' after 'if' at line 1");
+}
 #endif
