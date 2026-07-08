@@ -150,6 +150,10 @@
     <ClCompile Include="PrintStatementParser.cpp" />
     <ClCompile Include="TestIfStatementParser.cpp" />
     <ClCompile Include="TestPrintStatementParser.cpp" />
+    <ClCompile Include="FunctionStatementParser.cpp" />
+    <ClCompile Include="TestFunctionStatementParser.cpp" />
+    <ClCompile Include="ReturnStatementParser.cpp" />
+    <ClCompile Include="TestReturnStatementParser.cpp" />
     <ClCompile Include="VarDeclareParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -194,6 +198,8 @@
     <ClInclude Include="BlockParser.h" />
     <ClInclude Include="IfStatementParser.h" />
     <ClInclude Include="PrintStatementParser.h" />
+    <ClInclude Include="FunctionStatementParser.h" />
+    <ClInclude Include="ReturnStatementParser.h" />
     <ClInclude Include="SyntaxNode.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokenizer.h" />
