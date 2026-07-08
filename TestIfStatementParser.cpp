@@ -231,22 +231,6 @@ TEST_F(IfStatementParserTest, Parse_MissingCondition_ThrowsOnMalformedSyntax) {
 	ExpectParseThrows(tokenList, "Expected a condition expression in 'if' at line 1");
 }
 
-TEST_F(IfStatementParserTest, Parse_MissingBody_ThrowsOnMalformedSyntax) {
-	// if (a > 3)   -- 본문 '{' 누락
-	TokenList tokenList = MakeTokens({
-		{TokenType::KwIf, "if"},
-		{TokenType::LParen, "("},
-		{TokenType::Identifier, "a"},
-		{TokenType::Gt, ">"},
-		{TokenType::Number, "3"},
-		{TokenType::RParen, ")"},
-		{TokenType::EndOfFile, ""},
-		});
-	StubConditionParserToConsumeCondition();
-
-	ExpectParseThrows(tokenList, "Expected '{' to start if-body at line 1");
-}
-
 TEST_F(IfStatementParserTest, Parse_WithElse_AttachesElseBranchAsThirdChild) {
 	// if (a > 3) { } else { }
 	TokenList tokenList = MakeTokens({
@@ -358,8 +342,63 @@ TEST_F(IfStatementParserTest, Parse_WithElseIfAndElse_AttachesFullChain) {
 	EXPECT_THAT(elseIfNode->children[2]->type, Eq(NodeType::BlockStmt));
 }
 
-TEST_F(IfStatementParserTest, Parse_ElseMissingBrace_ThrowsOnMalformedSyntax) {
-	// if (a > 3) { } else   -- else 본문 '{' 누락
+TEST_F(IfStatementParserTest, Parse_ThenBodyWithoutBraces_AttachesSingleStatementAsThenNode) {
+	// if (a > 3) x = 1;
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::Identifier, "x"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "1"},
+		{TokenType::Semicolon, ";"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(2); // condition(a>3) + no-brace then-body(x=1)
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(2));
+	EXPECT_THAT(pos, Eq(tokenList.size() - 1)); // 세미콜론까지 소비하고 EndOfFile에 멈춰야 함
+}
+
+TEST_F(IfStatementParserTest, Parse_ThenAndElseBodyWithoutBraces_AttachesBothAsRawStatements) {
+	// if (a > 3) x = 1; else y = 2;
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::Identifier, "x"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "1"},
+		{TokenType::Semicolon, ";"},
+		{TokenType::KwElse, "else"},
+		{TokenType::Identifier, "y"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "2"},
+		{TokenType::Semicolon, ";"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(3); // condition(a>3) + then-body(x=1) + else-body(y=2)
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+	EXPECT_THAT(pos, Eq(tokenList.size() - 1));
+}
+
+TEST_F(IfStatementParserTest, Parse_BraceThenAndNoBraceElse_AttachesMixedBranches) {
+	// if (a > 3) { } else x = 1;
 	TokenList tokenList = MakeTokens({
 		{TokenType::KwIf, "if"},
 		{TokenType::LParen, "("},
@@ -370,12 +409,95 @@ TEST_F(IfStatementParserTest, Parse_ElseMissingBrace_ThrowsOnMalformedSyntax) {
 		{TokenType::LBrace, "{"},
 		{TokenType::RBrace, "}"},
 		{TokenType::KwElse, "else"},
+		{TokenType::Identifier, "x"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "1"},
+		{TokenType::Semicolon, ";"},
 		{TokenType::EndOfFile, ""},
 		});
-	StubConditionParserToConsumeCondition();
-	StubThenParserToConsumeBody();
+	StubConditionParserToConsumeConditions(2); // condition(a>3) + no-brace else-body(x=1)
+	StubThenParserToConsumeBody(); // brace then-body { }
 
-	ExpectParseThrows(tokenList, "Expected '{' to start else-body at line 1");
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+	EXPECT_THAT(root->children[1]->type, Eq(NodeType::BlockStmt)); // then은 여전히 중괄호 블록
+	EXPECT_THAT(pos, Eq(tokenList.size() - 1));
+}
+
+TEST_F(IfStatementParserTest, Parse_ElseIfWithNoBraceBody_AttachesNestedIfWithRawStatement) {
+	// if (a > 3) x = 1; else if (b < 5) y = 2;
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::Identifier, "x"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "1"},
+		{TokenType::Semicolon, ";"},
+		{TokenType::KwElse, "else"},
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "b"},
+		{TokenType::Lt, "<"},
+		{TokenType::Number, "5"},
+		{TokenType::RParen, ")"},
+		{TokenType::Identifier, "y"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "2"},
+		{TokenType::Semicolon, ";"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(4); // cond(a>3) + body(x=1) + cond(b<5) + body(y=2)
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+
+	const std::unique_ptr<SyntaxNode>& elseIfNode = root->children[2];
+	EXPECT_THAT(elseIfNode->type, Eq(NodeType::IfStmt));
+	ASSERT_THAT(elseIfNode->children, SizeIs(2));
+	EXPECT_THAT(pos, Eq(tokenList.size() - 1));
+}
+
+TEST_F(IfStatementParserTest, Parse_ThenBodyWithoutBraces_DoesNotSwallowFollowingStatement) {
+	// if (a > 3) x = 1; y = 2;
+	// 중괄호 없는 then-body는 딱 한 문장(x = 1;)까지만 소비하고,
+	// 그 다음 문장(y = 2;)은 건드리지 않아야 한다.
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::Identifier, "x"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "1"},
+		{TokenType::Semicolon, ";"},
+		{TokenType::Identifier, "y"},
+		{TokenType::Assign, "="},
+		{TokenType::Number, "2"},
+		{TokenType::Semicolon, ";"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(2); // condition(a>3) + no-brace then-body(x=1)
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(2));
+
+	ASSERT_THAT(pos, Lt(tokenList.size()));
+	EXPECT_THAT(tokenList[pos].lexeme, Eq("y"));
 }
 
 TEST_F(IfStatementParserTest, Parse_ElseIfPropagatesInnerIfError_ThrowsOnMalformedSyntax) {
