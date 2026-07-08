@@ -1,5 +1,7 @@
 #include "ReturnStatementParser.h"
 #include "StatementParserRegistry.h"
+#include <stdexcept>
+#include <string>
 
 namespace {
 StatementParserRegistrar<ReturnStatementParser> registrar(TokenType::KwReturn);
@@ -11,13 +13,19 @@ std::unique_ptr<SyntaxNode> ReturnStatementParser::Parse(const TokenList& tokenL
 	auto returnNode = std::make_unique<ReturnStmtNode>();
 	returnNode->token = returnToken;
 
-	//returnÀÌÈÄ ÅäÅ«ÀÌ ;ÀÏ °æ¿ì ¹Ù·Î Á¾·áÇÑ´Ù.
+	// return ì´í›„ í† í°ì´ ;ì¼ ê²½ìš° ë°”ë¡œ ì¢…ë£Œí•œë‹¤.
 	if (tokenList[pos].type != TokenType::Semicolon) {
 		std::shared_ptr<IStatementParser> exprParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
+		if (exprParser == nullptr) {
+			throw std::runtime_error("Expected ';' after return statement at line " + std::to_string(returnToken.line));
+		}
 		auto exprNode = exprParser->Parse(tokenList, pos);
 		returnNode->children.push_back(std::move(exprNode));
 	}
 
+	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::Semicolon) {
+		throw std::runtime_error("Expected ';' after return statement at line " + std::to_string(returnToken.line));
+	}
 	pos++;
 
 	return returnNode;
