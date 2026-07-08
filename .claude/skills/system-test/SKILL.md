@@ -81,3 +81,4 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | boolean 출력 | `print false;` | `false` |
 | 변수 선언과 할당 | `var a = 10;` → `var b = 20;` → `print a + b;` | `30` |
 | 변수 재할당 | `var a = 10;` → `var b = 20;` → `a = a + 5;` → `print a;` | `15` |
+| 블록 스코프(여러 줄) | `var x = "global";` → `{` → `  var x = "inner";` → `  print x;` → `}` → `print x;` | `inner` (첫 print), `global` (두 번째 print) |
