@@ -58,6 +58,16 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 - `Expect`는 print 등으로 실제 출력되는 값만 적는다(변수 선언 등 출력이
   없는 줄이 만드는 빈 줄은 스크립트가 자동으로 무시하고 비교한다).
 
+구문 오류/런타임 오류처럼 "정확한 메시지"가 아니라 **"뭐든 에러만 나면
+통과"**하는 케이스는 `Expect` 대신 `ExpectError = $true`를 쓴다:
+
+```powershell
+@{ Category = "<분류명>"; InputLines = @('<에러가 나야 하는 코드>', ...); ExpectError = $true }
+```
+
+이 타입은 stderr(에러 메시지)가 비어있지 않은지만 확인하고, 어떤 문구인지는
+검사하지 않는다.
+
 케이스를 추가/수정한 뒤에는 커밋할지 사용자에게 확인한다 — 이 스킬 파일과
 케이스 목록은 프로젝트에 커밋되어 다른 개발자도 동일한 회귀 세트를 쓰게
 되므로, 회귀 케이스 추가 자체도 리뷰 대상으로 취급한다.
@@ -88,3 +98,4 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | if/else | `if (false) { print "no"; } else { print "kfc"; }` | `kfc` |
 | if/else(여러 줄, 중첩) | `if (true)` → `{` → `  if (false) { print "kfc"; }` → `  else { print "bbq"; }` → `}` | `bbq` (Allman 스타일로 조건과 `{`가 다른 줄에 있는 경우) |
 | for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
+| 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |

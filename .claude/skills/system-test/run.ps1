@@ -58,6 +58,10 @@ $cases = @(
     @{ Category = "if/else"; InputLines = @('if (false) { print "no"; } else { print "kfc"; }'); Expect = "kfc" }
     @{ Category = "if/else(여러 줄, 중첩)"; InputLines = @('if (true)', '{', '  if (false) { print "kfc"; }', '  else { print "bbq"; }', '}'); Expect = "bbq" }
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
+
+    # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
+    # (ExpectError = $true). Expect 필드는 쓰지 않는다.
+    @{ Category = "구문 오류: 세미콜론 누락"; InputLines = @('print 1 + 2'); ExpectError = $true }
 )
 
 # Piping strings to a native exe (either via the PowerShell pipeline or via
@@ -66,6 +70,8 @@ $cases = @(
 # regardless of how the writer's encoding is configured. Native file
 # redirection via cmd.exe (the same mechanism a real console uses) does not
 # have this problem, so write the input to a temp file and redirect from it.
+# stdout/stderr는 따로 캡처한다 -- ExpectError 케이스는 stderr(에러 메시지)가
+# 비어있지 않은지만 확인하고, 그 외 케이스는 stdout만 기대값과 비교한다.
 function Invoke-CodeFab {
     param(
         [string]$ExePath,
@@ -73,28 +79,42 @@ function Invoke-CodeFab {
     )
 
     $tmpFile = [System.IO.Path]::GetTempFileName()
+    $errFile = [System.IO.Path]::GetTempFileName()
     try {
         $content = ($Lines -join "`n") + "`n"
         [System.IO.File]::WriteAllText($tmpFile, $content, (New-Object System.Text.UTF8Encoding($false)))
-        $output = cmd /c "`"$ExePath`" < `"$tmpFile`"" 2>&1
-        return ($output -join "`n")
+        $stdout = cmd /c "`"$ExePath`" < `"$tmpFile`" 2>`"$errFile`""
+        $stderr = Get-Content -Raw -ErrorAction SilentlyContinue -Path $errFile
+        return [pscustomobject]@{
+            Stdout = ($stdout -join "`n")
+            Stderr = if ($stderr) { $stderr } else { "" }
+        }
     }
     finally {
         Remove-Item $tmpFile -ErrorAction SilentlyContinue
+        Remove-Item $errFile -ErrorAction SilentlyContinue
     }
 }
 
 $results = @()
 foreach ($case in $cases) {
-    $rawOutput = Invoke-CodeFab -ExePath $exePath -Lines $case.InputLines
-    $actualLines = $rawOutput -split "`r?`n" | Where-Object { $_.Trim() -ne "" }
-    $actual = ($actualLines -join "`n").Trim()
-    $pass = ($actual -eq $case.Expect)
+    $output = Invoke-CodeFab -ExePath $exePath -Lines $case.InputLines
+
+    if ($case.ExpectError) {
+        $pass = -not [string]::IsNullOrWhiteSpace($output.Stderr)
+        $expectDisplay = "(에러 발생)"
+        $actual = if ($pass) { $output.Stderr.Trim() } else { "(에러 없음)" }
+    } else {
+        $actualLines = $output.Stdout -split "`r?`n" | Where-Object { $_.Trim() -ne "" }
+        $actual = ($actualLines -join "`n").Trim()
+        $pass = ($actual -eq $case.Expect)
+        $expectDisplay = $case.Expect
+    }
 
     $results += [pscustomobject]@{
         Category = $case.Category
         Input    = ($case.InputLines -join " ")
-        Expect   = $case.Expect
+        Expect   = $expectDisplay
         Actual   = $actual
         Result   = if ($pass) { "PASS" } else { "FAIL" }
     }
