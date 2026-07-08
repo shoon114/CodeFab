@@ -101,7 +101,34 @@ protected:
 			.WillOnce([](const TokenList& tokens, size_t& pos) {
 				auto node = std::make_unique<BlockStmtNode>();
 				node->token = tokens[pos];
-				pos += 2; 
+				pos += 2;
+				return node;
+			});
+	}
+
+	// then/else if/else 본문이 전부 '{'로 시작하므로, 체인 길이만큼 같은
+	// mockThenParser가 여러 번 호출된다 -- 매번 '{' '}' 2개 토큰을 소비하는
+	// BlockStmtNode로 stub.
+	void StubThenParserToConsumeBodies(int times) {
+		EXPECT_CALL(*mockThenParser, Parse(_, _))
+			.Times(times)
+			.WillRepeatedly([](const TokenList& tokens, size_t& pos) {
+				auto node = std::make_unique<BlockStmtNode>();
+				node->token = tokens[pos];
+				pos += 2;
+				return node;
+			});
+	}
+
+	// else if 체인마다 안쪽 if가 다시 조건식을 resolve하므로, 체인 길이만큼
+	// stub해준다.
+	void StubConditionParserToConsumeConditions(int times) {
+		EXPECT_CALL(*mockConditionParser, Parse(_, _))
+			.Times(times)
+			.WillRepeatedly([](const TokenList& tokens, size_t& pos) {
+				auto node = std::make_unique<BinaryExprNode>();
+				node->token = tokens[pos];
+				pos += 3;
 				return node;
 			});
 	}
@@ -223,5 +250,116 @@ TEST_F(IfStatementParserTest, Parse_MissingBody_ThrowsOnMalformedSyntax) {
 	StubConditionParserToConsumeCondition();
 
 	ExpectParseThrows(tokenList, "Expected '{' to start if-body at line 1");
+}
+
+TEST_F(IfStatementParserTest, Parse_WithElse_AttachesElseBranchAsThirdChild) {
+	// if (a > 3) { } else { }
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeCondition();
+	StubThenParserToConsumeBodies(2);
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+
+	const std::unique_ptr<SyntaxNode>& elseNode = root->children[2];
+	EXPECT_THAT(elseNode->type, Eq(NodeType::BlockStmt));
+}
+
+TEST_F(IfStatementParserTest, Parse_WithElseIf_AttachesNestedIfStmtAsThirdChild) {
+	// if (a > 3) { } else if (b < 5) { }
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "b"},
+		{TokenType::Lt, "<"},
+		{TokenType::Number, "5"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(2);
+	StubThenParserToConsumeBodies(2);
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+
+	const std::unique_ptr<SyntaxNode>& elseIfNode = root->children[2];
+	EXPECT_THAT(elseIfNode->type, Eq(NodeType::IfStmt));
+	ASSERT_THAT(elseIfNode->children, SizeIs(2));
+	EXPECT_THAT(elseIfNode->children[0]->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(elseIfNode->children[1]->type, Eq(NodeType::BlockStmt));
+}
+
+TEST_F(IfStatementParserTest, Parse_WithElseIfAndElse_AttachesFullChain) {
+	// if (a > 3) { } else if (b < 5) { } else { }
+	TokenList tokenList = MakeTokens({
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "a"},
+		{TokenType::Gt, ">"},
+		{TokenType::Number, "3"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::KwIf, "if"},
+		{TokenType::LParen, "("},
+		{TokenType::Identifier, "b"},
+		{TokenType::Lt, "<"},
+		{TokenType::Number, "5"},
+		{TokenType::RParen, ")"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::KwElse, "else"},
+		{TokenType::LBrace, "{"},
+		{TokenType::RBrace, "}"},
+		{TokenType::EndOfFile, ""},
+		});
+	StubConditionParserToConsumeConditions(2);
+	StubThenParserToConsumeBodies(3); // if 본문, else-if 본문, else 본문
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	ASSERT_THAT(root->children, SizeIs(3));
+	EXPECT_THAT(root->children[0]->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(root->children[1]->type, Eq(NodeType::BlockStmt));
+
+	const std::unique_ptr<SyntaxNode>& elseIfNode = root->children[2];
+	EXPECT_THAT(elseIfNode->type, Eq(NodeType::IfStmt));
+	ASSERT_THAT(elseIfNode->children, SizeIs(3));
+	EXPECT_THAT(elseIfNode->children[0]->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(elseIfNode->children[1]->type, Eq(NodeType::BlockStmt));
+	EXPECT_THAT(elseIfNode->children[2]->type, Eq(NodeType::BlockStmt));
 }
 #endif
