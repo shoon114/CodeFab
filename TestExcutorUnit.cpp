@@ -59,14 +59,29 @@ namespace {
 		return node;
 	}
 
+	// PDF p.79: <name> = <value> (실제 ExpressionParser/VarDeclareParser가 만드는 모양을 따른다:
+	// token은 '=' 연산자, children[0]은 Identifier, children[1]이 값)
+	SyntaxNode MakeAssignExpr(const std::string& name, SyntaxNode value, int line = 1) {
+		SyntaxNode node;
+		node.type = NodeType::AssignExpr;
+		node.token.type = TokenType::Assign;
+		node.token.lexeme = "=";
+		node.token.line = line;
+		node.children.push_back(std::make_unique<SyntaxNode>(MakeIdentifier(name, line)));
+		node.children.push_back(std::make_unique<SyntaxNode>(std::move(value)));
+		return node;
+	}
+
 	// var <name> = <initializer>;
+	// 실제 VarDeclareParser가 만드는 모양을 따른다: token은 'var' 키워드,
+	// children[0]은 AssignExpr(Identifier, initializer).
 	SyntaxNode MakeVarDeclStmt(const std::string& name, SyntaxNode initializer, int line = 1) {
 		SyntaxNode node;
 		node.type = NodeType::VarDeclareStatement;
-		node.token.type = TokenType::Identifier;
-		node.token.lexeme = name;
+		node.token.type = TokenType::KwVar;
+		node.token.lexeme = "var";
 		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(initializer)));
+		node.children.push_back(std::make_unique<SyntaxNode>(MakeAssignExpr(name, std::move(initializer), line)));
 		return node;
 	}
 
@@ -85,17 +100,6 @@ namespace {
 		node.token.line = line;
 		node.children.push_back(std::make_unique<SyntaxNode>(std::move(condition)));
 		node.children.push_back(std::make_unique<SyntaxNode>(std::move(thenBranch)));
-		return node;
-	}
-
-	// PDF p.79: <name> = <value> (블록 없이 단일 문으로 오는 if의 thenBranch에서 쓰이는 형태)
-	SyntaxNode MakeAssignExpr(const std::string& name, SyntaxNode value, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::AssignExpr;
-		node.token.type = TokenType::Identifier;
-		node.token.lexeme = name;
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(value)));
 		return node;
 	}
 
