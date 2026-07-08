@@ -240,4 +240,30 @@ TEST_F(ForStmtParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 
 	ExpectParseThrows(tokenList, "Expected ')' after for-loop update expression at line 0");
 }
+
+TEST_F(ForStmtParserTest, Parse_MissingUpdateExpression_ThrowsOnMalformedSyntax) {
+	// "for (var i = 0; i < 3; ) {}" -- update 표현식 누락 (')'는 등록된 파서가 없음)
+	TokenList tokenList = {
+		MakeToken(TokenType::KwFor, "for", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 1),
+		MakeToken(TokenType::KwVar, "var", 0, 2),
+		MakeToken(TokenType::Identifier, "i", 0, 3),
+		MakeToken(TokenType::Semicolon, ";", 0, 4),
+		MakeToken(TokenType::RParen, ")", 0, 5),
+		MakeToken(TokenType::EndOfFile, "", 0, 6),
+	};
+
+	EXPECT_CALL(*mockInitParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 1; // consume 'var' only (opaque init clause)
+			return std::make_unique<VarDeclareStatementNode>();
+		});
+	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			pos += 1; // consume condition 'i' only (opaque condition clause)
+			return std::make_unique<BinaryExprNode>();
+		});
+
+	ExpectParseThrows(tokenList, "Expected an update expression in 'for' at line 0");
+}
 #endif
