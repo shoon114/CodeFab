@@ -41,6 +41,29 @@ protected:
 		return node;
 	}
 
+	std::unique_ptr<SyntaxNode> MakeStringLiteral(const std::string& value) {
+		auto node = std::make_unique<StringLiteralNode>();
+		node->token = MakeToken(TokenType::String, value, 1, 1);
+		return node;
+	}
+
+	// Arr(sizeExpr)
+	std::unique_ptr<SyntaxNode> MakeArrExpr(std::unique_ptr<SyntaxNode> sizeExpr) {
+		auto node = std::make_unique<ArrExprNode>();
+		node->token = MakeToken(TokenType::Identifier, "Arr", 1, 1);
+		node->children.push_back(std::move(sizeExpr));
+		return node;
+	}
+
+	// arrayExpr[indexExpr]
+	std::unique_ptr<SyntaxNode> MakeIndexExpr(std::unique_ptr<SyntaxNode> arrayExpr, std::unique_ptr<SyntaxNode> indexExpr) {
+		auto node = std::make_unique<IndexExprNode>();
+		node->token = MakeToken(TokenType::LBracket, "[", 1, 1);
+		node->children.push_back(std::move(arrayExpr));
+		node->children.push_back(std::move(indexExpr));
+		return node;
+	}
+
 	std::unique_ptr<SyntaxNode> MakeBinaryExpr(TokenType op, std::unique_ptr<SyntaxNode> left, std::unique_ptr<SyntaxNode> right) {
 		auto node = std::make_unique<BinaryExprNode>();
 		node->token = MakeToken(op, "", 1, 1);
@@ -393,5 +416,94 @@ TEST_F(CheckerUnitTest, Check_ExpressionWithVariable_DoesNotFold) {
 
 	EXPECT_TRUE(checker.Check(root.get()));
 	EXPECT_FALSE(addPtr->isConstantFolded);
+}
+
+// Arr("hi")처럼 배열 크기 인자가 숫자 리터럴이 아니면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_ArrSizeStringLiteral_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeArrExpr(MakeStringLiteral("hi"))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("배열 크기"));
+}
+
+// Arr(3)처럼 크기 인자가 숫자 리터럴이면 에러가 없어야 한다.
+TEST_F(CheckerUnitTest, Check_ArrSizeNumberLiteral_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeArrExpr(MakeNumberLiteral(3.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// arr["hello"]처럼 인덱스가 숫자 리터럴이 아니면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_IndexStringLiteral_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeIdentifier("arr"), MakeStringLiteral("hello"))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("인덱스"));
+}
+
+// 10[0]처럼 배열이 아닌 리터럴에 []를 사용하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_IndexOnNumberLiteral_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeNumberLiteral(10.0), MakeNumberLiteral(0.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("배열이 아닌"));
+}
+
+// arr[0]처럼 식별자에 []를 사용하는 경우, 변수의 실제 타입은 정적으로 알 수 없으므로
+// (값 흐름 추적을 하지 않음) 에러를 보고하지 않아야 한다.
+TEST_F(CheckerUnitTest, Check_IndexOnIdentifier_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeIdentifier("arr"), MakeNumberLiteral(0.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Arr(3)[5]처럼 크기와 인덱스가 모두 상수로 확정되고 범위를 벗어나면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_InlineArrIndexOutOfRange_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeArrExpr(MakeNumberLiteral(3.0)), MakeNumberLiteral(5.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("범위를 벗어났습니다"));
+}
+
+// Arr(3)[1]처럼 범위 안이면 에러가 없어야 한다.
+TEST_F(CheckerUnitTest, Check_InlineArrIndexInRange_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeArrExpr(MakeNumberLiteral(3.0)), MakeNumberLiteral(1.0))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Arr(3)[i]처럼 인덱스가 변수라 상수로 확정되지 않으면 범위 검사를 건너뛰어야 한다.
+TEST_F(CheckerUnitTest, Check_InlineArrIndexWithVariableIndex_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeArrExpr(MakeNumberLiteral(3.0)), MakeIdentifier("i"))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
 }
 #endif

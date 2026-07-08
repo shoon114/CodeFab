@@ -238,6 +238,66 @@ bool CheckerUnit::ToBool(const Value_t& value) const {
     return false; // 문자열/함수 값은 TryGetConstantValue에서 이미 걸러지므로 도달하지 않는다.
 }
 
+void CheckerUnit::Visit(const ArrExprNode& node) {
+    Traverse(node); // 크기식 내부의 상수 폴딩(예: Arr(1 + 2))이 먼저 끝나야 판단할 수 있다.
+
+    const SyntaxNode& sizeExpr = *node.children[0];
+    if (IsObviouslyNonNumericLiteral(sizeExpr)) {
+        ReportError("배열 크기는 반드시 숫자여야 합니다.", node.token.line);
+    }
+}
+
+void CheckerUnit::Visit(const IndexExprNode& node) {
+    Traverse(node);
+
+    const SyntaxNode& arrayExpr = *node.children[0];
+    const SyntaxNode& indexExpr = *node.children[1];
+
+    if (IsObviouslyNotArray(arrayExpr)) {
+        ReportError("배열이 아닌 값에 '[]'를 사용할 수 없습니다.", node.token.line);
+    }
+
+    if (IsObviouslyNonNumericLiteral(indexExpr)) {
+        ReportError("배열 인덱스는 반드시 숫자여야 합니다.", node.token.line);
+    }
+
+    // Arr(N)[i]처럼 크기와 인덱스가 모두 컴파일 타임 상수로 확정되는 경우에 한해
+    // 범위를 미리 검사한다. 변수를 거치는 일반적인 경우는 값 흐름 추적이 필요해
+    // 다루지 않고 실행 시점(ExecutorUnit)에 맡긴다.
+    if (arrayExpr.type == NodeType::ArrExpr) {
+        const auto& arrNode = static_cast<const ArrExprNode&>(arrayExpr);
+        Value_t sizeValue, indexValue;
+        if (TryGetConstantValue(*arrNode.children[0], sizeValue) &&
+            TryGetConstantValue(indexExpr, indexValue) &&
+            std::holds_alternative<double>(sizeValue) &&
+            std::holds_alternative<double>(indexValue)) {
+            double size = std::get<double>(sizeValue);
+            double index = std::get<double>(indexValue);
+            if (index < 0 || index >= size) {
+                ReportError("배열 인덱스가 범위를 벗어났습니다. (크기: " + FormatNumber(size) +
+                    ", 인덱스: " + FormatNumber(index) + ")", node.token.line);
+            }
+        }
+    }
+}
+
+bool CheckerUnit::IsObviouslyNotArray(const SyntaxNode& node) const {
+    return node.type == NodeType::NumberLiteral ||
+        node.type == NodeType::StringLiteral ||
+        node.type == NodeType::BoolLiteral;
+}
+
+bool CheckerUnit::IsObviouslyNonNumericLiteral(const SyntaxNode& node) const {
+    return node.type == NodeType::StringLiteral || node.type == NodeType::BoolLiteral;
+}
+
+std::string CheckerUnit::FormatNumber(double value) const {
+    if (value == std::floor(value)) {
+        return std::to_string(static_cast<long long>(value));
+    }
+    return std::to_string(value);
+}
+
 bool CheckerUnit::IsReferencingVar(SyntaxNode* node, const std::string& varName) {
     if (!node) return false;
 

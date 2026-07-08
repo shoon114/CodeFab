@@ -10,7 +10,7 @@ enum class TokenType {
 	KwVar,
 	KwIf,
 	KwElse,
-	KwWhile,
+	KwFor,
 	KwFunc,
 	KwReturn,
 	KwTrue,

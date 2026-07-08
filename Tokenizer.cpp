@@ -7,7 +7,7 @@
 namespace {
 	const std::unordered_map<std::string, TokenType> keywords = {
 		{"var", TokenType::KwVar}, {"if", TokenType::KwIf}, {"else", TokenType::KwElse},
-		{"while", TokenType::KwWhile}, {"func", TokenType::KwFunc}, {"return", TokenType::KwReturn},
+		{"for", TokenType::KwFor}, {"func", TokenType::KwFunc}, {"return", TokenType::KwReturn},
 		{"true", TokenType::KwTrue}, {"false", TokenType::KwFalse}, {"print", TokenType::Print},
 	};
 	const std::unordered_map<std::string, TokenType> operators = {
