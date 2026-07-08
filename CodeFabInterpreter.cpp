@@ -7,6 +7,7 @@ using namespace testing;
 #include <string>
 #include "Tokenizer.h"
 #include "AssemblerUnit.h"
+#include "CheckerUnit.h"
 #include "ExecutorUnit.h"
 #endif
 
@@ -16,6 +17,7 @@ int main() {
 	return RUN_ALL_TESTS();
 #else
 	AssemblerUnit assembler;
+	CheckerUnit checker;
 	ExecutorUnit executor;
 
 	// 한 줄 입력 -> Enter 시 그 줄까지 바로 토큰화/파싱/실행해 결과를 출력한다.
@@ -37,6 +39,7 @@ int main() {
 
 		try {
 			std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
+			checker.Check(tree.get());
 			executor.Execute(*tree);
 			std::cout << std::endl;
 		} catch (const std::exception& e) {

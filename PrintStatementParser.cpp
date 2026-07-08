@@ -7,7 +7,7 @@ StatementParserRegistrar<PrintStatementParser> registrar(TokenType::Print);
 }
 
 std::unique_ptr<SyntaxNode> PrintStatementParser::Parse(const TokenList& tokenList, size_t& pos) {
-	const Token& printToken = tokenList[pos++]; // 'print'
+	const Token& printToken = tokenList[pos++]; 
 
 	std::shared_ptr<IStatementParser> exprParser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
 	if (exprParser == nullptr) {
@@ -15,7 +15,7 @@ std::unique_ptr<SyntaxNode> PrintStatementParser::Parse(const TokenList& tokenLi
 	}
 	auto exprNode = exprParser->Parse(tokenList, pos);
 
-	pos++; // ';'
+	pos++;
 
 	auto printNode = std::make_unique<PrintStmtNode>();
 	printNode->token = printToken;

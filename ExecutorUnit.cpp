@@ -1,4 +1,4 @@
-#include "ExecutorUnit.h"
+﻿#include "ExecutorUnit.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -8,8 +8,10 @@ void ExecutorUnit::Execute(const SyntaxNode& tree) {
 		return;
 	}
 
-	scopes.clear();
-	EnterScope(); // Global 스코프
+	if (scopes.empty()) {
+		EnterScope(); // Global 스코프(최초 1회만 생성 — 이후 호출에서도 유지되어야 REPL에서 이전에
+		// 선언한 변수를 계속 참조할 수 있다)
+	}
 
 	for (const auto& stmt : tree.children) {
 		ExecuteStmt(*stmt);
