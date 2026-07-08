@@ -2,7 +2,8 @@
 #include <utility>
 #include "gmock/gmock.h"
 #include "IfStatementParser.h"
-#include "MockExpressionParser.h"
+#include "MockStatementParser.h"
+#include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
 
 using namespace testing;
@@ -20,8 +21,32 @@ namespace {
 
 class IfStatementParserTest : public Test {
 protected:
-	NiceMock<MockExpressionParser> exprParser;
-	IfStatementParser parser{ exprParser };
+	IfStatementParser parser;
+
+	// IfStatementParser resolves whatever is registered for the token right
+	// after '(' (Identifier here) via StatementParserRegistry -- in
+	// production that's the real ExpressionParser. We stand in for it with
+	// a mock so this TC doesn't depend on ExpressionParser's real behavior.
+	std::shared_ptr<MockStatementParser> mockConditionParser = std::make_shared<MockStatementParser>();
+
+	void SetUp() override {
+		// Capture mockConditionParser by value (not `this`): the factory
+		// lambda is stored in the global StatementParserRegistry and can
+		// outlive this fixture.
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [conditionParser = mockConditionParser]() {
+			return conditionParser;
+		});
+	}
+
+	void TearDown() override {
+		// Release our captured mockConditionParser from the global registry
+		// so it doesn't outlive this fixture (which would otherwise be
+		// reported as a leaked mock, or get called again -- with
+		// already-satisfied expectations -- by a later test).
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
+			return nullptr;
+		});
+	}
 
 	// "if (a <op> 3)"
 	TokenList MakeIfConditionTokens(TokenType opType, const std::string& opLexeme) {
@@ -36,8 +61,8 @@ protected:
 			});
 	}
 
-	void StubExprParserToConsumeCondition() {
-		EXPECT_CALL(exprParser, Parse(_, _))
+	void StubConditionParserToConsumeCondition() {
+		EXPECT_CALL(*mockConditionParser, Parse(_, _))
 			.Times(1)
 			.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<SyntaxNode>();
@@ -62,7 +87,7 @@ protected:
 
 TEST_F(IfStatementParserTest, Parse_Condition_AttachesExpressionParserResultAsCondition) {
 	TokenList tokenList = MakeIfConditionTokens(TokenType::Gt, ">");
-	StubExprParserToConsumeCondition();
+	StubConditionParserToConsumeCondition();
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
@@ -78,7 +103,7 @@ TEST_F(IfStatementParserTest, Parse_Condition_AttachesExpressionParserResultAsCo
 
 TEST_F(IfStatementParserTest, Parse_Condition_WithGtEqOperator_AttachesExpressionParserResultAsCondition) {
 	TokenList tokenList = MakeIfConditionTokens(TokenType::GtEq, ">=");
-	StubExprParserToConsumeCondition();
+	StubConditionParserToConsumeCondition();
 
 	size_t pos = 0;
 	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
@@ -115,6 +140,16 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 		{TokenType::Gt, ">"},
 		{TokenType::Number, "3"},
 		{TokenType::EndOfFile, ""},
+		});
+
+	EXPECT_CALL(*mockConditionParser, Parse(_, _))
+		.Times(1)
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			auto node = std::make_unique<SyntaxNode>();
+			node->type = NodeType::BinaryExpr;
+			node->token = tokens[pos];
+			pos += 3; // consume 'a', '>', '3'
+			return node;
 		});
 
 	ExpectParseThrows(tokenList, "Invalid Syntax. ')' is Missing");

@@ -1,7 +1,8 @@
 #ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "BlockParser.h"
-#include "MockExpressionParser.h"
+#include "MockStatementParser.h"
+#include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
 #include <stdexcept>
 
@@ -51,8 +52,33 @@ public:
 		};
 	}
 protected:
-	MockExpressionParser exprParser;
-	BlockParser parser{ exprParser };
+	BlockParser parser;
+
+	// Nested "var ...;" statements are handled by the real VarDeclareParser
+	// (self-registered for KwVar), which itself resolves the token after
+	// 'var' via StatementParserRegistry. Register a mock for Identifier so
+	// this test doesn't depend on whatever another test file happens to
+	// leave registered there.
+	std::shared_ptr<MockStatementParser> mockIdentifierParser = std::make_shared<MockStatementParser>();
+
+	void SetUp() override {
+		// Capture mockIdentifierParser by value (not `this`): the factory
+		// lambda is stored in the global StatementParserRegistry and can
+		// outlive this fixture.
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockIdentifierParser]() {
+			return tailParser;
+		});
+	}
+
+	void TearDown() override {
+		// Release our captured mockIdentifierParser from the global registry
+		// so it doesn't outlive this fixture (which would otherwise be
+		// reported as a leaked mock, or get called again -- with
+		// already-satisfied expectations -- by a later test).
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
+			return nullptr;
+		});
+	}
 };
 
 TEST_F(BlockParserTest, Parse_EmptyBlock) {
@@ -77,12 +103,12 @@ TEST_F(BlockParserTest, Parse_SingleStatement_DelegatesToRegisteredStatementPars
 	// "{ var a = 1; }" -- BlockParser must resolve nested statements via StatementParserRegistry
 	TokenList tokenList = MakeBlockWithSingleVarDeclareTokens();
 
-	EXPECT_CALL(exprParser, Parse(_, _))
+	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::NumberLiteral;
-		node->token = tokens[pos];
-		pos++; // consume '1'
+		node->type = NodeType::AssignExpr;
+		node->token = tokens[pos + 1]; // '='
+		pos += 3; // consume 'a', '=', '1'
 		return node;
 			});
 
@@ -130,12 +156,12 @@ TEST_F(BlockParserTest, Parse_UnclosedBlock_Throws) {
 	// "{ var a = 1;" -- reaches end of input without a closing '}'
 	TokenList tokenList = MakeUnclosedBlockTokens();
 
-	EXPECT_CALL(exprParser, Parse(_, _))
+	EXPECT_CALL(*mockIdentifierParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::NumberLiteral;
-		node->token = tokens[pos];
-		pos++; // consume '1'
+		node->type = NodeType::AssignExpr;
+		node->token = tokens[pos + 1]; // '='
+		pos += 3; // consume 'a', '=', '1'
 		return node;
 			});
 

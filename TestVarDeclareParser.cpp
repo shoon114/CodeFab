@@ -1,7 +1,6 @@
 #ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "VarDeclareParser.h"
-#include "MockExpressionParser.h"
 #include "MockStatementParser.h"
 #include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
@@ -10,19 +9,31 @@ using namespace testing;
 
 class VarDeclareParserTest : public Test {
 protected:
-	MockExpressionParser exprParser;
-	VarDeclareParser parser{ exprParser };
+	VarDeclareParser parser;
 
 	// VarDeclareParser resolves whatever is registered for the token right
 	// after 'var' (Identifier here) via StatementParserRegistry -- in
-	// production that will eventually be an ExprStmtParser. We stand in for
-	// it with a mock so this TC doesn't depend on that parser's real
-	// implementation existing yet.
+	// production that's the real ExpressionParser. We stand in for it with
+	// a mock so this TC doesn't depend on ExpressionParser's real behavior.
 	std::shared_ptr<MockStatementParser> mockTailParser = std::make_shared<MockStatementParser>();
 
 	void SetUp() override {
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [this](IExpressionParser&) {
-			return mockTailParser;
+		// Capture mockTailParser by value (not `this`): the factory lambda is
+		// stored in the global StatementParserRegistry and can outlive this
+		// fixture, so capturing `this` would leave a dangling pointer once
+		// this test finishes and a later test resolves Identifier again.
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockTailParser]() {
+			return tailParser;
+		});
+	}
+
+	void TearDown() override {
+		// Release our captured mockTailParser from the global registry so it
+		// doesn't outlive this fixture (which would otherwise be reported as
+		// a leaked mock, or get called again -- with already-satisfied
+		// expectations -- by a later test that also resolves Identifier).
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
+			return nullptr;
 		});
 	}
 
@@ -46,6 +57,11 @@ protected:
 			MakeToken(TokenType::Semicolon, ";", 0, 4),
 			MakeToken(TokenType::EndOfFile, "", 0, 5),
 		};
+	}
+
+	void ExpectParseThrows(const TokenList& tokenList) {
+		size_t pos = 0;
+		EXPECT_THROW(parser.Parse(tokenList, pos), std::runtime_error);
 	}
 };
 
@@ -83,8 +99,7 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesToRegisteredTailPars
 	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			// simulate whatever gets registered for Identifier (e.g. ExprStmtParser)
-			// recognizing "a = 3" as one assignment expression
+			// simulate the real ExpressionParser recognizing "a = 3" as one assignment expression
 			auto identNode = std::make_unique<SyntaxNode>();
 			identNode->type = NodeType::Identifier;
 			identNode->token = tokens[pos]; // 'a'
@@ -125,5 +140,70 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesToRegisteredTailPars
 	EXPECT_THAT(valueNode->token.lexeme, Eq("3"));
 
 	EXPECT_THAT(pos, Eq(tokenList.size() - 1)); // consumed up through ';', stopped at EOF
+}
+
+TEST_F(VarDeclareParserTest, Parse_NothingAfterVar_Throws) {
+	// 'var' with no EndOfFile sentinel or any other token following it
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+	};
+
+	ExpectParseThrows(tokenList);
+}
+
+TEST_F(VarDeclareParserTest, Parse_MissingVariableName_Throws) {
+	// "var = 3;" -- no identifier between 'var' and '=', so nothing is
+	// registered in StatementParserRegistry for the Assign token that
+	// appears here.
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+		MakeToken(TokenType::Assign, "=", 0, 1),
+		MakeToken(TokenType::Number, "3", 0, 2),
+		MakeToken(TokenType::Semicolon, ";", 0, 3),
+		MakeToken(TokenType::EndOfFile, "", 0, 4),
+	};
+
+	ExpectParseThrows(tokenList);
+}
+
+TEST_F(VarDeclareParserTest, Parse_MissingSemicolon_Throws) {
+	// "var a 5" -- no ';' after the declaration; the registered tail parser
+	// only consumes 'a', leaving '5' where ';' was expected.
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+		MakeToken(TokenType::Identifier, "a", 0, 1),
+		MakeToken(TokenType::Number, "5", 0, 2),
+		MakeToken(TokenType::EndOfFile, "", 0, 3),
+	};
+
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			auto node = std::make_unique<SyntaxNode>();
+			node->type = NodeType::Identifier;
+			node->token = tokens[pos];
+			pos++; // consume 'a' only
+			return node;
+		});
+
+	ExpectParseThrows(tokenList);
+}
+
+TEST_F(VarDeclareParserTest, Parse_MissingSemicolonAtEndOfInput_Throws) {
+	// "var a" -- input ends right after the declaration, no ';' at all.
+	TokenList tokenList = TokenList{
+		MakeToken(TokenType::KwVar, "var", 0, 0),
+		MakeToken(TokenType::Identifier, "a", 0, 1),
+	};
+
+	EXPECT_CALL(*mockTailParser, Parse(_, _))
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			auto node = std::make_unique<SyntaxNode>();
+			node->type = NodeType::Identifier;
+			node->token = tokens[pos];
+			pos++; // consume 'a', reaching the end of the list
+			return node;
+		});
+
+	ExpectParseThrows(tokenList);
 }
 #endif

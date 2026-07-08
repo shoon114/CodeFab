@@ -1,7 +1,6 @@
 #ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "AssemblerUnit.h"
-#include "MockExpressionParser.h"
 #include "MockStatementParser.h"
 #include "StatementParserRegistry.h"
 #include "Tokenizer.h"
@@ -17,17 +16,30 @@ public:
 class AssemblerUnitTest : public Test {
 protected:
 	NiceMock<TestableTokenizer> tokenizer;
-	std::shared_ptr<NiceMock<MockExpressionParser>> exprParser = std::make_shared<NiceMock<MockExpressionParser>>();
-	AssemblerUnit assembler{ exprParser };
+	AssemblerUnit assembler;
 
-	// VarDeclareParser resolves whatever is registered for the token right
-	// after 'var' (Identifier here) via StatementParserRegistry -- in
-	// production that will eventually be an ExprStmtParser.
+	// VarDeclareParser (and top-level Identifier-led statements) resolve
+	// whatever is registered for Identifier via StatementParserRegistry --
+	// in production that's the real ExpressionParser.
 	std::shared_ptr<MockStatementParser> mockTailParser = std::make_shared<MockStatementParser>();
 
 	void SetUp() override {
-		StatementParserRegistry::Instance().Register(TokenType::Identifier, [this](IExpressionParser&) {
-			return mockTailParser;
+		// Capture mockTailParser by value (not `this`): the factory lambda is
+		// stored in the global StatementParserRegistry and can outlive this
+		// fixture, so capturing `this` would leave a dangling pointer once
+		// this test finishes and a later test resolves Identifier again.
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, [tailParser = mockTailParser]() {
+			return tailParser;
+		});
+	}
+
+	void TearDown() override {
+		// Release our captured mockTailParser from the global registry so it
+		// doesn't outlive this fixture (which would otherwise be reported as
+		// a leaked mock, or get called again -- with already-satisfied
+		// expectations -- by a later test that also resolves Identifier).
+		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
+			return nullptr;
 		});
 	}
 

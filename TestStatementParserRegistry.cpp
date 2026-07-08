@@ -15,30 +15,20 @@ public:
 	}
 };
 
-class StubExpressionParser : public IExpressionParser {
-public:
-	std::unique_ptr<SyntaxNode> Parse(const TokenList& tokenList, size_t& pos) override {
-		return nullptr;
-	}
-};
-
 } // namespace
 
 TEST(StatementParserRegistryTest, Resolve_UnregisteredToken_ReturnsNull) {
-	StubExpressionParser exprParser;
-
-	std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(TokenType::KwWhile, exprParser);
+	std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(TokenType::KwWhile);
 
 	EXPECT_THAT(parser, IsNull());
 }
 
-TEST(StatementParserRegistryTest, Resolve_RegisteredToken_InvokesFactoryWithExprParser) {
-	StubExpressionParser exprParser;
-	StatementParserRegistry::Instance().Register(TokenType::KwReturn, [](IExpressionParser&) {
+TEST(StatementParserRegistryTest, Resolve_RegisteredToken_InvokesFactory) {
+	StatementParserRegistry::Instance().Register(TokenType::KwReturn, []() {
 		return std::make_shared<StubStatementParser>();
 	});
 
-	std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(TokenType::KwReturn, exprParser);
+	std::shared_ptr<IStatementParser> parser = StatementParserRegistry::Instance().Resolve(TokenType::KwReturn);
 	ASSERT_THAT(parser, NotNull());
 
 	TokenList tokenList;
