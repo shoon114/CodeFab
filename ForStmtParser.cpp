@@ -33,7 +33,7 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	auto initNode = ResolveAndParse(tokenList, pos, "an initializer statement in 'for'");
 
 	auto condNode = ResolveAndParse(tokenList, pos, "a condition expression in 'for'");
-	pos++; // ';'
+	ExpectToken(tokenList, pos, TokenType::Semicolon, "';' after for-loop condition");
 
 	auto updateNode = ResolveAndParse(tokenList, pos, "an update expression in 'for'");
 	pos++; // ')'
