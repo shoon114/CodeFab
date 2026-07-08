@@ -118,3 +118,4 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 정적 오류: 같은 스코프 중복 선언 | `{ var a = "hi"; var a = 3; }` | (에러 발생 여부만 확인) |
 | 런타임 오류: 정의되지 않은 변수 참조 | `print notDefined;` | (에러 발생 여부만 확인) |
 | 런타임 오류: + 연산자에 숫자/문자열 혼용 | `print 1 + "HI";` | (에러 발생 여부만 확인) |
+| 런타임 오류: 숫자가 아닌 값에 단항 마이너스 | `print -"FabCoding";` | (에러 발생 여부만 확인) |
