@@ -4,6 +4,7 @@
 #include "MockStatementParser.h"
 #include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
+#include "VarDeclareParser.h"
 
 using namespace testing;
 
@@ -36,7 +37,16 @@ protected:
 		// outlive this fixture (which would otherwise be reported as leaked
 		// mocks, or get called again -- with already-satisfied expectations
 		// -- by a later test).
-		StatementParserRegistry::Instance().Register(TokenType::KwVar, []() { return nullptr; });
+		//
+		// Unlike Identifier (which every fixture that cares about re-registers
+		// in its own SetUp), KwVar's *only* production owner is the real
+		// VarDeclareParser, self-registered once at static-init time. Resetting
+		// it to a nullptr-returning factory here would permanently destroy that
+		// registration for the rest of the test binary's lifetime -- any later
+		// test (in any file, depending on link order) that relies on KwVar
+		// resolving to the real VarDeclareParser would then fail. Restore the
+		// real factory instead of nulling it out.
+		StatementParserRegistry::Instance().Register(TokenType::KwVar, []() { return std::make_shared<VarDeclareParser>(); });
 		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() { return nullptr; });
 	}
 
