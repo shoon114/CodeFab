@@ -87,4 +87,35 @@ TEST_F(FunctionStatementParserTest, Parse_WithParams_AttachesParamsThenBody) {
 	EXPECT_THAT(root->children[1]->token.lexeme, Eq("b"));
 	EXPECT_THAT(root->children[2]->type, Eq(NodeType::BlockStmt));
 }
+
+// func add() { ... }
+TEST_F(FunctionStatementParserTest, Parse_NoParams_AttachesOnlyBodyAsChild) {
+	TokenList tokenList = {
+		MakeToken(TokenType::KwFunc, FUNC, 1, 0),
+		MakeToken(TokenType::Identifier, FUNC_NAME, 1, 1),
+		MakeToken(TokenType::LParen, "(", 1, 2),
+		MakeToken(TokenType::RParen, ")", 1, 3),
+		MakeToken(TokenType::LBrace, "{", 1, 4),
+		MakeToken(TokenType::RBrace, "}", 1, 5),
+		MakeToken(TokenType::EndOfFile, "", 1, 6),
+	};
+
+	EXPECT_CALL(*mockBodyParser, Parse(_, _))
+		.Times(1)
+		.WillOnce([](const TokenList& tokens, size_t& pos) {
+			auto node = std::make_unique<BlockStmtNode>();
+			node->token = tokens[pos];
+			pos += 2;
+			return node;
+		});
+
+	size_t pos = 0;
+	std::unique_ptr<SyntaxNode> root = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(root, NotNull());
+	EXPECT_THAT(root->type, Eq(NodeType::FuncDeclStmt));
+	EXPECT_THAT(root->token.lexeme, Eq(FUNC_NAME));
+	ASSERT_THAT(root->children, SizeIs(1));
+	EXPECT_THAT(root->children[0]->type, Eq(NodeType::BlockStmt));
+}
 #endif
