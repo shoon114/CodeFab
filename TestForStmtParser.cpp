@@ -40,6 +40,17 @@ protected:
 		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() { return nullptr; });
 	}
 
+	void ExpectParseThrows(const TokenList& tokenList, const char* expectedMessage) {
+		size_t pos = 0;
+		try {
+			parser.Parse(tokenList, pos);
+			FAIL();
+		}
+		catch (const std::runtime_error& e) {
+			EXPECT_STREQ(e.what(), expectedMessage);
+		}
+	}
+
 	// "for(var i = 0; i < 3; i = i + 1) {}"
 	TokenList MakeForLoopWithEmptyBodyTokens() {
 		return TokenList{
@@ -119,5 +130,16 @@ TEST_F(ForStmtParserTest, Parse_WithEmptyBody_BuildsForStmtTree) {
 	const std::unique_ptr<SyntaxNode>& bodyNode = root->children[3];
 	EXPECT_THAT(bodyNode->type, Eq(NodeType::BlockStmt));
 	EXPECT_THAT(bodyNode->children, IsEmpty());
+}
+
+TEST_F(ForStmtParserTest, Parse_MissingOpenParen_ThrowsOnMalformedSyntax) {
+	// "for var i = 0; i < 3; i = i + 1) {}" -- '(' 누락
+	TokenList tokenList = {
+		MakeToken(TokenType::KwFor, "for", 0, 0),
+		MakeToken(TokenType::KwVar, "var", 0, 1),
+		MakeToken(TokenType::EndOfFile, "", 0, 2),
+	};
+
+	ExpectParseThrows(tokenList, "Expected '(' after 'for' at line 0");
 }
 #endif

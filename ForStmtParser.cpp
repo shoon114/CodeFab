@@ -12,11 +12,20 @@ namespace {
 		}
 		return parser->Parse(tokenList, pos);
 	}
+
+	void ExpectToken(const TokenList& tokenList, size_t& pos, TokenType expected, const char* what) {
+		if (pos >= tokenList.size() || tokenList[pos].type != expected) {
+			int line = pos < tokenList.size() ? tokenList[pos].line : tokenList.back().line;
+			throw std::runtime_error(std::string("Expected ") + what + " at line " + std::to_string(line));
+		}
+		pos++;
+	}
 }
 
 std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, size_t& pos) {
 	const Token& forToken = tokenList[pos++]; // 'for'
-	pos++; // '('
+
+	ExpectToken(tokenList, pos, TokenType::LParen, "'(' after 'for'");
 
 	// init resolves whatever is registered for its leading token (e.g.
 	// VarDeclareParser for 'var') and consumes up to and including its own
