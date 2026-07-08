@@ -166,6 +166,9 @@ void ExecutorUnit::ExecuteIfStmt(const SyntaxNode& node) {
 	const auto& thenBranch = *node.children[1];
 	if (IsTruthy(Evaluate(condition))) {
 		ExecuteStmt(thenBranch);
+	} else if (node.children.size() > 2) {
+		// children[2]는 IfStatementParser가 else/else-if를 붙일 때만 존재한다.
+		ExecuteStmt(*node.children[2]);
 	}
 }
 

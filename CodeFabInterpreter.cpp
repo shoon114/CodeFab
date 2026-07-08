@@ -48,15 +48,30 @@ int main() {
 		TokenList tokenList = tokenizer.CreateTokenForCode();
 
 		int braceDepth = 0;
+		bool sawOpenBrace = false;
 		for (const Token& token : tokenList) {
 			if (token.type == TokenType::LBrace) {
 				braceDepth++;
+				sawOpenBrace = true;
 			} else if (token.type == TokenType::RBrace) {
 				braceDepth--;
 			}
 		}
 		if (braceDepth > 0) {
 			continue; // 블록이 아직 안 닫혔으니 다음 줄을 더 받는다
+		}
+
+		// "if (true)"처럼 '{'가 아직 한 번도 나오지 않은 채로 끝난 줄은 브레이스
+		// 개수만 보면 0(균형)이라 "완성된 문장"으로 착각하기 쉽지만, 실제로는
+		// 다음 줄에 올 '{'를 기다리는 중인 미완성 상태다. 이 상태에서 그대로
+		// 파싱을 시도하면 예외가 나서 버퍼가 통째로 비워지고, 뒤이어 입력되는
+		// '{ ... }' 블록이 앞의 if/for 조건과 분리된 채 무조건 실행되어 버린다.
+		// '{'가 한 번도 안 나왔다면, 문장이 ';'로 완전히 끝난 경우에만 실행하고
+		// 그렇지 않으면 계속 버퍼링한다.
+		bool endsWithSemicolon = tokenList.size() >= 2
+			&& tokenList[tokenList.size() - 2].type == TokenType::Semicolon;
+		if (!(sawOpenBrace || endsWithSemicolon)) {
+			continue;
 		}
 
 		try {
