@@ -673,4 +673,212 @@ TEST_F(TokenizerTest, CreateTokenForCode_PrintOfFunctionCallResult) {
 		TokenType::Semicolon,
 		TokenType::EndOfFile));
 }
+
+// ===== Class / this / super / instanceof keywords (case-insensitive) =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesClassKeywordCaseInsensitive) {
+	EXPECT_EQ(CreateTokens("Class\n")[0].type, TokenType::KwClass);
+	EXPECT_EQ(CreateTokens("class\n")[0].type, TokenType::KwClass);
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesThisKeywordCaseInsensitive) {
+	EXPECT_EQ(CreateTokens("This\n")[0].type, TokenType::KwThis);
+	EXPECT_EQ(CreateTokens("this\n")[0].type, TokenType::KwThis);
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesSuperKeywordCaseInsensitive) {
+	EXPECT_EQ(CreateTokens("Super\n")[0].type, TokenType::KwSuper);
+	EXPECT_EQ(CreateTokens("super\n")[0].type, TokenType::KwSuper);
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesInstanceofKeywordCaseInsensitive) {
+	EXPECT_EQ(CreateTokens("instanceof\n")[0].type, TokenType::KwInstanceof);
+	EXPECT_EQ(CreateTokens("InstanceOf\n")[0].type, TokenType::KwInstanceof);
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ExistingKeywordsStayCaseInsensitiveToo) {
+	EXPECT_EQ(CreateTokens("Var\n")[0].type, TokenType::KwVar);
+	EXPECT_EQ(CreateTokens("PRINT\n")[0].type, TokenType::Print);
+	EXPECT_EQ(CreateTokens("Func\n")[0].type, TokenType::KwFunc);
+}
+
+// ===== Class declaration =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_EmptyClassDeclaration) {
+	TokenList tokens = CreateTokens("Class Robot { }\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwClass, TokenType::Identifier, TokenType::LBrace, TokenType::RBrace,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassInstantiationWithNoArguments) {
+	TokenList tokens = CreateTokens("var robot = Robot();\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwVar, TokenType::Identifier, TokenType::Assign,
+		TokenType::Identifier, TokenType::LParen, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+// ===== Member access (.) =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_MemberAccessAssignmentAndPrint) {
+	TokenList tokens = CreateTokens(
+		"r.name = \"SpeedRobot\";\n"
+		"r.speed = 10;\n"
+		"print r.name;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::Dot, TokenType::Identifier, TokenType::Assign, TokenType::String, TokenType::Semicolon,
+		TokenType::Identifier, TokenType::Dot, TokenType::Identifier, TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::Print, TokenType::Identifier, TokenType::Dot, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_MemberAccessDoesNotDisruptDecimalNumbers) {
+	TokenList tokens = CreateTokens("r.speed = 3.14;\n");
+
+	ASSERT_EQ(tokens.size(), 7u);
+	EXPECT_EQ(tokens[0].type, TokenType::Identifier);
+	EXPECT_EQ(tokens[1].type, TokenType::Dot);
+	EXPECT_EQ(tokens[2].type, TokenType::Identifier);
+	EXPECT_EQ(tokens[3].type, TokenType::Assign);
+	EXPECT_EQ(tokens[4].type, TokenType::Number);
+	EXPECT_EQ(tokens[4].lexeme, "3.14");
+	EXPECT_DOUBLE_EQ(tokens[4].realValue, 3.14);
+	EXPECT_EQ(tokens[5].type, TokenType::Semicolon);
+	EXPECT_EQ(tokens[6].type, TokenType::EndOfFile);
+}
+
+// ===== this / method declarations =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_MethodDeclarationUsingThisAndMemberAccess) {
+	TokenList tokens = CreateTokens(
+		"move(dist) {\n"
+		"this.position = this.position + dist;\n"
+		"}\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen, TokenType::Identifier, TokenType::RParen, TokenType::LBrace,
+		TokenType::KwThis, TokenType::Dot, TokenType::Identifier, TokenType::Assign,
+		TokenType::KwThis, TokenType::Dot, TokenType::Identifier, TokenType::Plus, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::RBrace,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ConstructorStyleInitMethodWithMultipleParameters) {
+	TokenList tokens = CreateTokens(
+		"init(name, speed) {\n"
+		"this.name = name;\n"
+		"this.speed = speed;\n"
+		"}\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen, TokenType::Identifier, TokenType::Comma, TokenType::Identifier, TokenType::RParen,
+		TokenType::LBrace,
+		TokenType::KwThis, TokenType::Dot, TokenType::Identifier, TokenType::Assign, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::KwThis, TokenType::Dot, TokenType::Identifier, TokenType::Assign, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::RBrace,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassInstantiationWithConstructorArguments) {
+	TokenList tokens = CreateTokens("var r = Robot(\"AndOr\", 10);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwVar, TokenType::Identifier, TokenType::Assign,
+		TokenType::Identifier, TokenType::LParen, TokenType::String, TokenType::Comma, TokenType::Number, TokenType::RParen,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+// ===== Inheritance (:) and super =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_InheritanceDeclarationUsesColon) {
+	TokenList tokens = CreateTokens("Class SpeedRobot : Robot { }\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwClass, TokenType::Identifier, TokenType::Colon, TokenType::Identifier,
+		TokenType::LBrace, TokenType::RBrace,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_SuperMethodCallInsideOverride) {
+	TokenList tokens = CreateTokens("super.move(dist);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwSuper, TokenType::Dot, TokenType::Identifier, TokenType::LParen, TokenType::Identifier, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ChainedCallOnInlineInstantiation) {
+	TokenList tokens = CreateTokens("SpeedRobot().move(3);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Identifier, TokenType::LParen, TokenType::RParen,
+		TokenType::Dot, TokenType::Identifier, TokenType::LParen, TokenType::Number, TokenType::RParen, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+// ===== instanceof =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_InstanceofExpression) {
+	TokenList tokens = CreateTokens("print (w instanceof SpeedRobot);\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::LParen, TokenType::Identifier, TokenType::KwInstanceof, TokenType::Identifier, TokenType::RParen,
+		TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
 #endif
