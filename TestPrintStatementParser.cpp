@@ -142,4 +142,18 @@ TEST_F(PrintStatementParserTest, Parse_PrintDanglingOperator_ThrowsOnMalformedSy
 
 	ExpectParseThrows(tokenList, "Unexpected token while parsing expression");
 }
+
+TEST_F(PrintStatementParserTest, Parse_MissingSemicolon_ThrowsOnMalformedSyntax) {
+	// "print 1 + 2" -- 세미콜론 누락, 입력이 그대로 끝남
+	TokenList tokenList = {
+		MakeToken(TokenType::Print, "print", 1, 0),
+		MakeToken(TokenType::Number, "1", 1, 1),
+		MakeToken(TokenType::Plus, "+", 1, 2),
+		MakeToken(TokenType::Number, "2", 1, 3),
+		MakeToken(TokenType::EndOfFile, "", 1, 4),
+	};
+	StubParserToConsume(mockNumberParser, 3, NodeType::BinaryExpr); // "1+2" 3개 토큰 소비, ';'는 없음
+
+	ExpectParseThrows(tokenList, "Expected ';' after value at line 1");
+}
 #endif
