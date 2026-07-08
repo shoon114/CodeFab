@@ -1,6 +1,7 @@
 #ifdef _DEBUG
 #include <utility>
 #include "gmock/gmock.h"
+#include "BlockParser.h"
 #include "FunctionStatementParser.h"
 #include "MockStatementParser.h"
 #include "StatementParserRegistry.h"
@@ -32,8 +33,16 @@ protected:
 		// it doesn't outlive this fixture (which would otherwise be
 		// reported as a leaked mock, or get called again -- with
 		// already-satisfied expectations -- by a later test).
+		//
+		// LBrace's only production owner is the real BlockParser,
+		// self-registered once at static-init time. Resetting it to a
+		// nullptr-returning factory here would permanently destroy that
+		// registration for the rest of the test binary's lifetime -- any
+		// later test (depending on link order) that relies on LBrace
+		// resolving to the real BlockParser would then fail. Restore the
+		// real factory instead of nulling it out.
 		StatementParserRegistry::Instance().Register(TokenType::LBrace, []() {
-			return nullptr;
+			return std::make_shared<BlockParser>();
 		});
 	}
 	const std::string FUNC = "func";
