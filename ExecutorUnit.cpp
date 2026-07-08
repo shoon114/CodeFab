@@ -1,4 +1,4 @@
-﻿#include "ExecutorUnit.h"
+#include "ExecutorUnit.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -52,28 +52,35 @@ bool ExecutorUnit::IsTruthy(const Value_t& value) {
 }
 
 void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
-	switch (node.type) {
-	case NodeType::PrintStmt:
-		ExecutePrintStmt(node);
-		break;
-	case NodeType::VarDeclareStatement:
-		ExecuteVarDeclareStatement(node);
-		break;
-	case NodeType::BlockStmt:
-		ExecuteBlockStmt(node);
-		break;
-	case NodeType::IfStmt:
-		ExecuteIfStmt(node);
-		break;
-	case NodeType::ExprStmt:
-		ExecuteExprStmt(node);
-		break;
-	case NodeType::ForStmt:
-		ExecuteForStmt(node);
-		break;
-	default:
-		break;
-	}
+	node.Accept(*this);
+}
+
+Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
+	node.Accept(*this);
+	return lastValue;
+}
+
+void ExecutorUnit::Visit(const PrintStmtNode& node) { ExecutePrintStmt(node); }
+void ExecutorUnit::Visit(const VarDeclareStatementNode& node) { ExecuteVarDeclareStatement(node); }
+void ExecutorUnit::Visit(const BlockStmtNode& node) { ExecuteBlockStmt(node); }
+void ExecutorUnit::Visit(const IfStmtNode& node) { ExecuteIfStmt(node); }
+void ExecutorUnit::Visit(const ExprStmtNode& node) { ExecuteExprStmt(node); }
+void ExecutorUnit::Visit(const ForStmtNode& node) { ExecuteForStmt(node); }
+
+// 함수는 아직 실행 단계에서 지원하지 않는다(체커 단계까지만 검증 대상).
+void ExecutorUnit::Visit(const FuncDeclStmtNode&) {}
+void ExecutorUnit::Visit(const ReturnStmtNode&) {}
+
+void ExecutorUnit::Visit(const NumberLiteralNode& node) { lastValue = node.token.realValue; }
+void ExecutorUnit::Visit(const StringLiteralNode& node) { lastValue = node.token.lexeme; }
+void ExecutorUnit::Visit(const BoolLiteralNode& node) { lastValue = (node.token.lexeme == "true"); }
+void ExecutorUnit::Visit(const IdentifierNode& node) { lastValue = EvaluateIdentifier(node); }
+void ExecutorUnit::Visit(const AssignExprNode& node) { lastValue = EvaluateAssignExpr(node); }
+void ExecutorUnit::Visit(const BinaryExprNode& node) { lastValue = EvaluateBinaryExpr(node); }
+void ExecutorUnit::Visit(const UnaryExprNode& node) { lastValue = EvaluateUnaryExpr(node); }
+
+void ExecutorUnit::Visit(const CallExprNode& node) {
+	throw std::runtime_error("함수 호출은 아직 지원되지 않습니다 at line " + std::to_string(node.token.line));
 }
 
 void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
@@ -136,28 +143,6 @@ void ExecutorUnit::ExecuteForStmt(const SyntaxNode& node) {
 	while (IsTruthy(Evaluate(condition))) {
 		ExecuteStmt(body);
 		Evaluate(increment);
-	}
-}
-
-Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
-	switch (node.type) {
-	case NodeType::NumberLiteral:
-		return node.token.realValue;
-	case NodeType::StringLiteral:
-		return node.token.lexeme;
-	case NodeType::BoolLiteral:
-		return node.token.lexeme == "true";
-	case NodeType::Identifier:
-		return EvaluateIdentifier(node);
-	case NodeType::AssignExpr:
-		return EvaluateAssignExpr(node);
-	case NodeType::BinaryExpr:
-		return EvaluateBinaryExpr(node);
-	case NodeType::UnaryExpr:
-		return EvaluateUnaryExpr(node);
-	default:
-		throw std::runtime_error(
-			"Unsupported expression node at line " + std::to_string(node.token.line));
 	}
 }
 
