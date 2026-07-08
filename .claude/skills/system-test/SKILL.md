@@ -110,6 +110,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | if/else if/else(3단 체인, 여러 줄, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `y` |
 | if/else if/else(3단 체인, 여러 줄, else 분기 참) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `z` — else-if 분기의 body가 닫힌 뒤에도 체인을 끝내는 순수 else를 기다리는지 확인 |
 | for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
+| for 반복문(단일 줄 body) | `for (var j = 0; j < 3; j = j + 1) print j;` | `012` |
 | 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |
 | 구문 오류: 닫는 괄호 누락 | `print (1 + 2;` | (에러 발생 여부만 확인) |
 | 런타임 오류: 잘못된 할당 대상 | `var a = 1;` → `var b = 2;` → `a + b = 3;` | (에러 발생 여부만 확인) |

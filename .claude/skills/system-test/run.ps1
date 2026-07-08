@@ -70,6 +70,7 @@ $cases = @(
     @{ Category = "if/else if/else(3단 체인, 여러 줄, else-if 분기 참)"; InputLines = @('var a = 1;', 'var b = 5;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "y" }
     @{ Category = "if/else if/else(3단 체인, 여러 줄, else 분기 참)"; InputLines = @('var a = 1;', 'var b = 0;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "z" }
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
+    @{ Category = "for 반복문(단일 줄 body)"; InputLines = @('for (var j = 0; j < 3; j = j + 1) print j;'); Expect = "012" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
