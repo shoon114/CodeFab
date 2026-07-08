@@ -101,3 +101,4 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |
 | 구문 오류: 닫는 괄호 누락 | `print (1 + 2;` | (에러 발생 여부만 확인) |
 | 런타임 오류: 잘못된 할당 대상 | `var a = 1;` → `var b = 2;` → `a + b = 3;` | (에러 발생 여부만 확인) |
+| 구문 오류: 표현식 자리에 엉뚱한 토큰 | `print * 5;` | (에러 발생 여부만 확인) |
