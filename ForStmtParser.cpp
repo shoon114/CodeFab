@@ -36,7 +36,7 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	ExpectToken(tokenList, pos, TokenType::Semicolon, "';' after for-loop condition");
 
 	auto updateNode = ResolveAndParse(tokenList, pos, "an update expression in 'for'");
-	pos++; // ')'
+	ExpectToken(tokenList, pos, TokenType::RParen, "')' after for-loop update expression");
 
 	pos++; // '{'
 	pos++; // '}'  (empty body for now)
