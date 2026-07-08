@@ -1017,4 +1017,66 @@ TEST_F(TokenizerTest, CreateTokenForCode_ArrayCreationWithStringSizeStillTokeniz
 		TokenType::Identifier, TokenType::LParen, TokenType::String, TokenType::RParen, TokenType::Semicolon,
 		TokenType::EndOfFile));
 }
+
+// ===== 논리 연산자: !, &&, || =====
+
+TEST_F(TokenizerTest, SplitIntoWords_LogicalNotAndAndOr) {
+	EXPECT_THAT(SplitWords("if (!a && b || !c) print a;\n"),
+		ElementsAre(
+			"if", "(", "!", "a", "&&", "b", "||", "!", "c", ")", "print", "a", ";"));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesLogicalNot) {
+	TokenList tokens = CreateTokens("if(!a)\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwIf, TokenType::LParen, TokenType::Not, TokenType::Identifier, TokenType::RParen,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesLogicalAndOr) {
+	TokenList tokens = CreateTokens("print a && b || c;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::Identifier, TokenType::And, TokenType::Identifier,
+		TokenType::Or, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_LogicalOperatorsWithoutSurroundingSpaces) {
+	TokenList tokens = CreateTokens("print a&&b||!c;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::Identifier, TokenType::And, TokenType::Identifier,
+		TokenType::Or, TokenType::Not, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_NotEqualStillTokenizesAsSingleOperator) {
+	TokenList tokens = CreateTokens("print a != b;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::Print, TokenType::Identifier, TokenType::NotEq, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
 #endif
