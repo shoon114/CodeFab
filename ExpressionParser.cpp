@@ -137,7 +137,7 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseCallExpr(const TokenList& tok
 	Token calleeToken = callee->token;
 	pos++; // '('
 
-	if (calleeToken.lexeme == "Arr") {
+	if (calleeToken.lexeme == "Array") {
 		return ParseArrExpr(tokenList, pos, calleeToken);
 	}
 
@@ -155,7 +155,7 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseCallExpr(const TokenList& tok
 	if (PeekType(tokenList, pos) != TokenType::RParen) {
 		throw std::runtime_error("Expected ')' after arguments at line " + std::to_string(calleeToken.line));
 	}
-	node->closeParenToken = tokenList[pos++]; // ')'
+	pos++; // ')'
 
 	return node;
 }
@@ -168,23 +168,25 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseArrExpr(const TokenList& toke
 	if (PeekType(tokenList, pos) != TokenType::RParen) {
 		throw std::runtime_error("Expected ')' after Array size at line " + std::to_string(calleeToken.line));
 	}
-	node->closeParenToken = tokenList[pos++]; // ')'
+	pos++; // ')'
 
 	return node;
 }
 
 std::unique_ptr<SyntaxNode> ExpressionParser::ParseIndexExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> array) {
+	if (array->type != NodeType::Identifier) {
+		throw std::runtime_error("Only an identifier can be indexed at line " + std::to_string(array->token.line));
+	}
 	Token bracketToken = tokenList[pos++]; // '['
 
 	std::unique_ptr<SyntaxNode> indexExpr = ParseExpression(tokenList, pos, 0);
 	if (PeekType(tokenList, pos) != TokenType::RBracket) {
 		throw std::runtime_error("Expected ']' after index expression at line " + std::to_string(bracketToken.line));
 	}
-	Token closeBracketToken = tokenList[pos++]; // ']'
+	pos++; // ']'
 
 	auto node = std::make_unique<IndexExprNode>();
 	node->token = bracketToken;
-	node->closeBracketToken = closeBracketToken;
 	node->children.push_back(std::move(array));
 	node->children.push_back(std::move(indexExpr));
 	return node;
