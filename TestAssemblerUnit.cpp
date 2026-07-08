@@ -88,8 +88,7 @@ TEST_F(AssemblerUnitTest, Parse_VarDeclare_DelegatesToRegisteredParser) {
 
 	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::AssignExpr;
+			auto node = std::make_unique<AssignExprNode>();
 			node->token = tokens[pos + 1]; // '='
 			pos += 3; // consume 'a', '=', '3'
 			return node;

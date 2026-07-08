@@ -1,4 +1,4 @@
-﻿#ifdef _DEBUG
+#ifdef _DEBUG
 #include "gmock/gmock.h"
 #include "ExecutorUnit.h"
 #include "SyntaxNode.h"
@@ -9,147 +9,132 @@ using namespace testing;
 
 namespace {
 
-	// 테스트에서 파서 없이 SyntaxNode 트리를 직접 구성하기 위한 헬퍼
-	// (excuterunit-idempotent-umbrella.md의 children 배치 규칙을 따른다)
-	SyntaxNode MakeNumberLiteral(double value, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::NumberLiteral;
-		node.token.type = TokenType::Number;
-		node.token.realValue = value;
-		node.token.line = line;
+	// 테스트에서 파서 없이 SyntaxNode 트리를 직접 구성하기 위한 헬퍼.
+	// SyntaxNode는 추상 베이스이므로 항상 구체 타입을 make_unique로 생성해 반환한다.
+	std::unique_ptr<SyntaxNode> MakeNumberLiteral(double value, int line = 1) {
+		auto node = std::make_unique<NumberLiteralNode>();
+		node->token.type = TokenType::Number;
+		node->token.realValue = value;
+		node->token.line = line;
 		return node;
 	}
 
-	SyntaxNode MakeBinaryExpr(TokenType op, SyntaxNode left, SyntaxNode right, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::BinaryExpr;
-		node.token.type = op;
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(left)));
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(right)));
+	std::unique_ptr<SyntaxNode> MakeBinaryExpr(TokenType op, std::unique_ptr<SyntaxNode> left, std::unique_ptr<SyntaxNode> right, int line = 1) {
+		auto node = std::make_unique<BinaryExprNode>();
+		node->token.type = op;
+		node->token.line = line;
+		node->children.push_back(std::move(left));
+		node->children.push_back(std::move(right));
 		return node;
 	}
 
-	SyntaxNode MakePrintStmt(SyntaxNode expression, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::PrintStmt;
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(expression)));
+	std::unique_ptr<SyntaxNode> MakePrintStmt(std::unique_ptr<SyntaxNode> expression, int line = 1) {
+		auto node = std::make_unique<PrintStmtNode>();
+		node->token.line = line;
+		node->children.push_back(std::move(expression));
 		return node;
 	}
 
-	// SyntaxNode는 unique_ptr children을 가져 move-only이므로,
-	// std::vector<SyntaxNode> 브레이스 초기화(복사 필요) 대신 가변 인자 템플릿으로 구성한다.
 	template <typename... Stmts>
-	SyntaxNode MakeProgram(Stmts&&... statements) {
-		SyntaxNode node;
-		node.type = NodeType::Program;
-		(node.children.push_back(std::make_unique<SyntaxNode>(std::forward<Stmts>(statements))), ...);
+	std::unique_ptr<SyntaxNode> MakeProgram(Stmts&&... statements) {
+		auto node = std::make_unique<ProgramNode>();
+		(node->children.push_back(std::forward<Stmts>(statements)), ...);
 		return node;
 	}
 
 	// PDF p.78: 아직 ExecutorUnit이 지원하지 않는 노드(VarDeclStmt/Identifier/IfStmt/BlockStmt)용 헬퍼.
 	// 트리 형태는 p.78 다이어그램(변수 a 선언 -> if (a > 5) { print 3 + 2; })을 따른다.
-	SyntaxNode MakeIdentifier(const std::string& name, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::Identifier;
-		node.token.type = TokenType::Identifier;
-		node.token.lexeme = name;
-		node.token.line = line;
+	std::unique_ptr<SyntaxNode> MakeIdentifier(const std::string& name, int line = 1) {
+		auto node = std::make_unique<IdentifierNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = name;
+		node->token.line = line;
 		return node;
 	}
 
-	// PDF p.79: <name> = <value> (실제 ExpressionParser/VarDeclareParser가 만드는 모양을 따른다:
+	// PDF p.79: <name> = <value> (실제 ExpressionParser가 만드는 모양을 따른다:
 	// token은 '=' 연산자, children[0]은 Identifier, children[1]이 값)
-	SyntaxNode MakeAssignExpr(const std::string& name, SyntaxNode value, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::AssignExpr;
-		node.token.type = TokenType::Assign;
-		node.token.lexeme = "=";
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(MakeIdentifier(name, line)));
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(value)));
+	std::unique_ptr<SyntaxNode> MakeAssignExpr(const std::string& name, std::unique_ptr<SyntaxNode> value, int line = 1) {
+		auto node = std::make_unique<AssignExprNode>();
+		node->token.type = TokenType::Assign;
+		node->token.lexeme = "=";
+		node->token.line = line;
+		node->children.push_back(MakeIdentifier(name, line));
+		node->children.push_back(std::move(value));
 		return node;
 	}
 
 	// var <name> = <initializer>;
 	// 실제 VarDeclareParser가 만드는 모양을 따른다: token은 'var' 키워드,
 	// children[0]은 AssignExpr(Identifier, initializer).
-	SyntaxNode MakeVarDeclStmt(const std::string& name, SyntaxNode initializer, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::VarDeclareStatement;
-		node.token.type = TokenType::KwVar;
-		node.token.lexeme = "var";
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(MakeAssignExpr(name, std::move(initializer), line)));
+	std::unique_ptr<SyntaxNode> MakeVarDeclStmt(const std::string& name, std::unique_ptr<SyntaxNode> initializer, int line = 1) {
+		auto node = std::make_unique<VarDeclareStatementNode>();
+		node->token.type = TokenType::KwVar;
+		node->token.lexeme = "var";
+		node->token.line = line;
+		node->children.push_back(MakeAssignExpr(name, std::move(initializer), line));
 		return node;
 	}
 
 	template <typename... Stmts>
-	SyntaxNode MakeBlockStmt(Stmts&&... statements) {
-		SyntaxNode node;
-		node.type = NodeType::BlockStmt;
-		(node.children.push_back(std::make_unique<SyntaxNode>(std::forward<Stmts>(statements))), ...);
+	std::unique_ptr<SyntaxNode> MakeBlockStmt(Stmts&&... statements) {
+		auto node = std::make_unique<BlockStmtNode>();
+		(node->children.push_back(std::forward<Stmts>(statements)), ...);
 		return node;
 	}
 
 	// if (<condition>) <thenBranch>
-	SyntaxNode MakeIfStmt(SyntaxNode condition, SyntaxNode thenBranch, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::IfStmt;
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(condition)));
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(thenBranch)));
+	std::unique_ptr<SyntaxNode> MakeIfStmt(std::unique_ptr<SyntaxNode> condition, std::unique_ptr<SyntaxNode> thenBranch, int line = 1) {
+		auto node = std::make_unique<IfStmtNode>();
+		node->token.line = line;
+		node->children.push_back(std::move(condition));
+		node->children.push_back(std::move(thenBranch));
 		return node;
 	}
 
-	SyntaxNode MakeExprStmt(SyntaxNode expression, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::ExprStmt;
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(expression)));
+	std::unique_ptr<SyntaxNode> MakeExprStmt(std::unique_ptr<SyntaxNode> expression, int line = 1) {
+		auto node = std::make_unique<ExprStmtNode>();
+		node->token.line = line;
+		node->children.push_back(std::move(expression));
 		return node;
 	}
 
 	// -a, !a 등 단항식 헬퍼
-	SyntaxNode MakeUnaryExpr(TokenType op, SyntaxNode operand, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::UnaryExpr;
-		node.token.type = op;
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(operand)));
+	std::unique_ptr<SyntaxNode> MakeUnaryExpr(TokenType op, std::unique_ptr<SyntaxNode> operand, int line = 1) {
+		auto node = std::make_unique<UnaryExprNode>();
+		node->token.type = op;
+		node->token.line = line;
+		node->children.push_back(std::move(operand));
 		return node;
 	}
 
 	// true / false 리터럴. 값은 token.lexeme에 "true"/"false" 텍스트로 저장한다.
-	SyntaxNode MakeBoolLiteral(bool value, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::BoolLiteral;
-		node.token.lexeme = value ? "true" : "false";
-		node.token.line = line;
+	std::unique_ptr<SyntaxNode> MakeBoolLiteral(bool value, int line = 1) {
+		auto node = std::make_unique<BoolLiteralNode>();
+		node->token.lexeme = value ? "true" : "false";
+		node->token.line = line;
 		return node;
 	}
 
 	// PDF p.80: for (init; condition; increment) { print "#"; } 에서 사용되는 헬퍼.
-	SyntaxNode MakeStringLiteral(const std::string& value, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::StringLiteral;
-		node.token.type = TokenType::String;
-		node.token.lexeme = value;
-		node.token.line = line;
+	std::unique_ptr<SyntaxNode> MakeStringLiteral(const std::string& value, int line = 1) {
+		auto node = std::make_unique<StringLiteralNode>();
+		node->token.type = TokenType::String;
+		node->token.lexeme = value;
+		node->token.line = line;
 		return node;
 	}
 
 	// for (<init>; <condition>; <increment>) <body>
 	// children 순서: init, condition, increment, body (PDF p.80 다이어그램 순서를 따른다)
-	SyntaxNode MakeForStmt(SyntaxNode init, SyntaxNode condition, SyntaxNode increment, SyntaxNode body, int line = 1) {
-		SyntaxNode node;
-		node.type = NodeType::ForStmt;
-		node.token.line = line;
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(init)));
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(condition)));
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(increment)));
-		node.children.push_back(std::make_unique<SyntaxNode>(std::move(body)));
+	std::unique_ptr<SyntaxNode> MakeForStmt(std::unique_ptr<SyntaxNode> init, std::unique_ptr<SyntaxNode> condition,
+		std::unique_ptr<SyntaxNode> increment, std::unique_ptr<SyntaxNode> body, int line = 1) {
+		auto node = std::make_unique<ForStmtNode>();
+		node->token.line = line;
+		node->children.push_back(std::move(init));
+		node->children.push_back(std::move(condition));
+		node->children.push_back(std::move(increment));
+		node->children.push_back(std::move(body));
 		return node;
 	}
 
@@ -157,8 +142,7 @@ namespace {
 
 TEST(ExecutorUnitTest, Execute_EmptyProgram_DoesNotCrash) {
 	ExecutorUnit executor;
-	SyntaxNode program;
-	program.type = NodeType::Program;
+	ProgramNode program;
 
 	executor.Execute(program);
 }
@@ -166,12 +150,12 @@ TEST(ExecutorUnitTest, Execute_EmptyProgram_DoesNotCrash) {
 // PDF p.77: print 3 + 2; 실행 시 stdout에 5가 출력되어야 한다.
 TEST(ExecutorUnitTest, Execute_PrintBinaryAddition_PrintsFive) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakePrintStmt(MakeBinaryExpr(TokenType::Plus, MakeNumberLiteral(3), MakeNumberLiteral(2)))
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, HasSubstr("5"));
@@ -183,7 +167,7 @@ TEST(ExecutorUnitTest, Execute_PrintBinaryAddition_PrintsFive) {
 // 현재는 실패(Red)한다. 해당 기능 구현 후 통과해야 한다.
 TEST(ExecutorUnitTest, Execute_IfConditionTrue_ExecutesThenBranch_PrintsFive) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
 		MakeIfStmt(
 			MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(5)),
@@ -194,7 +178,7 @@ TEST(ExecutorUnitTest, Execute_IfConditionTrue_ExecutesThenBranch_PrintsFive) {
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, HasSubstr("5"));
@@ -203,7 +187,7 @@ TEST(ExecutorUnitTest, Execute_IfConditionTrue_ExecutesThenBranch_PrintsFive) {
 // PDF p.78: 조건이 거짓이면(a <= 5) thenBranch가 실행되지 않아 아무 것도 출력되지 않아야 한다.
 TEST(ExecutorUnitTest, Execute_IfConditionFalse_SkipsThenBranch_PrintsNothing) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(1)),
 		MakeIfStmt(
 			MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(5)),
@@ -214,7 +198,7 @@ TEST(ExecutorUnitTest, Execute_IfConditionFalse_SkipsThenBranch_PrintsNothing) {
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, IsEmpty());
@@ -225,7 +209,7 @@ TEST(ExecutorUnitTest, Execute_IfConditionFalse_SkipsThenBranch_PrintsNothing) {
 // NOTE: ExecutorUnit이 아직 ExprStmt/AssignExpr를 지원하지 않아 현재는 실패(Red)한다.
 TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionTrue_AssignsExpressionResult) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
 		MakeIfStmt(
 			MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(0)),
@@ -240,7 +224,7 @@ TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionTrue_AssignsExpressionResu
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, HasSubstr("38"));
@@ -249,7 +233,7 @@ TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionTrue_AssignsExpressionResu
 // PDF p.79: 조건이 거짓이면(a <= 0) 대입이 일어나지 않아 a는 원래 값(10)을 유지해야 한다.
 TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionFalse_KeepsOriginalValue) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(-1)),
 		MakeIfStmt(
 			MakeBinaryExpr(TokenType::Gt, MakeIdentifier("a"), MakeNumberLiteral(0)),
@@ -264,7 +248,7 @@ TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionFalse_KeepsOriginalValue) 
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, HasSubstr("-1"));
@@ -275,7 +259,7 @@ TEST(ExecutorUnitTest, Execute_IfWithoutBlockConditionFalse_KeepsOriginalValue) 
 // NOTE: ExecutorUnit이 아직 ForStmt/StringLiteral을 지원하지 않아 현재는 실패(Red)한다.
 TEST(ExecutorUnitTest, Execute_ForLoop_PrintsHashThreeTimes) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeForStmt(
 			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
 			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(3)),
@@ -286,7 +270,7 @@ TEST(ExecutorUnitTest, Execute_ForLoop_PrintsHashThreeTimes) {
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("###"));
@@ -295,7 +279,7 @@ TEST(ExecutorUnitTest, Execute_ForLoop_PrintsHashThreeTimes) {
 // PDF p.80: 초기 조건이 이미 거짓이면(i = 3) 본문이 한 번도 실행되지 않아야 한다.
 TEST(ExecutorUnitTest, Execute_ForLoop_ConditionInitiallyFalse_NeverRunsBody) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeForStmt(
 			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(3)),
 			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(3)),
@@ -306,7 +290,7 @@ TEST(ExecutorUnitTest, Execute_ForLoop_ConditionInitiallyFalse_NeverRunsBody) {
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, IsEmpty());
@@ -317,7 +301,7 @@ TEST(ExecutorUnitTest, Execute_ForLoop_ConditionInitiallyFalse_NeverRunsBody) {
 // ForStmt/IfStmt/ExprStmt/AssignExpr가 모두 이미 구현되어 있으므로 통과(Green)해야 한다.
 TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_DecrementsAWhileGreaterThanThree) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(5)),
 		MakeForStmt(
 			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
@@ -338,7 +322,7 @@ TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_DecrementsAWhileGreaterThanTh
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("3"));
@@ -347,7 +331,7 @@ TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_DecrementsAWhileGreaterThanTh
 // PDF p.81 변형: a가 이미 3 이하이면 if 조건이 항상 거짓이라 for 루프 동안 a가 변하지 않아야 한다.
 TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_ConditionAlwaysFalse_KeepsOriginalValue) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(2)),
 		MakeForStmt(
 			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
@@ -368,7 +352,7 @@ TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_ConditionAlwaysFalse_KeepsOri
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("2"));
@@ -378,7 +362,7 @@ TEST(ExecutorUnitTest, Execute_ForLoopWithNestedIf_ConditionAlwaysFalse_KeepsOri
 // 블록 내부에서 바깥 스코프의 a와 블록 지역 변수 b를 모두 참조할 수 있어야 한다 (a+b=30).
 TEST(ExecutorUnitTest, Execute_BlockScope_AccessesOuterVariable_PrintsSum) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
 		MakeBlockStmt(
 			MakeVarDeclStmt("b", MakeNumberLiteral(20)),
@@ -388,7 +372,7 @@ TEST(ExecutorUnitTest, Execute_BlockScope_AccessesOuterVariable_PrintsSum) {
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("30"));
@@ -399,7 +383,7 @@ TEST(ExecutorUnitTest, Execute_BlockScope_AccessesOuterVariable_PrintsSum) {
 // 이 테스트는 실패(Red)한다. 스코프 구현 후 통과해야 한다.
 TEST(ExecutorUnitTest, Execute_BlockScope_LocalVariableDestroyedAfterBlockEnds) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
 		MakeBlockStmt(
 			MakeVarDeclStmt("b", MakeNumberLiteral(20))
@@ -407,7 +391,7 @@ TEST(ExecutorUnitTest, Execute_BlockScope_LocalVariableDestroyedAfterBlockEnds) 
 		MakePrintStmt(MakeIdentifier("b"))
 	);
 
-	EXPECT_THROW(executor.Execute(program), std::runtime_error);
+	EXPECT_THROW(executor.Execute(*program), std::runtime_error);
 }
 
 // PDF p.84: var ga = 3; { var a = 2; { var a = 7; { print a; print ga; } print a; } }
@@ -417,7 +401,7 @@ TEST(ExecutorUnitTest, Execute_BlockScope_LocalVariableDestroyedAfterBlockEnds) 
 // (스코프 복원 여부는 아래 Execute_NestedBlockShadowing_RestoresOuterValueAfterInnerBlockEnds에서 검증한다).
 TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_PrintsInnerAndGlobalValues) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("ga", MakeNumberLiteral(3)),
 		MakeBlockStmt( // Scope A
 			MakeVarDeclStmt("a", MakeNumberLiteral(2)),
@@ -433,7 +417,7 @@ TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_PrintsInnerAndGlobalValues) 
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("737"));
@@ -444,7 +428,7 @@ TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_PrintsInnerAndGlobalValues) 
 // NOTE: 현재 flat map 구현은 재선언 시 덮어쓰기만 하고 복원하지 않아 실패(Red)한다.
 TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_RestoresOuterValueAfterInnerBlockEnds) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(2)),
 		MakeBlockStmt(
 			MakeVarDeclStmt("a", MakeNumberLiteral(7)),
@@ -454,7 +438,7 @@ TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_RestoresOuterValueAfterInner
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("72"));
@@ -467,7 +451,7 @@ TEST(ExecutorUnitTest, Execute_NestedBlockShadowing_RestoresOuterValueAfterInner
 // 지원하지 않음) 이 테스트는 실패(Red)한다. 문자열 값을 지원하는 Value 타입 도입 후 통과해야 한다.
 TEST(ExecutorUnitTest, Execute_BlockScope_StringVariableShadowing_RestoresOuterValueAfterBlockEnds) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("x", MakeStringLiteral("global")),
 		MakeBlockStmt(
 			MakeVarDeclStmt("x", MakeStringLiteral("inner")),
@@ -477,7 +461,7 @@ TEST(ExecutorUnitTest, Execute_BlockScope_StringVariableShadowing_RestoresOuterV
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("innerglobal"));
@@ -489,7 +473,7 @@ TEST(ExecutorUnitTest, Execute_BlockScope_StringVariableShadowing_RestoresOuterV
 // Global의 count를 직접 수정해야 한다.
 TEST(ExecutorUnitTest, Execute_AssignInsideBlock_MutatesOuterVariable_NotShadow) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("count", MakeNumberLiteral(0)),
 		MakeBlockStmt(
 			MakeExprStmt(
@@ -501,7 +485,7 @@ TEST(ExecutorUnitTest, Execute_AssignInsideBlock_MutatesOuterVariable_NotShadow)
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("1"));
@@ -515,7 +499,7 @@ TEST(ExecutorUnitTest, Execute_AssignInsideBlock_MutatesOuterVariable_NotShadow)
 // 문자열일 때 std::string 연결을 수행하도록 분기를 추가해야 한다.
 TEST(ExecutorUnitTest, Execute_NestedBlockScope_ConcatenatesStringsFromDifferentScopes) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("outer", MakeStringLiteral("A")),
 		MakeBlockStmt(
 			MakeVarDeclStmt("inner", MakeStringLiteral("B")),
@@ -528,7 +512,7 @@ TEST(ExecutorUnitTest, Execute_NestedBlockScope_ConcatenatesStringsFromDifferent
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("AB"));
@@ -538,14 +522,14 @@ TEST(ExecutorUnitTest, Execute_NestedBlockScope_ConcatenatesStringsFromDifferent
 // UnaryExpr(Minus)가 숫자를 음수화하여 다른 변수에 대입될 수 있어야 한다.
 TEST(ExecutorUnitTest, Execute_UnaryMinus_NegatesVariableValue) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeNumberLiteral(10)),
 		MakeVarDeclStmt("b", MakeUnaryExpr(TokenType::Minus, MakeIdentifier("a"))),
 		MakePrintStmt(MakeIdentifier("b"))
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("-10"));
@@ -556,14 +540,14 @@ TEST(ExecutorUnitTest, Execute_UnaryMinus_NegatesVariableValue) {
 // BoolLiteral 평가(token.lexeme == "true" 여부를 bool로 반환)를 Evaluate에 추가해야 통과한다.
 TEST(ExecutorUnitTest, Execute_UnaryNot_NegatesBooleanVariable) {
 	ExecutorUnit executor;
-	SyntaxNode program = MakeProgram(
+	auto program = MakeProgram(
 		MakeVarDeclStmt("a", MakeBoolLiteral(true)),
 		MakeVarDeclStmt("b", MakeUnaryExpr(TokenType::Not, MakeIdentifier("a"))),
 		MakePrintStmt(MakeIdentifier("b"))
 	);
 
 	testing::internal::CaptureStdout();
-	executor.Execute(program);
+	executor.Execute(*program);
 	std::string output = testing::internal::GetCapturedStdout();
 
 	EXPECT_THAT(output, Eq("false"));

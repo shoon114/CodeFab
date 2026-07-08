@@ -27,8 +27,7 @@ std::unique_ptr<SyntaxNode> IfStatementParser::Parse(const TokenList& tokenList,
 
 	ExpectToken(tokenList, pos, TokenType::RParen, ")");
 
-	auto ifNode = std::make_unique<SyntaxNode>();
-	ifNode->type = NodeType::IfStmt;
+	auto ifNode = std::make_unique<IfStmtNode>();
 	ifNode->token = ifToken;
 	ifNode->children.push_back(std::move(conditionNode));
 

@@ -67,8 +67,12 @@ std::unique_ptr<SyntaxNode> ExpressionParser::Parse(const TokenList& tokenList, 
 }
 
 std::unique_ptr<SyntaxNode> ExpressionParser::MakeBinary(NodeType type, Token op, std::unique_ptr<SyntaxNode> left, std::unique_ptr<SyntaxNode> right) {
-	auto node = std::make_unique<SyntaxNode>();
-	node->type = type;
+	std::unique_ptr<SyntaxNode> node;
+	if (type == NodeType::AssignExpr) {
+		node = std::make_unique<AssignExprNode>();
+	} else {
+		node = std::make_unique<BinaryExprNode>();
+	}
 	node->token = op;
 	node->children.push_back(std::move(left));
 	node->children.push_back(std::move(right));
@@ -100,8 +104,7 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParsePrefix(const TokenList& token
 		Token op = tokenList[pos++];
 		std::unique_ptr<SyntaxNode> operand = ParseExpression(tokenList, pos, kUnaryPrecedence);
 
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::UnaryExpr;
+		auto node = std::make_unique<UnaryExprNode>();
 		node->token = op;
 		node->children.push_back(std::move(operand));
 		return node;
@@ -114,29 +117,25 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParsePrimary(const TokenList& toke
 	TokenType type = PeekType(tokenList, pos);
 
 	if (type == TokenType::Number) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::NumberLiteral;
+		auto node = std::make_unique<NumberLiteralNode>();
 		node->token = tokenList[pos++];
 		return node;
 	}
 
 	if (type == TokenType::String) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::StringLiteral;
+		auto node = std::make_unique<StringLiteralNode>();
 		node->token = tokenList[pos++];
 		return node;
 	}
 
 	if (type == TokenType::KwTrue || type == TokenType::KwFalse) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::BoolLiteral;
+		auto node = std::make_unique<BoolLiteralNode>();
 		node->token = tokenList[pos++];
 		return node;
 	}
 
 	if (type == TokenType::Identifier) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::Identifier;
+		auto node = std::make_unique<IdentifierNode>();
 		node->token = tokenList[pos++];
 
 		return node;

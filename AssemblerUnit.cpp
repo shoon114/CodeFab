@@ -3,8 +3,7 @@
 #include <stdexcept>
 
 std::unique_ptr<SyntaxNode> AssemblerUnit::Parse(const TokenList& tokenList) {
-	auto programNode = std::make_unique<SyntaxNode>();
-	programNode->type = NodeType::Program;
+	auto programNode = std::make_unique<ProgramNode>();
 
 	size_t pos = 0;
 	while (pos < tokenList.size() && tokenList[pos].type != TokenType::EndOfFile) {

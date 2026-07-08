@@ -8,6 +8,16 @@
 
 using namespace testing;
 
+namespace {
+	std::unique_ptr<SyntaxNode> MakeNodeOfType(NodeType type) {
+		switch (type) {
+		case NodeType::NumberLiteral: return std::make_unique<NumberLiteralNode>();
+		case NodeType::BinaryExpr: return std::make_unique<BinaryExprNode>();
+		default: throw std::logic_error("MakeNodeOfType: unsupported type in this test helper");
+		}
+	}
+}
+
 class PrintStatementParserTest : public Test {
 protected:
 	PrintStatementParser parser;
@@ -45,8 +55,7 @@ protected:
 		EXPECT_CALL(*mock, Parse(_, _))
 			.Times(1)
 			.WillOnce([tokenCount, resultType](const TokenList& tokens, size_t& pos) {
-				auto node = std::make_unique<SyntaxNode>();
-				node->type = resultType;
+				auto node = MakeNodeOfType(resultType);
 				node->token = tokens[pos];
 				pos += tokenCount;
 				return node;

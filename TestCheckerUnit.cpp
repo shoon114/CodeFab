@@ -14,8 +14,7 @@ protected:
 	CheckerUnit checker;
 
 	std::unique_ptr<SyntaxNode> MakeVarDecl(const std::string& name, std::unique_ptr<SyntaxNode> initializer = nullptr) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::VarDeclareStatement;
+		auto node = std::make_unique<VarDeclareStatementNode>();
 		node->token = MakeToken(TokenType::Identifier, name, 1, 1);
 		if (initializer) {
 			node->children.push_back(std::move(initializer));
@@ -24,15 +23,13 @@ protected:
 	}
 
 	std::unique_ptr<SyntaxNode> MakeIdentifier(const std::string& name) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::Identifier;
+		auto node = std::make_unique<IdentifierNode>();
 		node->token = MakeToken(TokenType::Identifier, name, 1, 1);
 		return node;
 	}
 
 	std::unique_ptr<SyntaxNode> MakeBlock(std::vector<std::unique_ptr<SyntaxNode>> statements) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::BlockStmt;
+		auto node = std::make_unique<BlockStmtNode>();
 		node->token = MakeToken(TokenType::LBrace, "{", 1, 1);
 		for (auto& statement : statements) {
 			node->children.push_back(std::move(statement));
@@ -43,8 +40,7 @@ protected:
 	// FuncDeclStmt: token.lexeme = 함수명, children = [파라미터(Identifier)..., body(BlockStmt)]
 	std::unique_ptr<SyntaxNode> MakeFuncDecl(const std::string& name, std::vector<std::string> params,
 		std::unique_ptr<SyntaxNode> body) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::FuncDeclStmt;
+		auto node = std::make_unique<FuncDeclStmtNode>();
 		node->token = MakeToken(TokenType::Identifier, name, 1, 1);
 		for (const auto& param : params) {
 			node->children.push_back(MakeIdentifier(param));
@@ -55,8 +51,7 @@ protected:
 
 	// ReturnStmt: children[0] = 반환식(없으면 children 비움)
 	std::unique_ptr<SyntaxNode> MakeReturnStmt(std::unique_ptr<SyntaxNode> expr = nullptr) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::ReturnStmt;
+		auto node = std::make_unique<ReturnStmtNode>();
 		node->token = MakeToken(TokenType::KwReturn, "return", 1, 1);
 		if (expr) {
 			node->children.push_back(std::move(expr));
@@ -66,8 +61,7 @@ protected:
 
 	// CallExpr: token.lexeme = 호출 대상 이름, children = 인자 표현식들
 	std::unique_ptr<SyntaxNode> MakeCallExpr(const std::string& name, std::vector<std::unique_ptr<SyntaxNode>> args = {}) {
-		auto node = std::make_unique<SyntaxNode>();
-		node->type = NodeType::CallExpr;
+		auto node = std::make_unique<CallExprNode>();
 		node->token = MakeToken(TokenType::Identifier, name, 1, 1);
 		for (auto& arg : args) {
 			node->children.push_back(std::move(arg));
@@ -76,8 +70,7 @@ protected:
 	}
 
 	std::unique_ptr<SyntaxNode> MakeProgram(std::vector<std::unique_ptr<SyntaxNode>> statements) {
-		auto root = std::make_unique<SyntaxNode>();
-		root->type = NodeType::Program;
+		auto root = std::make_unique<ProgramNode>();
 		for (auto& statement : statements) {
 			root->children.push_back(std::move(statement));
 		}

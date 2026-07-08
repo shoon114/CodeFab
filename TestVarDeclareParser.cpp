@@ -71,8 +71,7 @@ TEST_F(VarDeclareParserTest, Parse_WithoutInitializer_DelegatesToRegisteredTailP
 	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::Identifier;
+			auto node = std::make_unique<IdentifierNode>();
 			node->token = tokens[pos];
 			pos++; // consume 'a'
 			return node;
@@ -100,16 +99,13 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesToRegisteredTailPars
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			// simulate the real ExpressionParser recognizing "a = 3" as one assignment expression
-			auto identNode = std::make_unique<SyntaxNode>();
-			identNode->type = NodeType::Identifier;
+			auto identNode = std::make_unique<IdentifierNode>();
 			identNode->token = tokens[pos]; // 'a'
 
-			auto valueNode = std::make_unique<SyntaxNode>();
-			valueNode->type = NodeType::NumberLiteral;
+			auto valueNode = std::make_unique<NumberLiteralNode>();
 			valueNode->token = tokens[pos + 2]; // '3'
 
-			auto assignNode = std::make_unique<SyntaxNode>();
-			assignNode->type = NodeType::AssignExpr;
+			auto assignNode = std::make_unique<AssignExprNode>();
 			assignNode->token = tokens[pos + 1]; // '='
 			assignNode->children.push_back(std::move(identNode));
 			assignNode->children.push_back(std::move(valueNode));
@@ -178,8 +174,7 @@ TEST_F(VarDeclareParserTest, Parse_MissingSemicolon_Throws) {
 
 	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::Identifier;
+			auto node = std::make_unique<IdentifierNode>();
 			node->token = tokens[pos];
 			pos++; // consume 'a' only
 			return node;
@@ -197,8 +192,7 @@ TEST_F(VarDeclareParserTest, Parse_MissingSemicolonAtEndOfInput_Throws) {
 
 	EXPECT_CALL(*mockTailParser, Parse(_, _))
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<SyntaxNode>();
-			node->type = NodeType::Identifier;
+			auto node = std::make_unique<IdentifierNode>();
 			node->token = tokens[pos];
 			pos++; // consume 'a', reaching the end of the list
 			return node;

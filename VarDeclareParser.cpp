@@ -9,8 +9,7 @@ StatementParserRegistrar<VarDeclareParser> registrar(TokenType::KwVar);
 std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, size_t& pos) {
 	const Token& varToken = tokenList[pos++]; // 'var'
 
-	auto varDeclNode = std::make_unique<SyntaxNode>();
-	varDeclNode->type = NodeType::VarDeclareStatement;
+	auto varDeclNode = std::make_unique<VarDeclareStatementNode>();
 	varDeclNode->token = varToken;
 
 	if (pos >= tokenList.size()) {
