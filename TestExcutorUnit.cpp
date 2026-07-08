@@ -552,4 +552,71 @@ TEST(ExecutorUnitTest, Execute_UnaryNot_NegatesBooleanVariable) {
 
 	EXPECT_THAT(output, Eq("false"));
 }
+
+// [정적 바인딩] Test Double 검증:
+// var a = "outer"; { var a = "inner"; { print <a>; } }
+// CheckerUnit이 정상 계산했다면 이 위치의 scopeDistance는 1(Scope A의 "inner")이어야
+// 하지만, 여기서는 CheckerUnit을 거치지 않고 scopeDistance=2("inner"를 건너뛰고
+// Global로 직행)를 test double로 직접 스텁한다.
+// 만약 ExecutorUnit이 scopeDistance를 무시하고 이름으로 스코프를 거슬러 올라가며
+// 동적 탐색했다면 가장 가까운 "inner"가 출력되었을 것이다. 결과가 "outer"라는 것은
+// 스텁해 둔 거리값으로 해당 스코프에 즉시 접근했다는(탐색을 건너뛰었다는) 증거다.
+TEST(ExecutorUnitTest, Execute_IdentifierWithStubbedScopeDistance_AccessesScopeDirectlyWithoutDynamicSearch) {
+	ExecutorUnit executor;
+
+	auto stubbedRef = std::make_unique<IdentifierNode>();
+	stubbedRef->token.type = TokenType::Identifier;
+	stubbedRef->token.lexeme = "a";
+	stubbedRef->scopeDistance = 2;
+
+	auto program = MakeProgram(
+		MakeVarDeclStmt("a", MakeStringLiteral("outer")),
+		MakeBlockStmt( // Scope A: "a"를 섀도잉("inner") - 이름 기반 탐색이라면 여기서 먼저 발견됨
+			MakeVarDeclStmt("a", MakeStringLiteral("inner")),
+			MakeBlockStmt( // Scope B(가장 안쪽)
+				MakePrintStmt(std::move(stubbedRef))
+			)
+		)
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(*program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("outer"));
+}
+
+// [상수 폴딩] Test Double 검증:
+// isConstantFolded=true, foldedValue=42로 미리 채워진 BinaryExprNode를 직접 구성하되,
+// children에는 "poison"(정의되지 않은 변수를 참조하는 Identifier)을 심어둔다.
+// 만약 ExecutorUnit이 폴딩 플래그를 확인하지 않고 매번 자식을 재계산했다면
+// for 루프 5번 반복 중 첫 회차에 "Undefined variable" 런타임 예외가 발생했을 것이다.
+// 예외 없이 5번 모두 42가 출력된다는 것은 재계산 횟수가 N(5)회에서 0회로
+// 줄었다는(자식이 단 한 번도 평가되지 않았다는) 증거다.
+TEST(ExecutorUnitTest, Execute_ConstantFoldedBinaryExpr_SkipsRecomputingPoisonedChildrenEachIteration) {
+	ExecutorUnit executor;
+
+	auto foldedExpr = std::make_unique<BinaryExprNode>();
+	foldedExpr->token.type = TokenType::Plus;
+	foldedExpr->isConstantFolded = true;
+	foldedExpr->foldedValue = 42.0;
+	foldedExpr->children.push_back(MakeIdentifier("__poison_left__"));
+	foldedExpr->children.push_back(MakeIdentifier("__poison_right__"));
+
+	auto program = MakeProgram(
+		MakeForStmt(
+			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
+			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(5)),
+			/*increment*/ MakeAssignExpr("i",
+				MakeBinaryExpr(TokenType::Plus, MakeIdentifier("i"), MakeNumberLiteral(1))),
+			/*body*/      MakeBlockStmt(MakePrintStmt(std::move(foldedExpr)))
+		)
+	);
+
+	testing::internal::CaptureStdout();
+	executor.Execute(*program);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, Eq("4242424242"));
+}
 #endif
