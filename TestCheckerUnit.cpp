@@ -13,11 +13,20 @@ class CheckerUnitTest : public Test {
 protected:
 	CheckerUnit checker;
 
+	// 실제 VarDeclareParser가 만드는 모양을 따른다: token은 'var' 키워드,
+	// 초기화식이 있으면 children[0]은 AssignExpr(Identifier, initializer),
+	// 없으면 children[0]은 Identifier 노드 하나뿐이다.
 	std::unique_ptr<SyntaxNode> MakeVarDecl(const std::string& name, std::unique_ptr<SyntaxNode> initializer = nullptr) {
 		auto node = std::make_unique<VarDeclareStatementNode>();
-		node->token = MakeToken(TokenType::Identifier, name, 1, 1);
+		node->token = MakeToken(TokenType::KwVar, "var", 1, 1);
 		if (initializer) {
-			node->children.push_back(std::move(initializer));
+			auto assignNode = std::make_unique<AssignExprNode>();
+			assignNode->token = MakeToken(TokenType::Assign, "=", 1, 1);
+			assignNode->children.push_back(MakeIdentifier(name));
+			assignNode->children.push_back(std::move(initializer));
+			node->children.push_back(std::move(assignNode));
+		} else {
+			node->children.push_back(MakeIdentifier(name));
 		}
 		return node;
 	}

@@ -77,6 +77,8 @@ $cases = @(
     @{ Category = "구문 오류: 닫는 괄호 누락"; InputLines = @('print (1 + 2;'); ExpectError = $true }
     @{ Category = "런타임 오류: 잘못된 할당 대상"; InputLines = @('var a = 1;', 'var b = 2;', 'a + b = 3;'); ExpectError = $true }
     @{ Category = "구문 오류: 표현식 자리에 엉뚱한 토큰"; InputLines = @('print * 5;'); ExpectError = $true }
+    @{ Category = "정적 오류: 초기화식에서 자기 참조"; InputLines = @('{ var a = a; }'); ExpectError = $true }
+    @{ Category = "정적 오류: 같은 스코프 중복 선언"; InputLines = @('{ var a = "hi"; var a = 3; }'); ExpectError = $true }
 )
 
 # Piping strings to a native exe (either via the PowerShell pipeline or via
