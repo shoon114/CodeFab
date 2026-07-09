@@ -115,6 +115,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 함수 호출(return 없이 종료) | `func noop() { }` → `print noop();` | `null` |
 | 함수 호출(재귀, 팩토리얼) | `func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }` → `print fact(5);` | `120` |
 | 정적 오류: 함수 호출 인자 개수 불일치 | `func add(a, b) { return a + b; }` → `print add(1);` | (에러 발생 여부만 확인) — 정적 오류가 있으면 실행이 이어지지 않고 에러 메시지가 중복 출력되지 않는지 확인 |
+| 정적 오류: 정의되지 않은 함수 호출 | `print notAFunc(1);` | (에러 발생 여부만 확인) |
 | 런타임 오류: for 단일 줄 body에서 선언된 변수는 바깥에서 참조 불가 | `for (var i = 0; i < 3; i = i + 1) var x = i;` → `print x;` | (에러 발생 여부만 확인) — '{}' 없는 단일 문장 body도 `{}` body와 동일하게 스코프가 격리되는지 확인 |
 | 런타임 오류: for init에서 선언된 변수는 바깥에서 참조 불가 | `for (var a = 0; a < 3; a = a + 1) { print a; }` → `print a;` | (에러 발생 여부만 확인) — init에서 선언된 변수도 `{}` 블록 지역 변수와 동일하게 for문이 끝나면 사라지는지 확인 |
 | 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |

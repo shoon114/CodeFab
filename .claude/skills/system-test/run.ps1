@@ -78,6 +78,7 @@ $cases = @(
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
     @{ Category = "정적 오류: 함수 호출 인자 개수 불일치"; InputLines = @('func add(a, b) { return a + b; }', 'print add(1);'); ExpectError = $true }
+    @{ Category = "정적 오류: 정의되지 않은 함수 호출"; InputLines = @('print notAFunc(1);'); ExpectError = $true }
     @{ Category = "런타임 오류: for 단일 줄 body에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var i = 0; i < 3; i = i + 1) var x = i;', 'print x;'); ExpectError = $true }
     @{ Category = "런타임 오류: for init에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var a = 0; a < 3; a = a + 1) { print a; }', 'print a;'); ExpectError = $true }
     @{ Category = "구문 오류: 세미콜론 누락"; InputLines = @('print 1 + 2'); ExpectError = $true }
