@@ -63,6 +63,15 @@ namespace {
 	}
 
 	constexpr int kUnaryPrecedence = 8;
+
+	// ParseAtom의 리터럴/식별자/this/Super 분기가 전부
+	// "노드 하나 만들고 현재 토큰만 담아 소비"하는 동일한 모양이라 공통화한다.
+	template <typename NodeT>
+	std::unique_ptr<SyntaxNode> MakeLeaf(const TokenList& tokenList, size_t& pos) {
+		auto node = std::make_unique<NodeT>();
+		node->token = tokenList[pos++];
+		return node;
+	}
 }
 
 std::unique_ptr<SyntaxNode> ExpressionParser::Parse(const TokenList& tokenList, size_t& pos) {
@@ -215,40 +224,27 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseAtom(const TokenList& tokenLi
 	TokenType type = PeekType(tokenList, pos);
 
 	if (type == TokenType::Number) {
-		auto node = std::make_unique<NumberLiteralNode>();
-		node->token = tokenList[pos++];
-		return node;
+		return MakeLeaf<NumberLiteralNode>(tokenList, pos);
 	}
 
 	if (type == TokenType::String) {
-		auto node = std::make_unique<StringLiteralNode>();
-		node->token = tokenList[pos++];
-		return node;
+		return MakeLeaf<StringLiteralNode>(tokenList, pos);
 	}
 
 	if (type == TokenType::KwTrue || type == TokenType::KwFalse) {
-		auto node = std::make_unique<BoolLiteralNode>();
-		node->token = tokenList[pos++];
-		return node;
+		return MakeLeaf<BoolLiteralNode>(tokenList, pos);
 	}
 
 	if (type == TokenType::Identifier) {
-		auto node = std::make_unique<IdentifierNode>();
-		node->token = tokenList[pos++];
-
-		return node;
+		return MakeLeaf<IdentifierNode>(tokenList, pos);
 	}
 
 	if (type == TokenType::KwThis) {
-		auto node = std::make_unique<ThisExprNode>();
-		node->token = tokenList[pos++];
-		return node;
+		return MakeLeaf<ThisExprNode>(tokenList, pos);
 	}
 
 	if (type == TokenType::KwSuper) {
-		auto node = std::make_unique<SuperExprNode>();
-		node->token = tokenList[pos++];
-		return node;
+		return MakeLeaf<SuperExprNode>(tokenList, pos);
 	}
 
 	if (type == TokenType::LParen) {
