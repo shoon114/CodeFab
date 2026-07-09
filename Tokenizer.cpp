@@ -198,27 +198,27 @@ void Tokenizer::ClassifyToken(Token& token)
 	token.type = TokenType::Identifier;
 }
 
-std::string Tokenizer::ReadFile(const std::string& path)
+std::string Tokenizer::ReadFile(const std::string& path, int line)
 {
 	std::ifstream file(path);
 	if (!file) {
-		throw std::runtime_error("Cannot open import file: " + path);
+		throw std::runtime_error("Cannot open import file: " + path + " at line " + std::to_string(line));
 	}
 	std::ostringstream buffer;
 	buffer << file.rdbuf();
 	return buffer.str();
 }
 
-TokenList Tokenizer::TokenizeFileForImport(const std::string& path, std::vector<std::string>& activeImports)
+TokenList Tokenizer::TokenizeFileForImport(const std::string& path, int line, std::vector<std::string>& activeImports)
 {
 	// ModuleLoader가 나중에 도입되면 순환 import 감지 책임은 그쪽으로 옮겨간다.
 	// 지금은 Tokenizer가 직접 재귀적으로 파일을 이어붙이기 때문에, 스택 오버플로우를
 	// 막기 위한 최소한의 가드만 여기 둔다.
 	if (std::find(activeImports.begin(), activeImports.end(), path) != activeImports.end()) {
-		throw std::runtime_error("Circular import detected: " + path);
+		throw std::runtime_error("Circular import detected: " + path + " at line " + std::to_string(line));
 	}
 
-	std::string fileSource = ReadFile(path);
+	std::string fileSource = ReadFile(path, line);
 
 	activeImports.push_back(path);
 
@@ -246,7 +246,7 @@ void Tokenizer::ResolveImports(TokenList& tokens, std::vector<std::string>& acti
 		}
 		size_t insertPos = (semicolonIndex < tokens.size()) ? semicolonIndex + 1 : tokens.size();
 
-		TokenList importedTokens = TokenizeFileForImport(tokens[i + 1].lexeme, activeImports);
+		TokenList importedTokens = TokenizeFileForImport(tokens[i + 1].lexeme, tokens[i].line, activeImports);
 
 		tokens.insert(tokens.begin() + insertPos, importedTokens.begin(), importedTokens.end());
 		i = insertPos + importedTokens.size() - 1; // 삽입된 토큰은 이미 재귀적으로 처리됐으니 건너뛴다

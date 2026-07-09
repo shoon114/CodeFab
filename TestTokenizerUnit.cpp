@@ -1164,7 +1164,13 @@ TEST_F(TokenizerTest, CreateTokenForCode_ImportOfMissingFileThrows) {
 	std::filesystem::path missing = std::filesystem::temp_directory_path() / "codefab_test_does_not_exist.cf";
 	std::filesystem::remove(missing);
 
-	EXPECT_THROW(CreateTokens("import \"" + missing.string() + "\" alias missing;\n"), std::runtime_error);
+	try {
+		CreateTokens("import \"" + missing.string() + "\" alias missing;\n");
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_STREQ(e.what(), ("Cannot open import file: " + missing.string() + " at line 0").c_str());
+	}
 }
 
 TEST_F(TokenizerTest, CreateTokenForCode_CircularImportThrows) {
@@ -1176,7 +1182,13 @@ TEST_F(TokenizerTest, CreateTokenForCode_CircularImportThrows) {
 	std::ofstream(pathA) << "import \"" + pathB.string() + "\" alias b;\n";
 	std::ofstream(pathB) << "import \"" + pathA.string() + "\" alias a;\n";
 
-	EXPECT_THROW(CreateTokens("import \"" + pathA.string() + "\" alias a;\n"), std::runtime_error);
+	try {
+		CreateTokens("import \"" + pathA.string() + "\" alias a;\n");
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_STREQ(e.what(), ("Circular import detected: " + pathA.string() + " at line 0").c_str());
+	}
 }
 
 TEST_F(TokenizerTest, CreateTokenForCode_NotEqualStillTokenizesAsSingleOperator) {
