@@ -62,6 +62,10 @@ $cases = @(
     @{ Category = "if/else if(if body가 별도 줄, 둘 다 거짓)"; InputLines = @('var a = 1;', 'var b = 0;', 'if (a > 3)', '{ print "x"; }', 'else if (b > 1)', '{ print "y"; }'); Expect = "" }
     @{ Category = "if/else if(if body가 별도 줄, else-if 분기 참)"; InputLines = @('var a = 1;', 'var b = 5;', 'if (a > 3)', '{ print "x"; }', 'else if (b > 1)', '{ print "y"; }'); Expect = "y" }
     @{ Category = "if/else if(if body가 별도 줄, if 분기 참)"; InputLines = @('var a = 9;', 'var b = 5;', 'if (a > 3)', '{ print "x"; }', 'else if (b > 1)', '{ print "y"; }'); Expect = "x" }
+    @{ Category = "if/else if(body가 '{}' 없는 단일 문장, 둘 다 거짓)"; InputLines = @('var a = 1;', 'var b = 0;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";'); Expect = "" }
+    @{ Category = "if/else if(body가 '{}' 없는 단일 문장, else-if 분기 참)"; InputLines = @('var a = 1;', 'var b = 5;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";'); Expect = "y" }
+    @{ Category = "if/else if(body가 '{}' 없는 단일 문장, if 분기 참)"; InputLines = @('var a = 9;', 'var b = 5;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";'); Expect = "x" }
+    @{ Category = "if(else 없음, body가 '{}' 없는 단일 문장, 뒤에 무관한 문장)"; InputLines = @('var a = 1;', 'if (a > 3)', 'print "x";', 'var c = 1;', 'print c;'); Expect = "1" }
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다

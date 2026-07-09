@@ -102,6 +102,10 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | if/else if(if body가 별도 줄, 둘 다 거짓) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `{ print "x"; }` → `else if (b > 1)` → `{ print "y"; }` | (출력 없음) — if의 body('{...}')만 닫힌 시점에 곧바로 실행해버리면 버퍼가 비워져서 뒤이은 'else'가 짝 없이 구문 오류가 났었음 |
 | if/else if(if body가 별도 줄, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `{ print "x"; }` → `else if (b > 1)` → `{ print "y"; }` | `y` |
 | if/else if(if body가 별도 줄, if 분기 참) | `var a = 9;` → `var b = 5;` → `if (a > 3)` → `{ print "x"; }` → `else if (b > 1)` → `{ print "y"; }` | `x` |
+| if/else if(body가 '{}' 없는 단일 문장, 둘 다 거짓) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | (출력 없음) — body가 '{}' 없는 단일 문장일 때도 else 대기가 적용되는지 확인 |
+| if/else if(body가 '{}' 없는 단일 문장, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | `y` |
+| if/else if(body가 '{}' 없는 단일 문장, if 분기 참) | `var a = 9;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | `x` |
+| if(else 없음, body가 '{}' 없는 단일 문장, 뒤에 무관한 문장) | `var a = 1;` → `if (a > 3)` → `print "x";` → `var c = 1;` → `print c;` | `1` — else 없이 끝나는 if 뒤에 무관한 문장이 와도 영원히 대기하지 않고 정상 실행되는지 확인 |
 | for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
 | 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |
 | 구문 오류: 닫는 괄호 누락 | `print (1 + 2;` | (에러 발생 여부만 확인) |
