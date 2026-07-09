@@ -29,11 +29,14 @@ namespace {
 		pos++;
 	}
 
-	std::unique_ptr<SyntaxNode> ParseBlock(const TokenList& tokenList, size_t& pos, const char* context) {
-		if (PeekType(tokenList, pos) != TokenType::LBrace) {
-			throw std::runtime_error(std::string("Expected '{' to start ") + context + " at line " + std::to_string(PeekLine(tokenList, pos)));
+	std::unique_ptr<SyntaxNode> ParseBody(const TokenList& tokenList, size_t& pos, const char* context) {
+		auto bodyNode = ResolveAndParse(tokenList, pos, (std::string("a statement or '{' to start ") + context).c_str());
+
+		if (PeekType(tokenList, pos) == TokenType::Semicolon) {
+			pos++;
 		}
-		return ResolveAndParse(tokenList, pos, (std::string("'{' to start ") + context).c_str());
+
+		return bodyNode;
 	}
 }
 
@@ -46,7 +49,7 @@ std::unique_ptr<SyntaxNode> IfStatementParser::Parse(const TokenList& tokenList,
 
 	ExpectToken(tokenList, pos, TokenType::RParen, "')' after if-condition");
 
-	auto thenNode = ParseBlock(tokenList, pos, "if-body");
+	auto thenNode = ParseBody(tokenList, pos, "if-body");
 
 	auto ifNode = std::make_unique<IfStmtNode>();
 	ifNode->token = ifToken;
@@ -59,7 +62,7 @@ std::unique_ptr<SyntaxNode> IfStatementParser::Parse(const TokenList& tokenList,
 		if (PeekType(tokenList, pos) == TokenType::KwIf) {
 			ifNode->children.push_back(ResolveAndParse(tokenList, pos, "an 'if' after 'else'"));
 		} else {
-			ifNode->children.push_back(ParseBlock(tokenList, pos, "else-body"));
+			ifNode->children.push_back(ParseBody(tokenList, pos, "else-body"));
 		}
 	}
 
