@@ -83,6 +83,7 @@ $cases = @(
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
+    @{ Category = "런타임 오류: 배열 인덱스 범위 초과"; InputLines = @('var arr = Array(3);', 'print arr[5];'); ExpectError = $true }
     @{ Category = "정적 오류: 함수 호출 인자 개수 불일치"; InputLines = @('func add(a, b) { return a + b; }', 'print add(1);'); ExpectError = $true }
     @{ Category = "정적 오류: 정의되지 않은 함수 호출"; InputLines = @('print notAFunc(1);'); ExpectError = $true }
     @{ Category = "런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가"; InputLines = @('func tryAccess() { return localOnly; }', '{ var localOnly = 5; print tryAccess(); }'); ExpectError = $true }

@@ -120,6 +120,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 배열 생성/쓰기/읽기 | `var arr = Array(3);` → `arr[0] = 10;` → `print arr[0];` | `10` |
 | 배열 기본값(null) | `var arr = Array(3);` → `print arr[1];` | `null` |
 | 배열(for 반복문으로 채우기) | `var arr = Array(3);` → `for (var i = 0; i < 3; i = i + 1) { arr[i] = i * i; }` → `print arr[2];` | `4` |
+| 런타임 오류: 배열 인덱스 범위 초과 | `var arr = Array(3);` → `print arr[5];` | (에러 발생 여부만 확인) |
 | 정적 오류: 함수 호출 인자 개수 불일치 | `func add(a, b) { return a + b; }` → `print add(1);` | (에러 발생 여부만 확인) — 정적 오류가 있으면 실행이 이어지지 않고 에러 메시지가 중복 출력되지 않는지 확인 |
 | 정적 오류: 정의되지 않은 함수 호출 | `print notAFunc(1);` | (에러 발생 여부만 확인) |
 | 런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가 | `func tryAccess() { return localOnly; }` → `{ var localOnly = 5; print tryAccess(); }` | (에러 발생 여부만 확인) |
