@@ -122,6 +122,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 배열 기본값(null) | `var arr = Array(3);` → `print arr[1];` | `null` |
 | 배열(for 반복문으로 채우기) | `var arr = Array(3);` → `for (var i = 0; i < 3; i = i + 1) { arr[i] = i * i; }` → `print arr[2];` | `4` |
 | 클래스 선언/인스턴스 생성/필드 읽기 | `Class Robot { init(name) { this.name = name; } }` → `var r = Robot("Wall-E");` → `print r.name;` | `Wall-E` |
+| 클래스 메서드 호출 | `Class Counter { init() { this.value = 0; } increment() { this.value = this.value + 1; return this.value; } }` → `var c = Counter();` → `c.increment();` → `print c.increment();` | `2` |
 | 런타임 오류: 배열 인덱스 범위 초과 | `var arr = Array(3);` → `print arr[5];` | (에러 발생 여부만 확인) |
 | 런타임 오류: 배열 음수 인덱스 | `var arr = Array(3);` → `print arr[-1];` | (에러 발생 여부만 확인) |
 | 런타임 오류: 배열이 아닌 값 인덱싱 | `var x = 5;` → `print x[0];` | (에러 발생 여부만 확인) |
