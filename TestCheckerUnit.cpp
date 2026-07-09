@@ -419,6 +419,41 @@ TEST_F(CheckerUnitTest, Check_NestedBlockVariableReference_ComputesScopeDistance
 	EXPECT_EQ(readRefPtr->scopeDistance, 2);
 }
 
+// 13개의 중첩 블록 안에 for문(자신만의 래핑 스코프 + 본문 블록 스코프, 총 2단계)을
+// 넣어 실제 홉 수(13 + 2 = 15)가 계산되는지 확인한다. Visit(const ForStmtNode&)가
+// EnterScope 하나만 부르고 body의 BlockStmtNode가 자신의 EnterScope를 또 부르는
+// 구조라, 둘 중 하나라도 빠지면 이 값이 어긋난다.
+TEST_F(CheckerUnitTest, Check_DeeplyNestedBlocksWrappingForLoop_ComputesScopeDistanceMatchingActualDepth) {
+	auto assignTarget = MakeIdentifier("a");
+	auto* assignTargetPtr = static_cast<IdentifierNode*>(assignTarget.get());
+
+	auto readRef = MakeIdentifier("a");
+	auto* readRefPtr = static_cast<IdentifierNode*>(readRef.get());
+
+	auto addExpr = MakeBinaryExpr(TokenType::Plus, std::move(readRef), MakeNumberLiteral(1.0));
+	auto assignExpr = MakeAssignExpr(std::move(assignTarget), std::move(addExpr));
+
+	std::vector<std::unique_ptr<SyntaxNode>> forBody;
+	forBody.push_back(MakeExprStmt(std::move(assignExpr)));
+	std::unique_ptr<SyntaxNode> innermost = MakeForStmt(std::move(forBody));
+
+	constexpr int kBlockNestingCount = 13;
+	for (int i = 0; i < kBlockNestingCount; ++i) {
+		std::vector<std::unique_ptr<SyntaxNode>> wrapped;
+		wrapped.push_back(std::move(innermost));
+		innermost = MakeBlock(std::move(wrapped));
+	}
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("a", MakeNumberLiteral(0.0)));
+	statements.push_back(std::move(innermost));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+	EXPECT_EQ(assignTargetPtr->scopeDistance, 15);
+	EXPECT_EQ(readRefPtr->scopeDistance, 15);
+}
+
 // 선언되지 않은 변수를 참조하면 scopeDistance는 기본값(-1, 미해결)으로 남아야
 // 한다. ExecutorUnit이 이 경우 기존 동적 탐색으로 폴백할 수 있게 하기 위함이다.
 TEST_F(CheckerUnitTest, Check_UndeclaredVariableReference_LeavesScopeDistanceUnresolved) {
