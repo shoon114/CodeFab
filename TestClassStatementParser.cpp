@@ -76,9 +76,7 @@ TEST_F(ClassStatementParserTest, Parse_InheritedClass_SetsParentNameToken) {
 	EXPECT_THAT(root->type, Eq(NodeType::ClassDeclStmt));
 	EXPECT_THAT(root->token.lexeme, Eq("SpeedRobot"));
 	EXPECT_THAT(static_cast<ClassDeclStmtNode*>(root.get())->parentNameToken.lexeme, Eq("Robot"));
-	ASSERT_THAT(root->children, SizeIs(1));
-	EXPECT_THAT(root->children[0]->type, Eq(NodeType::Identifier));
-	EXPECT_THAT(root->children[0]->token.lexeme, Eq("Robot"));
+	EXPECT_THAT(root->children, IsEmpty());
 	EXPECT_THAT(pos, Eq(6u));
 }
 

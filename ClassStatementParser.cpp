@@ -26,10 +26,11 @@ std::unique_ptr<SyntaxNode> ClassStatementParser::Parse(const TokenList& tokenLi
 		if (PeekType(tokenList, pos) != TokenType::Identifier) {
 			throw std::runtime_error("Expected a superclass name after ':' at line " + std::to_string(classNode->token.line));
 		}
-		classNode->parentNameToken = tokenList[pos]; // CheckerUnit/ExecutorUnit이 읽는 필드
-		auto parentNode = std::make_unique<IdentifierNode>();
-		parentNode->token = tokenList[pos++];
-		classNode->children.push_back(std::move(parentNode));
+		// 부모 클래스 이름은 parentNameToken에만 저장한다. children은 메서드
+		// 선언(FuncDeclStmtNode)만 담는다고 CheckerUnit/ExecutorUnit이 가정하므로,
+		// 여기에 IdentifierNode를 추가하면 그 소비자들이 부모 이름을 메서드로
+		// 오인해서 순회하게 된다("본문 없는 메서드" 오류, 잘못된 메서드 등록 등).
+		classNode->parentNameToken = tokenList[pos++];
 	}
 
 	if (PeekType(tokenList, pos) != TokenType::LBrace) {
