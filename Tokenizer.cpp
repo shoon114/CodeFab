@@ -1,9 +1,11 @@
 #include "Tokenizer.h"
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cctype>
 #include <unordered_map>
 #include <algorithm>
+#include <stdexcept>
 
 namespace { 
 	const std::unordered_map<std::string, TokenType> keywords = {
@@ -55,11 +57,11 @@ bool Tokenizer::IsSingleCharPunctuation(char c)
 	return punctuation.find(c) != std::string::npos;
 }
 
-std::vector<Token> Tokenizer::ScanWords()
+std::vector<Token> Tokenizer::ScanWords(const std::string& source)
 {
 	std::vector<Token> words;
 	size_t i = 0;
-	const size_t n = originalCode.size();
+	const size_t n = source.size();
 	int line = 0;
 	int column = 0;
 
@@ -68,7 +70,7 @@ std::vector<Token> Tokenizer::ScanWords()
 		word.type = TokenType::Identifier; // 아직 분류 전, ClassifyToken에서 확정됨
 		word.lexeme = text;
 		word.realValue = 0.0;
-		word.originalCode = originalCode;
+		word.originalCode = source;
 		word.line = line;
 		word.column = column;
 		words.push_back(word);
@@ -76,7 +78,7 @@ std::vector<Token> Tokenizer::ScanWords()
 	};
 
 	while (i < n) {
-		char c = originalCode[i];
+		char c = source[i];
 
 		if (c == '\n') {
 			line++;
@@ -92,35 +94,35 @@ std::vector<Token> Tokenizer::ScanWords()
 
 		if (c == '"') {
 			size_t start = i++;
-			while (i < n && originalCode[i] != '"') {
+			while (i < n && source[i] != '"') {
 				i++;
 			}
 			if (i < n) {
 				i++; // closing quote
 			}
-			addWord(originalCode.substr(start, i - start));
+			addWord(source.substr(start, i - start));
 			continue;
 		}
 
 		if (std::isdigit(static_cast<unsigned char>(c))) {
 			size_t start = i;
-			while (i < n && std::isdigit(static_cast<unsigned char>(originalCode[i]))) {
+			while (i < n && std::isdigit(static_cast<unsigned char>(source[i]))) {
 				i++;
 			}
 			// '.'을 맴버 접근 연산자(Dot)로도 쓰기 때문에, 소수점은 뒤에 숫자가 붙어있을 때만 흡수한다.
-			if (i + 1 < n && originalCode[i] == '.' && std::isdigit(static_cast<unsigned char>(originalCode[i + 1]))) {
+			if (i + 1 < n && source[i] == '.' && std::isdigit(static_cast<unsigned char>(source[i + 1]))) {
 				i++;
-				while (i < n && std::isdigit(static_cast<unsigned char>(originalCode[i]))) {
+				while (i < n && std::isdigit(static_cast<unsigned char>(source[i]))) {
 					i++;
 				}
 			}
-			addWord(originalCode.substr(start, i - start));
+			addWord(source.substr(start, i - start));
 			continue;
 		}
 
 		if (CanExtendToTwoCharOperator(c)) {
-			bool isTwoCharOperator = (i + 1 < n && originalCode[i + 1] == '=');
-			addWord(originalCode.substr(i, isTwoCharOperator ? 2 : 1));
+			bool isTwoCharOperator = (i + 1 < n && source[i + 1] == '=');
+			addWord(source.substr(i, isTwoCharOperator ? 2 : 1));
 			i += isTwoCharOperator ? 2 : 1;
 			continue;
 		}
@@ -129,8 +131,8 @@ std::vector<Token> Tokenizer::ScanWords()
 			// '&&', '||'만 유효한 연산자다. 짝이 안 맞는 단독 '&'/'|'는 언어에서
 			// 정의되지 않은 문자이지만, 토크나이저는 그냥 한 글자로 떼어서 넘긴다
 			// (분류는 ClassifyToken이 Identifier로 처리).
-			bool isDoubled = (i + 1 < n && originalCode[i + 1] == c);
-			addWord(originalCode.substr(i, isDoubled ? 2 : 1));
+			bool isDoubled = (i + 1 < n && source[i + 1] == c);
+			addWord(source.substr(i, isDoubled ? 2 : 1));
 			i += isDoubled ? 2 : 1;
 			continue;
 		}
@@ -143,14 +145,14 @@ std::vector<Token> Tokenizer::ScanWords()
 
 		size_t start = i;
 		while (i < n
-			&& !std::isspace(static_cast<unsigned char>(originalCode[i]))
-			&& originalCode[i] != '"'
-			&& !CanExtendToTwoCharOperator(originalCode[i])
-			&& !IsDoubledOperatorStart(originalCode[i])
-			&& !IsSingleCharPunctuation(originalCode[i])) {
+			&& !std::isspace(static_cast<unsigned char>(source[i]))
+			&& source[i] != '"'
+			&& !CanExtendToTwoCharOperator(source[i])
+			&& !IsDoubledOperatorStart(source[i])
+			&& !IsSingleCharPunctuation(source[i])) {
 			i++;
 		}
-		addWord(originalCode.substr(start, i - start));
+		addWord(source.substr(start, i - start));
 	}
 
 	return words;
@@ -159,7 +161,7 @@ std::vector<Token> Tokenizer::ScanWords()
 std::vector<std::string> Tokenizer::SplitIntoWords()
 {
 	std::vector<std::string> words;
-	for (const Token& word : ScanWords()) {
+	for (const Token& word : ScanWords(originalCode)) {
 		words.push_back(word.lexeme);
 	}
 	return words;
@@ -196,13 +198,71 @@ void Tokenizer::ClassifyToken(Token& token)
 	token.type = TokenType::Identifier;
 }
 
+std::string Tokenizer::ReadFile(const std::string& path)
+{
+	std::ifstream file(path);
+	if (!file) {
+		throw std::runtime_error("Cannot open import file: " + path);
+	}
+	std::ostringstream buffer;
+	buffer << file.rdbuf();
+	return buffer.str();
+}
+
+TokenList Tokenizer::TokenizeFileForImport(const std::string& path, std::vector<std::string>& activeImports)
+{
+	// ModuleLoader가 나중에 도입되면 순환 import 감지 책임은 그쪽으로 옮겨간다.
+	// 지금은 Tokenizer가 직접 재귀적으로 파일을 이어붙이기 때문에, 스택 오버플로우를
+	// 막기 위한 최소한의 가드만 여기 둔다.
+	if (std::find(activeImports.begin(), activeImports.end(), path) != activeImports.end()) {
+		throw std::runtime_error("Circular import detected: " + path);
+	}
+
+	std::string fileSource = ReadFile(path);
+
+	activeImports.push_back(path);
+
+	TokenList importedTokens = ScanWords(fileSource);
+	for (Token& token : importedTokens) {
+		ClassifyToken(token);
+	}
+	ResolveImports(importedTokens, activeImports);
+
+	activeImports.pop_back();
+
+	return importedTokens;
+}
+
+void Tokenizer::ResolveImports(TokenList& tokens, std::vector<std::string>& activeImports)
+{
+	for (size_t i = 0; i < tokens.size(); i++) {
+		if (tokens[i].type != TokenType::KwImport || i + 1 >= tokens.size() || tokens[i + 1].type != TokenType::String) {
+			continue;
+		}
+
+		size_t semicolonIndex = i + 1;
+		while (semicolonIndex < tokens.size() && tokens[semicolonIndex].type != TokenType::Semicolon) {
+			semicolonIndex++;
+		}
+		size_t insertPos = (semicolonIndex < tokens.size()) ? semicolonIndex + 1 : tokens.size();
+
+		TokenList importedTokens = TokenizeFileForImport(tokens[i + 1].lexeme, activeImports);
+
+		tokens.insert(tokens.begin() + insertPos, importedTokens.begin(), importedTokens.end());
+		i = insertPos + importedTokens.size() - 1; // 삽입된 토큰은 이미 재귀적으로 처리됐으니 건너뛴다
+	}
+}
+
 TokenList Tokenizer::CreateTokenForCode()
 {
-	TokenList tokens = ScanWords();
+	TokenList tokens = ScanWords(originalCode);
 
 	for (Token& token : tokens) {
 		ClassifyToken(token);
 	}
+
+	std::vector<std::string> activeImports;
+	ResolveImports(tokens, activeImports);
 
 	Token eof;
 	eof.type = TokenType::EndOfFile;
