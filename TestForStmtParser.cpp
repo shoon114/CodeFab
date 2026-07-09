@@ -334,11 +334,14 @@ TEST_F(ForStmtParserTest, Parse_MissingUpdateExpression_ThrowsOnMalformedSyntax)
 	ExpectParseThrows(tokenList, "Expected an update expression in 'for' at line 0");
 }
 
-TEST_F(ForStmtParserTest, Parse_WithSingleLineBareExpressionBody_ConsumesBodyStatementAndItsTrailingSemicolon) {
+TEST_F(ForStmtParserTest, Parse_WithSingleLineBareExpressionBody_WrapsBodyInBlockStmtAndConsumesTrailingSemicolon) {
 	// "for (var i = 0; i < 3; i = i + 1) i = i + 1;" -- '{}' 없이 단일 문장이
 	// body로 오는 경우. body로 쓰인 bare 대입문(ExpressionParser 역할의 mock)은
 	// 자신의 trailing ';'를 스스로 소비하지 않으므로, ForStmtParser가 body 파싱
-	// 후 그 ';'를 직접 소비해야 한다.
+	// 후 그 ';'를 직접 소비해야 한다. 또한 '{}' body(BlockParser가 만드는
+	// BlockStmtNode)와 동일하게 스코프가 생기도록, 단일 문장 body도
+	// BlockStmtNode로 감싸야 한다 -- 그러지 않으면 이 body 안에서 선언된 변수가
+	// for문이 끝난 뒤에도 바깥 스코프에 계속 남아있게 된다.
 	TokenList tokenList = {
 		MakeToken(TokenType::KwFor, "for", 0, 0),
 		MakeToken(TokenType::LParen, "(", 0, 1),
@@ -397,8 +400,10 @@ TEST_F(ForStmtParserTest, Parse_WithSingleLineBareExpressionBody_ConsumesBodySta
 	ASSERT_THAT(root->children, SizeIs(4));
 
 	const std::unique_ptr<SyntaxNode>& bodyNode = root->children[3];
-	EXPECT_THAT(bodyNode->type, Eq(NodeType::AssignExpr));
-	EXPECT_THAT(bodyNode->token.lexeme, Eq("="));
+	EXPECT_THAT(bodyNode->type, Eq(NodeType::BlockStmt));
+	ASSERT_THAT(bodyNode->children, SizeIs(1));
+	EXPECT_THAT(bodyNode->children[0]->type, Eq(NodeType::AssignExpr));
+	EXPECT_THAT(bodyNode->children[0]->token.lexeme, Eq("="));
 
 	// body 뒤 trailing ';'까지 ForStmtParser가 직접 소비해서 EOF에 도달해야 한다.
 	EXPECT_THAT(pos, Eq(tokenList.size() - 1));
