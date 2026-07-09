@@ -86,6 +86,12 @@ void CheckerUnit::Visit(const FuncDeclStmtNode& node) {
         paramNames.push_back(paramName);
     }
 
+    // 함수 이름 중복 선언 검사 (현재 스코프만 확인) — 아래 등록 이전에 검사해야
+    // 두 번째 선언이 첫 번째를 조용히 덮어쓰기 전에 잡을 수 있다.
+    if (functionScopeStack.back().count(funcName)) {
+        ReportError("함수 '" + funcName + "' 중복 선언.", node.token.line);
+    }
+
     // 함수는 선언된 스코프(자기 자신을 포함해 재귀 호출이 가능하도록 body 진입 전)에 등록
     functionScopeStack.back()[funcName] = paramNames;
 
