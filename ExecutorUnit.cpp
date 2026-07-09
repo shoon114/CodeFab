@@ -91,6 +91,49 @@ Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
 	return lastValue;
 }
 
+ExecutorUnit::ScopeGuard::ScopeGuard(ExecutorUnit& owner) : owner(owner) {
+	owner.EnterScope();
+}
+
+ExecutorUnit::ScopeGuard::~ScopeGuard() {
+	owner.ExitScope();
+}
+
+ExecutorUnit::MethodContextGuard::MethodContextGuard(ExecutorUnit& owner, std::shared_ptr<InstanceObject> instance,
+	std::string owningClassName) : owner(owner) {
+	owner.thisStack.push_back(std::move(instance));
+	owner.currentClassNameStack.push_back(std::move(owningClassName));
+}
+
+ExecutorUnit::MethodContextGuard::~MethodContextGuard() {
+	owner.currentClassNameStack.pop_back();
+	owner.thisStack.pop_back();
+}
+
+ExecutorUnit::FunctionCallFrameGuard::FunctionCallFrameGuard(ExecutorUnit& owner) : owner(owner) {
+	savedLocalFrames.assign(
+		std::make_move_iterator(owner.scopes.begin() + 1),
+		std::make_move_iterator(owner.scopes.end()));
+	owner.scopes.resize(1);
+	owner.EnterScope(); // 파라미터 전용 스코프
+}
+
+ExecutorUnit::FunctionCallFrameGuard::~FunctionCallFrameGuard() {
+	owner.scopes.resize(1); // 예외로 중첩 스코프가 정리 안 된 채 남아있어도 강제로 global까지만 남김
+	for (auto& frame : savedLocalFrames) {
+		owner.scopes.push_back(std::move(frame));
+	}
+}
+
+Value_t ExecutorUnit::ExecuteFunctionBody(const SyntaxNode& body) {
+	try {
+		ExecuteStmt(body);
+	} catch (const ReturnSignal& signal) {
+		return signal.value;
+	}
+	return Value_t{ std::monostate{} };
+}
+
 void ExecutorUnit::Visit(const PrintStmtNode& node) { ExecutePrintStmt(node); }
 void ExecutorUnit::Visit(const VarDeclareStatementNode& node) { ExecuteVarDeclareStatement(node); }
 void ExecutorUnit::Visit(const BlockStmtNode& node) { ExecuteBlockStmt(node); }
@@ -198,11 +241,10 @@ void ExecutorUnit::ExecuteVarDeclareStatement(const SyntaxNode& node) {
 }
 
 void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
-	EnterScope();
+	ScopeGuard scopeGuard(*this);
 	for (const auto& stmt : node.children) {
 		ExecuteStmt(*stmt);
 	}
-	ExitScope();
 }
 
 void ExecutorUnit::ExecuteIfStmt(const SyntaxNode& node) {
@@ -343,28 +385,12 @@ Value_t ExecutorUnit::EvaluateCallExpr(const CallExprNode& node) {
 
 	// 함수 본문은 caller의 지역 스코프를 보지 못해야 하므로, global(scopes[0])만
 	// 남기고 나머지 프레임은 잠시 떼어둔 뒤 파라미터 스코프 하나만 새로 쌓는다.
-	std::vector<std::unordered_map<std::string, Value_t>> savedLocalFrames(
-		std::make_move_iterator(scopes.begin() + 1), std::make_move_iterator(scopes.end()));
-	scopes.resize(1);
-
-	EnterScope();
+	FunctionCallFrameGuard frameGuard(*this);
 	for (size_t i = 0; i < function->parameters.size(); ++i) {
 		scopes.back()[function->parameters[i]] = args[i];
 	}
 
-	Value_t result = Value_t{ std::monostate{} };
-	try {
-		ExecuteStmt(*function->body);
-	} catch (const ReturnSignal& signal) {
-		result = signal.value;
-	}
-
-	scopes.resize(1);
-	for (auto& frame : savedLocalFrames) {
-		scopes.push_back(std::move(frame));
-	}
-
-	return result;
+	return ExecuteFunctionBody(*function->body);
 }
 
 Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
@@ -451,26 +477,14 @@ Value_t ExecutorUnit::InvokeMethod(const SyntaxNode& methodNode, const std::stri
 	// FuncDeclStmtNode와 동일한 구조를 재사용: children = [파라미터(Identifier)..., body(BlockStmt)].
 	const SyntaxNode* body = methodNode.children.back().get();
 
-	EnterScope();
+	ScopeGuard scopeGuard(*this);
 	for (size_t i = 0; i + 1 < methodNode.children.size(); ++i) {
 		const std::string& paramName = methodNode.children[i]->token.lexeme;
 		scopes.back()[paramName] = (i < args.size()) ? args[i] : Value_t{ std::monostate{} };
 	}
 
-	thisStack.push_back(instance);
-	currentClassNameStack.push_back(owningClassName);
-
-	Value_t result = Value_t{ std::monostate{} };
-	try {
-		ExecuteStmt(*body);
-	} catch (const ReturnSignal& signal) {
-		result = signal.value;
-	}
-
-	currentClassNameStack.pop_back();
-	thisStack.pop_back();
-	ExitScope();
-	return result;
+	MethodContextGuard methodGuard(*this, instance, owningClassName);
+	return ExecuteFunctionBody(*body);
 }
 
 ExecutorUnit::ResolvedMethod ExecutorUnit::FindMethod(const std::string& startClassName, const std::string& methodName) const {
