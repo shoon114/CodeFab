@@ -72,6 +72,7 @@ $cases = @(
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
     @{ Category = "for 반복문(단일 줄 body)"; InputLines = @('for (var j = 0; j < 3; j = j + 1) print j;'); Expect = "012" }
     @{ Category = "함수 선언과 호출"; InputLines = @('func add(a, b) { return a + b; }', 'print add(2, 3);'); Expect = "5" }
+    @{ Category = "함수 선언(이름/파라미터와 body가 별도 줄)"; InputLines = @('func add(a, b)', '{', '  return a + b;', '}', 'print add(2, 3);'); Expect = "5" }
     @{ Category = "함수 호출(return 없이 종료)"; InputLines = @('func noop() { }', 'print noop();'); Expect = "null" }
     @{ Category = "함수 호출(재귀, 팩토리얼)"; InputLines = @('func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }', 'print fact(5);'); Expect = "120" }
     @{ Category = "함수 호출(전역 변수 접근 가능)"; InputLines = @('var g = 10;', 'func showG() { return g; }', 'print showG();'); Expect = "10" }

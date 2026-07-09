@@ -125,8 +125,8 @@ int PromptMode::Run() {
 				pendingControlBlock = true; // "... else" 다음에 '{' 또는 'if'를 기다리는 중
 				waitedOnceForElse = false; // 이미 'else'를 만났으니 "혹시 else?" 대기 상태는 아니다
 			} else if (lastRealType == TokenType::RParen
-				&& (firstType == TokenType::KwIf || firstType == TokenType::KwFor)) {
-				pendingControlBlock = true; // "if (...)"/"for (...)" 다음에 '{'를 기다리는 중
+				&& (firstType == TokenType::KwIf || firstType == TokenType::KwFor || firstType == TokenType::KwFunc)) {
+				pendingControlBlock = true; // "if (...)"/"for (...)"/"func name(...)" 다음에 '{'를 기다리는 중
 				waitedOnceForElse = false;
 			} else if (firstType == TokenType::KwIf
 				&& (lastRealType == TokenType::RBrace || lastRealType == TokenType::Semicolon)) {
