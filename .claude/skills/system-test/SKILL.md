@@ -97,6 +97,8 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | if/else | `if (true) { print "bbq"; }` | `bbq` |
 | if/else | `if (false) { print "no"; } else { print "kfc"; }` | `kfc` |
 | if/else(여러 줄, 중첩) | `if (true)` → `{` → `  if (false) { print "kfc"; }` → `  else { print "bbq"; }` → `}` | `bbq` (Allman 스타일로 조건과 `{`가 다른 줄에 있는 경우) |
+| if/else if(앞에 완결된 블록이 있고 여러 줄) | `var a = 5;` → `var b = 2;` → `if (a > 3) { print "x"; } else if (b > 1)` → `{ print "y"; }` | `x` (앞에 이미 닫힌 `{...}` 블록이 있어도 뒤이은 `else if (...)`가 다음 줄의 `{`를 기다려야 함) |
+| if/else if(앞에 완결된 블록이 있고 여러 줄, else-if 분기) | `var a = 1;` → `var b = 2;` → `if (a > 3) { print "x"; } else if (b > 1)` → `{ print "y"; }` | `y` |
 | for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
 | 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |
 | 구문 오류: 닫는 괄호 누락 | `print (1 + 2;` | (에러 발생 여부만 확인) |

@@ -57,6 +57,8 @@ $cases = @(
     @{ Category = "if/else"; InputLines = @('if (true) { print "bbq"; }'); Expect = "bbq" }
     @{ Category = "if/else"; InputLines = @('if (false) { print "no"; } else { print "kfc"; }'); Expect = "kfc" }
     @{ Category = "if/else(여러 줄, 중첩)"; InputLines = @('if (true)', '{', '  if (false) { print "kfc"; }', '  else { print "bbq"; }', '}'); Expect = "bbq" }
+    @{ Category = "if/else if(앞에 완결된 블록이 있고 여러 줄)"; InputLines = @('var a = 5;', 'var b = 2;', 'if (a > 3) { print "x"; } else if (b > 1)', '{ print "y"; }'); Expect = "x" }
+    @{ Category = "if/else if(앞에 완결된 블록이 있고 여러 줄, else-if 분기)"; InputLines = @('var a = 1;', 'var b = 2;', 'if (a > 3) { print "x"; } else if (b > 1)', '{ print "y"; }'); Expect = "y" }
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
