@@ -163,6 +163,20 @@ protected:
 		return node;
 	}
 
+	// target.methodName(args...) — 메서드 호출. CallExprNode의 token은 메서드 이름,
+	// children[0]은 MemberAccessExprNode(target.methodName), 그 뒤는 인자들.
+	// ExpressionParser::ParseCallExpr이 만드는 모양과 동일하다.
+	std::unique_ptr<SyntaxNode> MakeMethodCallExpr(std::unique_ptr<SyntaxNode> target, const std::string& methodName,
+		std::vector<std::unique_ptr<SyntaxNode>> args = {}) {
+		auto node = std::make_unique<CallExprNode>();
+		node->token = MakeToken(TokenType::Identifier, methodName, 1, 1);
+		node->children.push_back(MakeMemberAccess(std::move(target), methodName));
+		for (auto& arg : args) {
+			node->children.push_back(std::move(arg));
+		}
+		return node;
+	}
+
 	// Class name [: parentName] { methods... } — methods는 MakeFuncDecl로 만든 노드를 재사용.
 	// parentName이 빈 문자열이면 부모가 없는 클래스로 취급한다.
 	std::unique_ptr<SyntaxNode> MakeClassDecl(const std::string& name, const std::string& parentName,
@@ -743,6 +757,50 @@ TEST_F(CheckerUnitTest, Check_SuperInClassWithParent_ReturnsTrue) {
 	auto root = MakeProgram(std::move(statements));
 
 	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Class Robot { init(name) {...} } Class SpeedRobot : Robot { init(name) { Super.init(name); } }
+// - 메서드 호출(Super.init(...))은 functionScopeStack에 없는 이름이라도 "정의되지 않은
+// 함수"로 오판하면 안 된다. 메서드는 애초에 전역 함수 네임스페이스에 등록되지 않는다.
+TEST_F(CheckerUnitTest, Check_MethodCallViaSuper_DoesNotReportUndefinedFunction) {
+	std::vector<std::unique_ptr<SyntaxNode>> robotBody;
+	robotBody.push_back(MakeExprStmt(MakeAssignExpr(MakeMemberAccess(MakeThisExpr(), "name"), MakeIdentifier("name"))));
+	std::vector<std::unique_ptr<SyntaxNode>> robotMethods;
+	robotMethods.push_back(MakeFuncDecl("init", { "name" }, MakeBlock(std::move(robotBody))));
+
+	std::vector<std::unique_ptr<SyntaxNode>> speedRobotArgs;
+	speedRobotArgs.push_back(MakeIdentifier("name"));
+	std::vector<std::unique_ptr<SyntaxNode>> speedRobotBody;
+	speedRobotBody.push_back(MakeExprStmt(MakeMethodCallExpr(MakeSuperExpr(), "init", std::move(speedRobotArgs))));
+	std::vector<std::unique_ptr<SyntaxNode>> speedRobotMethods;
+	speedRobotMethods.push_back(MakeFuncDecl("init", { "name" }, MakeBlock(std::move(speedRobotBody))));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", std::move(robotMethods)));
+	statements.push_back(MakeClassDecl("SpeedRobot", "Robot", std::move(speedRobotMethods)));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_TRUE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, IsEmpty());
+}
+
+// Class Robot { } var r = Robot(); - 클래스 이름을 호출(인스턴스 생성)하는 것을
+// "정의되지 않은 함수" 호출로 오판하면 안 된다. 클래스는 functionScopeStack이 아니라
+// classScopeStack에 등록된다.
+TEST_F(CheckerUnitTest, Check_CallClassNameAsConstructor_DoesNotReportUndefinedFunction) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", {}));
+	statements.push_back(MakeVarDecl("r", MakeCallExpr("Robot")));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_TRUE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, IsEmpty());
 }
 
 // Class Robot { init() { return 5; } } - 생성자(init)에서 return을 쓰면 에러를 보고해야 한다.
