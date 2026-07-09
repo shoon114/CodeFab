@@ -1,4 +1,5 @@
 #pragma once
+#include "ExecutionObserver.h"
 #include "NodeVisitor.h"
 #include "SyntaxNode.h"
 #include "Value.h"
@@ -10,6 +11,16 @@
 class ExecutorUnit : public NodeVisitor {
 public:
 	void Execute(const SyntaxNode& tree);
+
+	// 디버그 모드에서만 설정된다. 소유권은 갖지 않는다(DebugSession이 수명을 관리).
+	void SetObserver(ExecutionObserver* newObserver);
+
+	// 디버그 모드의 watch/inspect가 실행 중인 변수 상태를 읽기 전용으로 조회하기
+	// 위한 접근자. ResolveVariable과 달리 정적 바인딩 distance가 없으므로 항상
+	// 안쪽 스코프부터 선형 탐색하고, 못 찾으면 예외 없이 false를 반환한다.
+	bool TryGetVariable(const std::string& name, Value_t& outValue) const;
+	// 가장 안쪽(현재) 스코프의 변수 전체. inspect 명령이 그대로 순회해서 출력한다.
+	const std::unordered_map<std::string, Value_t>& CurrentScope() const;
 
 	// 문(statement) 노드: 실행 후 값을 반환하지 않는다.
 	void Visit(const PrintStmtNode& node) override;
@@ -162,4 +173,8 @@ private:
 
 	// Evaluate()가 Accept()를 통해 식 노드를 방문한 뒤 결과를 꺼내가는 임시 저장소.
 	Value_t lastValue;
+
+	// DebugSession이 자신을 등록해두면 ExecuteStmt가 문 경계마다 알려준다.
+	// nullptr이면(prompt/run 모드) 기존 동작과 완전히 동일하다.
+	ExecutionObserver* observer = nullptr;
 };

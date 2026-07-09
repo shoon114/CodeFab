@@ -83,7 +83,28 @@ bool ExecutorUnit::IsTruthy(const Value_t& value) {
 }
 
 void ExecutorUnit::ExecuteStmt(const SyntaxNode& node) {
+	if (observer) observer->OnStmtEnter(node);
 	node.Accept(*this);
+	if (observer) observer->OnStmtExit(node);
+}
+
+void ExecutorUnit::SetObserver(ExecutionObserver* newObserver) {
+	observer = newObserver;
+}
+
+bool ExecutorUnit::TryGetVariable(const std::string& name, Value_t& outValue) const {
+	for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+		auto found = it->find(name);
+		if (found != it->end()) {
+			outValue = found->second;
+			return true;
+		}
+	}
+	return false;
+}
+
+const std::unordered_map<std::string, Value_t>& ExecutorUnit::CurrentScope() const {
+	return scopes.back();
 }
 
 Value_t ExecutorUnit::Evaluate(const SyntaxNode& node) {
