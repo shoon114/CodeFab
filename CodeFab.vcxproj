@@ -220,6 +220,7 @@
     <ClCompile Include="StepController.cpp" />
     <ClCompile Include="WatchList.cpp" />
     <ClCompile Include="DebugSession.cpp" />
+    <ClCompile Include="TestWatchList.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
