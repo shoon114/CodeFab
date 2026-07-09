@@ -10,9 +10,6 @@ public:
 private:
 	std::string originalCode;
 
-	bool CanExtendToTwoCharOperator(char c);
-	bool IsDoubledOperatorStart(char c);
-	bool IsSingleCharPunctuation(char c);
 	std::vector<Token> ScanWords(const std::string& source);
 	void ClassifyToken(Token& token);
 
