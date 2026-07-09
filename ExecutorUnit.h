@@ -36,6 +36,7 @@ public:
 	void Visit(const SuperExprNode& node) override;
 	void Visit(const MemberAccessExprNode& node) override;
 	void Visit(const ClassDeclStmtNode& node) override;
+	void Visit(const ImportStmtNode& node) override;
 
 private:
 	// 클래스 하나의 런타임 정보: 부모 이름(없으면 nullopt) + 메서드 이름 -> AST(FuncDeclStmtNode) 포인터.
@@ -101,6 +102,15 @@ private:
 	// 여기서 잡아 반환값으로 변환한다. EvaluateCallExpr/InvokeMethod가 공유한다.
 	Value_t ExecuteFunctionBody(const SyntaxNode& body);
 
+	// [알려진 단순화] Tokenizer가 import 대상 파일의 토큰을 경계 표시 없이 이어붙이므로,
+	// "import는 한 줄에 단독으로 입력된다"고 가정하고 import를 만나면 그 뒤 남은
+	// 문장 전부를 그 import의 모듈 내용으로 간주한다(같은 줄에 다른 코드가 더 있으면
+	// 부정확). Execute()/ExecuteBlockStmt가 기존 for문 대신 이 함수를 쓴다.
+	void ExecuteTopLevelStatements(const std::vector<std::unique_ptr<SyntaxNode>>& statements, size_t startIndex = 0);
+	// statements[contentStart:]를 importNode의 모듈 내용으로 실행해 alias에 바인딩한다.
+	void ExecuteImportAndRemaining(const ImportStmtNode& importNode,
+		const std::vector<std::unique_ptr<SyntaxNode>>& statements, size_t contentStart);
+
 	// Visit(Stmt)가 위임하는 문(statement)별 실행 메서드
 	void ExecutePrintStmt(const SyntaxNode& node);
 	void ExecuteVarDeclareStatement(const SyntaxNode& node);
@@ -117,8 +127,15 @@ private:
 	Value_t EvaluateArrExpr(const SyntaxNode& node);
 	Value_t EvaluateIndexExpr(const SyntaxNode& node);
 	Value_t EvaluateCallExpr(const CallExprNode& node);
-	Value_t EvaluateMethodCall(const CallExprNode& node);
+	// 인스턴스 메서드(r.move(5))와 모듈 함수(sum.add(1,2)) 호출을 모두 다룬다.
+	Value_t EvaluateMemberCall(const CallExprNode& node);
 	Value_t EvaluateMemberAccess(const MemberAccessExprNode& node);
+	// 함수 호출 실행 공용 로직(인자 개수 검사 + 스코프 격리 + 본문 실행). 인자는
+	// 호출자가 이미 평가해서 넘긴다(일반 호출은 children 전체, 모듈 함수 호출은
+	// children[1:]이 인자라 시작 위치가 달라 호출자가 뽑는 게 더 단순하다).
+	// EvaluateCallExpr와 InvokeModuleFunction이 공유한다.
+	Value_t CallFunction(std::shared_ptr<FunctionObject> function, const std::vector<Value_t>& args, int line);
+	Value_t InvokeModuleFunction(std::shared_ptr<ModuleObject> module, const std::string& functionName, const CallExprNode& node);
 
 	void EnterScope();
 	void ExitScope();

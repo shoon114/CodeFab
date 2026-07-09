@@ -336,6 +336,18 @@ namespace {
 		return node;
 	}
 
+	// import "<path>" alias <alias>; 실제 ImportStatementParser가 만드는 모양 그대로:
+	// token은 import 키워드, children = [path(StringLiteral), alias(Identifier)].
+	std::unique_ptr<SyntaxNode> MakeImportStmt(const std::string& path, const std::string& alias, int line = 1) {
+		auto node = std::make_unique<ImportStmtNode>();
+		node->token.type = TokenType::KwImport;
+		node->token.lexeme = "import";
+		node->token.line = line;
+		node->children.push_back(MakeStringLiteral(path, line));
+		node->children.push_back(MakeIdentifier(alias, line));
+		return node;
+	}
+
 }
 
 // 모든 ExecutorUnitTest 케이스가 공유하는 실행/검증 로직을 헬퍼로 모아
@@ -1418,5 +1430,91 @@ TEST_F(ExecutorUnitTest, Execute_InstanceAssignedToAnotherVariable_SharesUnderly
 	);
 
 	EXPECT_THAT(RunAndCapture(*program), Eq("10"));
+}
+
+// ---- import(alias 네임스페이스) 관련 테스트 ----
+// [알려진 단순화] "import는 한 줄에 단독으로 입력된다"고 가정하고, import 뒤에 남은
+// 문장 전부를 그 import의 모듈 내용으로 간주한다. 그래서 아래 테스트들은 "import + 그
+// 모듈 내용"을 한 Program(한 번의 executor.Execute 호출)에 담고, 그 alias를 실제로
+// 사용하는 코드는 REPL의 다음 줄을 시뮬레이션하는 별도의 Program/Execute 호출로 나눈다.
+
+// import "math.cf" alias sum; func add(a, b) { return a + b; }  (한 줄)
+// print sum.add(3, 7);                                          (다음 줄)
+TEST_F(ExecutorUnitTest, Execute_ImportedModuleFunctionCall_ReturnsSum) {
+	auto importLine = MakeProgram(
+		MakeImportStmt("math.cf", "sum"),
+		MakeFuncDeclStmt("add", { "a", "b" },
+			MakeBlockStmt(MakeReturnStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b")))))
+	);
+	executor.Execute(*importLine);
+
+	std::vector<std::unique_ptr<SyntaxNode>> args;
+	args.push_back(MakeNumberLiteral(3));
+	args.push_back(MakeNumberLiteral(7));
+	auto printLine = MakeProgram(
+		MakePrintStmt(MakeMethodCallExpr(MakeIdentifier("sum"), "add", std::move(args)))
+	);
+
+	EXPECT_THAT(RunAndCapture(*printLine), Eq("10"));
+}
+
+// import "math.cf" alias sum; var PI = 3;  (한 줄)
+// print sum.PI;                            (다음 줄) -- 모듈의 전역 변수 읽기
+TEST_F(ExecutorUnitTest, Execute_ImportedModuleVariableRead_ReturnsValue) {
+	auto importLine = MakeProgram(
+		MakeImportStmt("math.cf", "sum"),
+		MakeVarDeclStmt("PI", MakeNumberLiteral(3))
+	);
+	executor.Execute(*importLine);
+
+	auto printLine = MakeProgram(MakePrintStmt(MakeMemberAccess(MakeIdentifier("sum"), "PI")));
+
+	EXPECT_THAT(RunAndCapture(*printLine), Eq("3"));
+}
+
+// import로 들어온 함수는 alias를 통해서만 보여야 한다 — 같은 이름을 alias 없이
+// (다음 줄에서) 그냥 호출하면 전역에 없으므로 실패해야 한다.
+TEST_F(ExecutorUnitTest, Execute_ImportedModuleFunction_NotVisibleWithoutAlias) {
+	auto importLine = MakeProgram(
+		MakeImportStmt("math.cf", "sum"),
+		MakeFuncDeclStmt("add", { "a", "b" },
+			MakeBlockStmt(MakeReturnStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b")))))
+	);
+	executor.Execute(*importLine);
+
+	auto bareCallLine = MakeProgram(MakeExprStmt(MakeCallExpr("add", 1, MakeNumberLiteral(1), MakeNumberLiteral(2))));
+
+	ExpectRuntimeError(*bareCallLine, "Undefined variable 'add'");
+}
+
+// sum.notExist()처럼 모듈에 없는 함수를 호출하면 런타임 오류.
+TEST_F(ExecutorUnitTest, Execute_ImportedModuleUndefinedFunctionCall_ThrowsRuntimeError) {
+	auto importLine = MakeProgram(MakeImportStmt("math.cf", "sum"));
+	executor.Execute(*importLine);
+
+	auto callLine = MakeProgram(MakeExprStmt(MakeMethodCallExpr(MakeIdentifier("sum"), "notExist")));
+
+	ExpectRuntimeError(*callLine, "존재하지 않는 함수");
+}
+
+// import "outer.cf" alias outer; 안에서 outer.cf 자신이 또 import "inner.cf" alias inner;를
+// 쓰고, 그 뒤에 helper(x)를 선언한 경우를 시뮬레이션한다 — helper는 inner의 내용으로
+// 삼켜지므로(outer 바로 다음이 inner import라서), outer.inner.helper(5)로 접근해야 한다.
+TEST_F(ExecutorUnitTest, Execute_NestedModuleImport_ComposesCorrectly) {
+	auto importLine = MakeProgram(
+		MakeImportStmt("outer.cf", "outer"),
+		MakeImportStmt("inner.cf", "inner"),
+		MakeFuncDeclStmt("helper", { "x" },
+			MakeBlockStmt(MakeReturnStmt(MakeBinaryExpr(TokenType::Star, MakeIdentifier("x"), MakeNumberLiteral(2)))))
+	);
+	executor.Execute(*importLine);
+
+	std::vector<std::unique_ptr<SyntaxNode>> args;
+	args.push_back(MakeNumberLiteral(5));
+	auto printLine = MakeProgram(
+		MakePrintStmt(MakeMethodCallExpr(MakeMemberAccess(MakeIdentifier("outer"), "inner"), "helper", std::move(args)))
+	);
+
+	EXPECT_THAT(RunAndCapture(*printLine), Eq("10"));
 }
 #endif

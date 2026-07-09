@@ -1,4 +1,4 @@
-#include "CheckerUnit.h"
+﻿#include "CheckerUnit.h"
 #include <cmath>
 #include <iostream>
 #include <iterator>
