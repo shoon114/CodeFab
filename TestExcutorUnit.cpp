@@ -556,6 +556,25 @@ TEST_F(ExecutorUnitTest, Execute_ForLoopWithNestedIf_ConditionAlwaysFalse_KeepsO
 	EXPECT_THAT(RunAndCapture(*program), Eq("2"));
 }
 
+// for (var i = 0; ...) 처럼 init에서 선언된 변수는 for문 전체(조건/증감/body)에
+// 걸쳐 쓰일 수 있어야 하지만, for문이 끝난 뒤 바깥 스코프에서는 사라져야 한다.
+// {} 블록이 끝나면 지역 변수가 사라지는 것과 동일한 스코프 규칙이 for의
+// init 변수에도 적용되어야 한다.
+TEST_F(ExecutorUnitTest, Execute_ForLoop_InitVariableNotAccessibleOutsideLoop) {
+	auto program = MakeProgram(
+		MakeForStmt(
+			/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
+			/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(3)),
+			/*increment*/ MakeAssignExpr("i",
+				MakeBinaryExpr(TokenType::Plus, MakeIdentifier("i"), MakeNumberLiteral(1))),
+			/*body*/      MakeBlockStmt(MakePrintStmt(MakeStringLiteral("#")))
+		),
+		MakePrintStmt(MakeIdentifier("i"))
+	);
+
+	EXPECT_THROW(executor.Execute(*program), std::runtime_error);
+}
+
 // PDF p.83: var a = 10; { var b = 20; print a + b; } var c = 20;
 // 블록 내부에서 바깥 스코프의 a와 블록 지역 변수 b를 모두 참조할 수 있어야 한다 (a+b=30).
 TEST_F(ExecutorUnitTest, Execute_BlockScope_AccessesOuterVariable_PrintsSum) {

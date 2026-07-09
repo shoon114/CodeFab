@@ -264,6 +264,11 @@ void ExecutorUnit::ExecuteExprStmt(const SyntaxNode& node) {
 }
 
 void ExecutorUnit::ExecuteForStmt(const SyntaxNode& node) {
+	// init에서 선언된 변수(예: "var i")는 for문 전체(조건/증감/body)에 걸쳐
+	// 쓰일 수 있어야 하지만, {} 블록의 지역 변수와 마찬가지로 for문이 끝나면
+	// 사라져야 한다. init을 body와 같은 스코프에서 실행해 이 하나의 ScopeGuard로
+	// 감싼다(body 자신은 ExecuteBlockStmt가 매 반복마다 별도로 한 겹 더 감싼다).
+	ScopeGuard scopeGuard(*this);
 	const auto& init = *node.children[0];
 	const auto& condition = *node.children[1];
 	const auto& increment = *node.children[2];

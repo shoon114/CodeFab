@@ -296,6 +296,20 @@ TEST_F(CheckerUnitTest, Check_RecursiveCall_ReturnsTrue) {
 	EXPECT_TRUE(checker.Check(root.get()));
 }
 
+// Func add(a, b) {...} Func add(a, b) {...} - 같은 스코프에 같은 이름의 함수를 두 번 선언
+TEST_F(CheckerUnitTest, Check_DuplicateFunctionDeclaration_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeFuncDecl("add", { "a", "b" }, MakeBlock({})));
+	statements.push_back(MakeFuncDecl("add", { "a", "b" }, MakeBlock({})));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("함수 'add' 중복 선언"));
+}
+
 // return 5; 를 함수 밖에서 사용
 TEST_F(CheckerUnitTest, Check_ReturnOutsideFunction_ReportsError) {
 	std::vector<std::unique_ptr<SyntaxNode>> statements;
