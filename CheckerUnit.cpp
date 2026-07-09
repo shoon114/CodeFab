@@ -115,6 +115,14 @@ void CheckerUnit::Visit(const ReturnStmtNode& node) {
 }
 
 void CheckerUnit::Visit(const CallExprNode& node) {
+    // r.move(5), sum.add(1,2)처럼 children[0]이 MemberAccessExprNode면 메서드/모듈
+    // 함수 호출이다. 전역 함수 이름공간 검사 대상이 아니므로 여기서는 건너뛰고
+    // 실행 시점(ExecutorUnit)에 검사한다.
+    if (!node.children.empty() && node.children[0]->type == NodeType::MemberAccessExpr) {
+        Traverse(node);
+        return;
+    }
+
     const std::string& calleeName = node.token.lexeme;
 
     bool isVar = false;
