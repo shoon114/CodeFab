@@ -106,6 +106,9 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | if/else if(body가 '{}' 없는 단일 문장, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | `y` |
 | if/else if(body가 '{}' 없는 단일 문장, if 분기 참) | `var a = 9;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | `x` |
 | if(else 없음, body가 '{}' 없는 단일 문장, 뒤에 무관한 문장) | `var a = 1;` → `if (a > 3)` → `print "x";` → `var c = 1;` → `print c;` | `1` — else 없이 끝나는 if 뒤에 무관한 문장이 와도 영원히 대기하지 않고 정상 실행되는지 확인 |
+| if/else if/else(3단 체인, 여러 줄, if 분기 참) | `var a = 9;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `x` |
+| if/else if/else(3단 체인, 여러 줄, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `y` |
+| if/else if/else(3단 체인, 여러 줄, else 분기 참) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `z` — else-if 분기의 body가 닫힌 뒤에도 체인을 끝내는 순수 else를 기다리는지 확인 |
 | for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
 | 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |
 | 구문 오류: 닫는 괄호 누락 | `print (1 + 2;` | (에러 발생 여부만 확인) |
