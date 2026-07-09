@@ -22,7 +22,13 @@ void WatchList::PrintAll(const ExecutorUnit& executor) const {
 		Value_t value;
 		if (executor.TryGetVariable(name, value)) {
 			bool isLocal = executor.CurrentScope().count(name) > 0;
-			std::cout << (isLocal ? "[LOCAL] " : "[GLOBAL] ") << name << " = " << std::get<double>(value) << " (number)" << std::endl;
+			std::cout << (isLocal ? "[LOCAL] " : "[GLOBAL] ") << name << " = ";
+			if (std::holds_alternative<bool>(value)) {
+				std::cout << (std::get<bool>(value) ? "true" : "false") << " (Boolean)";
+			} else {
+				std::cout << std::get<double>(value) << " (number)";
+			}
+			std::cout << std::endl;
 		} else {
 			std::cout << name << " = <undefined>" << std::endl;
 		}
