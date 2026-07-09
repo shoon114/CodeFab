@@ -203,6 +203,18 @@
     <ClCompile Include="TestForStmtParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="PromptMode.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="SourceFileLoader.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="FileMode.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="DebugMode.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
@@ -226,6 +238,11 @@
     <ClInclude Include="NodeVisitor.h" />
     <ClInclude Include="ClassStatementParser.h" />
     <ClInclude Include="ForStmtParser.h" />
+    <ClInclude Include="ShellMode.h" />
+    <ClInclude Include="PromptMode.h" />
+    <ClInclude Include="SourceFileLoader.h" />
+    <ClInclude Include="FileMode.h" />
+    <ClInclude Include="DebugMode.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
