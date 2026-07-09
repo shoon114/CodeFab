@@ -23,6 +23,7 @@ class BlockStmtNode;
 class FuncDeclStmtNode;
 class ReturnStmtNode;
 class ClassDeclStmtNode;
+class ImportStmtNode;
 class ProgramNode;
 
 // SyntaxNode 계층에 대한 Visitor 인터페이스.
@@ -61,6 +62,7 @@ public:
 	virtual void Visit(const FuncDeclStmtNode& node);
 	virtual void Visit(const ReturnStmtNode& node);
 	virtual void Visit(const ClassDeclStmtNode& node);
+	virtual void Visit(const ImportStmtNode& node);
 	virtual void Visit(const ProgramNode& node);
 
 protected:

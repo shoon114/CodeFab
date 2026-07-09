@@ -30,4 +30,5 @@ void NodeVisitor::Visit(const BlockStmtNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const FuncDeclStmtNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const ReturnStmtNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const ClassDeclStmtNode& node) { Traverse(node); }
+void NodeVisitor::Visit(const ImportStmtNode& node) { Traverse(node); }
 void NodeVisitor::Visit(const ProgramNode& node) { Traverse(node); }
