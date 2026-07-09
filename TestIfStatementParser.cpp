@@ -105,33 +105,33 @@ protected:
 		EXPECT_CALL(*mockThenParser, Parse(_, _))
 			.Times(1)
 			.WillOnce([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<BlockStmtNode>();
-			node->token = tokens[pos];
-			pos += 2;
-			return node;
-				});
+				auto node = std::make_unique<BlockStmtNode>();
+				node->token = tokens[pos];
+				pos += 2;
+				return node;
+			});
 	}
 
 	void StubThenParserToConsumeBodies(int times) {
 		EXPECT_CALL(*mockThenParser, Parse(_, _))
 			.Times(times)
 			.WillRepeatedly([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<BlockStmtNode>();
-			node->token = tokens[pos];
-			pos += 2;
-			return node;
-				});
+				auto node = std::make_unique<BlockStmtNode>();
+				node->token = tokens[pos];
+				pos += 2;
+				return node;
+			});
 	}
 
 	void StubConditionParserToConsumeConditions(int times) {
 		EXPECT_CALL(*mockConditionParser, Parse(_, _))
 			.Times(times)
 			.WillRepeatedly([](const TokenList& tokens, size_t& pos) {
-			auto node = std::make_unique<BinaryExprNode>();
-			node->token = tokens[pos];
-			pos += 3;
-			return node;
-				});
+				auto node = std::make_unique<BinaryExprNode>();
+				node->token = tokens[pos];
+				pos += 3;
+				return node;
+			});
 	}
 
 	void ExpectParseThrows(TokenList tokenList, const char* expectedMessage) {
@@ -214,11 +214,11 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 	EXPECT_CALL(*mockConditionParser, Parse(_, _))
 		.Times(1)
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
-		auto node = std::make_unique<BinaryExprNode>();
-		node->token = tokens[pos];
-		pos += 3;
-		return node;
-			});
+			auto node = std::make_unique<BinaryExprNode>();
+			node->token = tokens[pos];
+			pos += 3;
+			return node;
+		});
 
 	ExpectParseThrows(tokenList, "Expected ')' after if-condition at line 1");
 }
