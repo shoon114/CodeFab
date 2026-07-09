@@ -121,19 +121,32 @@ int main() {
 			} else if (firstType == TokenType::KwIf
 				&& (lastRealType == TokenType::RBrace || lastRealType == TokenType::Semicolon)) {
 				// if의 body가 방금 닫혔다(브레이스 body든 '{}' 없는 단일 문장
-				// body든). 아직 'else'가 하나도 없다면, 다음 줄에 이 if를 마저
-				// 연장하는 'else'/'else if'가 올 수도 있으므로 한 줄 더 받아서
-				// 확인해야 한다. 다만 이미 한 번 확인했는데도(waitedOnceForElse)
-				// 여전히 'else'가 없다면 더 기다리지 않고 지금 실행한다 -- 안 그러면
-				// else 없는 if 뒤에 무관한 문장이 계속 이어질 때 영원히 대기하게 된다.
-				bool hasElse = false;
-				for (const Token& token : tokenList) {
-					if (token.type == TokenType::KwElse) {
-						hasElse = true;
-						break;
+				// body든). 이 if(또는 이 if의 마지막 'else if' 분기)를 마저
+				// 연장하는 'else'/'else if'가 다음 줄에 올 수도 있으므로 한 줄 더
+				// 받아서 확인해야 한다.
+				//
+				// 단순히 "버퍼에 'else'가 하나라도 있는지"로는 부족하다 --
+				// "if ... else if ... else if ... else ..." 체인에서 앞의 'else
+				// if'들은 이미 자기 몫의 else를 가졌지만, 체인이 아직 안 끝난
+				// '순수 else(뒤에 if가 없는 else)'가 한 번도 안 나왔다면 그
+				// 체인은 여전히 연장될 수 있다. 반대로 순수 else가 이미 한 번
+				// 나왔다면(문법상 그 뒤에 또 else가 올 수 없으므로) 더 이상
+				// 기다릴 필요가 없다.
+				bool sawTerminalElse = false;
+				for (size_t i = 0; i < tokenList.size(); i++) {
+					if (tokenList[i].type == TokenType::KwElse) {
+						bool isElseIf = (i + 1 < tokenList.size() && tokenList[i + 1].type == TokenType::KwIf);
+						if (!isElseIf) {
+							sawTerminalElse = true;
+							break;
+						}
 					}
 				}
-				if (!hasElse) {
+				if (!sawTerminalElse) {
+					// 다만 이미 한 번 확인했는데도(waitedOnceForElse) 여전히
+					// 체인을 연장하는 else가 없다면 더 기다리지 않고 지금
+					// 실행한다 -- 안 그러면 else 없는 if 뒤에 무관한 문장이
+					// 계속 이어질 때 영원히 대기하게 된다.
 					if (!waitedOnceForElse) {
 						pendingControlBlock = true;
 						waitedOnceForElse = true;
