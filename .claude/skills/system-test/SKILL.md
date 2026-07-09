@@ -58,6 +58,16 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 - `Expect`는 print 등으로 실제 출력되는 값만 적는다(변수 선언 등 출력이
   없는 줄이 만드는 빈 줄은 스크립트가 자동으로 무시하고 비교한다).
 
+구문 오류/런타임 오류처럼 "정확한 메시지"가 아니라 **"뭐든 에러만 나면
+통과"**하는 케이스는 `Expect` 대신 `ExpectError = $true`를 쓴다:
+
+```powershell
+@{ Category = "<분류명>"; InputLines = @('<에러가 나야 하는 코드>', ...); ExpectError = $true }
+```
+
+이 타입은 stderr(에러 메시지)가 비어있지 않은지만 확인하고, 어떤 문구인지는
+검사하지 않는다.
+
 케이스를 추가/수정한 뒤에는 커밋할지 사용자에게 확인한다 — 이 스킬 파일과
 케이스 목록은 프로젝트에 커밋되어 다른 개발자도 동일한 회귀 세트를 쓰게
 되므로, 회귀 케이스 추가 자체도 리뷰 대상으로 취급한다.
@@ -87,4 +97,20 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | if/else | `if (true) { print "bbq"; }` | `bbq` |
 | if/else | `if (false) { print "no"; } else { print "kfc"; }` | `kfc` |
 | if/else(여러 줄, 중첩) | `if (true)` → `{` → `  if (false) { print "kfc"; }` → `  else { print "bbq"; }` → `}` | `bbq` (Allman 스타일로 조건과 `{`가 다른 줄에 있는 경우) |
+| if/else if(앞에 완결된 블록이 있고 여러 줄) | `var a = 5;` → `var b = 2;` → `if (a > 3) { print "x"; } else if (b > 1)` → `{ print "y"; }` | `x` (앞에 이미 닫힌 `{...}` 블록이 있어도 뒤이은 `else if (...)`가 다음 줄의 `{`를 기다려야 함) |
+| if/else if(앞에 완결된 블록이 있고 여러 줄, else-if 분기) | `var a = 1;` → `var b = 2;` → `if (a > 3) { print "x"; } else if (b > 1)` → `{ print "y"; }` | `y` |
+| if/else if(if body가 별도 줄, 둘 다 거짓) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `{ print "x"; }` → `else if (b > 1)` → `{ print "y"; }` | (출력 없음) — if의 body('{...}')만 닫힌 시점에 곧바로 실행해버리면 버퍼가 비워져서 뒤이은 'else'가 짝 없이 구문 오류가 났었음 |
+| if/else if(if body가 별도 줄, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `{ print "x"; }` → `else if (b > 1)` → `{ print "y"; }` | `y` |
+| if/else if(if body가 별도 줄, if 분기 참) | `var a = 9;` → `var b = 5;` → `if (a > 3)` → `{ print "x"; }` → `else if (b > 1)` → `{ print "y"; }` | `x` |
+| if/else if(body가 '{}' 없는 단일 문장, 둘 다 거짓) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | (출력 없음) — body가 '{}' 없는 단일 문장일 때도 else 대기가 적용되는지 확인 |
+| if/else if(body가 '{}' 없는 단일 문장, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | `y` |
+| if/else if(body가 '{}' 없는 단일 문장, if 분기 참) | `var a = 9;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` | `x` |
+| if(else 없음, body가 '{}' 없는 단일 문장, 뒤에 무관한 문장) | `var a = 1;` → `if (a > 3)` → `print "x";` → `var c = 1;` → `print c;` | `1` — else 없이 끝나는 if 뒤에 무관한 문장이 와도 영원히 대기하지 않고 정상 실행되는지 확인 |
+| if/else if/else(3단 체인, 여러 줄, if 분기 참) | `var a = 9;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `x` |
+| if/else if/else(3단 체인, 여러 줄, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `y` |
+| if/else if/else(3단 체인, 여러 줄, else 분기 참) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `z` — else-if 분기의 body가 닫힌 뒤에도 체인을 끝내는 순수 else를 기다리는지 확인 |
 | for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
+| 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |
+| 구문 오류: 닫는 괄호 누락 | `print (1 + 2;` | (에러 발생 여부만 확인) |
+| 런타임 오류: 잘못된 할당 대상 | `var a = 1;` → `var b = 2;` → `a + b = 3;` | (에러 발생 여부만 확인) |
+| 구문 오류: 표현식 자리에 엉뚱한 토큰 | `print * 5;` | (에러 발생 여부만 확인) |

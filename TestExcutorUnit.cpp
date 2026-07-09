@@ -756,6 +756,25 @@ TEST_F(ExecutorUnitTest, Execute_DivisionByZero_ThrowsWithLineMessage) {
 	ExpectRuntimeError(*program, "Division by zero at line 1");
 }
 
+// "a + b = 3;" -- 대입 대상이 변수도 배열 인덱스도 아닌 임의의 표현식(BinaryExpr)이면
+// 명확한 "Invalid assignment target" 오류를 던져야 한다. 이 검사가 없으면 대입
+// 대상 노드를 무조건 IdentifierNode로 취급해, BinaryExprNode의 연산자 토큰('+')을
+// 변수 이름으로 착각한 엉뚱한 "Undefined variable '+'" 메시지가 나갔었다.
+TEST_F(ExecutorUnitTest, Execute_AssignToNonIdentifierTarget_ThrowsInvalidAssignmentTarget) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(1)),
+		MakeVarDeclStmt("b", MakeNumberLiteral(2)),
+		MakeExprStmt(
+			MakeIndexAssignExpr(
+				MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b")),
+				MakeNumberLiteral(3),
+				1)
+		)
+	);
+
+	ExpectRuntimeError(*program, "Invalid assignment target at line 1");
+}
+
 // [정적 바인딩] Test Double 검증:
 // var a = "outer"; { var a = "inner"; { print <a>; } }
 // CheckerUnit이 정상 계산했다면 이 위치의 scopeDistance는 1(Scope A의 "inner")이어야

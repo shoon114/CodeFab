@@ -1,6 +1,7 @@
 #include "PrintStatementParser.h"
 #include "StatementParserRegistry.h"
 #include <stdexcept>
+#include <string>
 
 namespace {
 StatementParserRegistrar<PrintStatementParser> registrar(TokenType::Print);
@@ -15,7 +16,11 @@ std::unique_ptr<SyntaxNode> PrintStatementParser::Parse(const TokenList& tokenLi
 	}
 	auto exprNode = exprParser->Parse(tokenList, pos);
 
-	pos++;
+	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::Semicolon) {
+		int line = pos < tokenList.size() ? tokenList[pos].line : tokenList.back().line;
+		throw std::runtime_error("Expected ';' after value at line " + std::to_string(line));
+	}
+	pos++; // ';'
 
 	auto printNode = std::make_unique<PrintStmtNode>();
 	printNode->token = printToken;
