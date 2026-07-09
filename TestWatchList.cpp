@@ -67,4 +67,45 @@ TEST(WatchListTest, PrintAll_GlobalNumberVariable_PrintsGlobalLabelAndNumberType
 
 	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
 }
+
+// var b = true; 실행 후 watches를 조회하면 "[LOCAL] b = true (Boolean)"가 출력되어야 한다.
+TEST(WatchListTest, PrintAll_LocalBooleanVariable_PrintsLocalLabelAndBooleanType) {
+	auto identifier = std::make_unique<IdentifierNode>();
+	identifier->token.type = TokenType::Identifier;
+	identifier->token.lexeme = "b";
+	identifier->token.line = 1;
+
+	auto boolLiteral = std::make_unique<BoolLiteralNode>();
+	boolLiteral->token.lexeme = "true";
+	boolLiteral->token.line = 1;
+
+	auto assign = std::make_unique<AssignExprNode>();
+	assign->token.type = TokenType::Assign;
+	assign->token.lexeme = "=";
+	assign->token.line = 1;
+	assign->children.push_back(std::move(identifier));
+	assign->children.push_back(std::move(boolLiteral));
+
+	auto varDecl = std::make_unique<VarDeclareStatementNode>();
+	varDecl->token.type = TokenType::KwVar;
+	varDecl->token.lexeme = "var";
+	varDecl->token.line = 1;
+	varDecl->children.push_back(std::move(assign));
+
+	auto program = std::make_unique<ProgramNode>();
+	program->children.push_back(std::move(varDecl));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	//watch b
+	WatchList watchList;
+	watchList.Add("b");
+
+	testing::internal::CaptureStdout();
+	watchList.PrintAll(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] b = true (Boolean)"));
+}
 #endif
