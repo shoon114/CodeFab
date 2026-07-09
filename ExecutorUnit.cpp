@@ -98,14 +98,22 @@ void ExecutorUnit::Visit(const IfStmtNode& node) { ExecuteIfStmt(node); }
 void ExecutorUnit::Visit(const ExprStmtNode& node) { ExecuteExprStmt(node); }
 void ExecutorUnit::Visit(const ForStmtNode& node) { ExecuteForStmt(node); }
 
-// 최상위/일반 함수는 아직 실행 단계에서 지원하지 않는다(체커 단계까지만 검증 대상).
-// 클래스 메서드(init 포함)는 FuncDeclStmtNode를 재사용하지만 InvokeMethod가 직접
-// body->Accept(*this)를 호출해서 실행하므로 이 Visit을 거치지 않는다.
-void ExecutorUnit::Visit(const FuncDeclStmtNode&) {}
+// 최상위/일반 함수 선언은 FunctionObject로 등록해 EvaluateCallExpr(일반 함수 호출 경로)가
+// 찾아 쓸 수 있게 한다. 클래스 메서드(init 포함)도 FuncDeclStmtNode를 재사용하지만
+// InvokeMethod가 직접 body->Accept(*this)를 호출해서 실행하므로 이 Visit을 거치지 않는다.
+void ExecutorUnit::Visit(const FuncDeclStmtNode& node) {
+	// children = [파라미터 Identifier..., body(BlockStmt)]. 마지막 원소가 body.
+	auto function = std::make_shared<FunctionObject>();
+	for (size_t i = 0; i + 1 < node.children.size(); ++i) {
+		function->parameters.push_back(node.children[i]->token.lexeme);
+	}
+	function->body = node.children.back().get();
+	scopes.back()[node.token.lexeme] = function;
+}
 
-// return문은 값을 계산해 ReturnSignal로 던진다. InvokeMethod가 이를 잡아 메서드의
-// 반환값으로 사용한다(Checker가 이미 함수/메서드 밖의 return을 막아주므로, 이 코드가
-// InvokeMethod 바깥에서 실행되는 일은 없다).
+// return문은 값을 계산해 ReturnSignal로 던진다. EvaluateCallExpr/InvokeMethod가 이를 잡아
+// 함수/메서드의 반환값으로 사용한다(Checker가 이미 함수/메서드 밖의 return을 막아주므로,
+// 이 코드가 함수/메서드 호출 바깥에서 실행되는 일은 없다).
 void ExecutorUnit::Visit(const ReturnStmtNode& node) {
 	Value_t value = node.children.empty() ? Value_t{ std::monostate{} } : Evaluate(*node.children[0]);
 	throw ReturnSignal{ value };
@@ -299,15 +307,57 @@ Value_t ExecutorUnit::EvaluateCallExpr(const CallExprNode& node) {
 	}
 
 	// 그 외에는 기존처럼 token.lexeme이 호출 대상 이름이고 children 전체가 인자다.
-	// 이름이 등록된 클래스면 인스턴스 생성(Robot(...))으로, 아니면 아직 지원하지
-	// 않는 일반 함수 호출로 처리한다.
+	// 이름이 등록된 클래스면 인스턴스 생성(Robot(...))으로, 아니면 일반 함수 호출로 처리한다.
 	const std::string& name = node.token.lexeme;
 	auto classIt = classes.find(name);
 	if (classIt != classes.end()) {
 		return InstantiateClass(name, node);
 	}
 
-	throw std::runtime_error("Function calls are not supported yet at line " + std::to_string(node.token.line));
+	// 일반 함수 호출: CallExprNode의 token은 callee 식별자 토큰이고, scopeDistance가
+	// 없으므로 항상 동적(선형) 탐색으로 함수 값을 찾는다.
+	Value_t calleeValue = ResolveVariable(name, -1, node.token.line);
+	if (!std::holds_alternative<std::shared_ptr<FunctionObject>>(calleeValue)) {
+		throw std::runtime_error("'" + name + "' is not callable at line " + std::to_string(node.token.line));
+	}
+	auto function = std::get<std::shared_ptr<FunctionObject>>(calleeValue);
+
+	if (node.children.size() != function->parameters.size()) {
+		throw std::runtime_error("Expected " + std::to_string(function->parameters.size()) +
+			" argument(s) but got " + std::to_string(node.children.size()) +
+			" at line " + std::to_string(node.token.line));
+	}
+
+	std::vector<Value_t> args;
+	args.reserve(node.children.size());
+	for (const auto& argExpr : node.children) {
+		args.push_back(Evaluate(*argExpr));
+	}
+
+	// 함수 본문은 caller의 지역 스코프를 보지 못해야 하므로, global(scopes[0])만
+	// 남기고 나머지 프레임은 잠시 떼어둔 뒤 파라미터 스코프 하나만 새로 쌓는다.
+	std::vector<std::unordered_map<std::string, Value_t>> savedLocalFrames(
+		std::make_move_iterator(scopes.begin() + 1), std::make_move_iterator(scopes.end()));
+	scopes.resize(1);
+
+	EnterScope();
+	for (size_t i = 0; i < function->parameters.size(); ++i) {
+		scopes.back()[function->parameters[i]] = args[i];
+	}
+
+	Value_t result = Value_t{ std::monostate{} };
+	try {
+		ExecuteStmt(*function->body);
+	} catch (const ReturnSignal& signal) {
+		result = signal.value;
+	}
+
+	scopes.resize(1);
+	for (auto& frame : savedLocalFrames) {
+		scopes.push_back(std::move(frame));
+	}
+
+	return result;
 }
 
 Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {

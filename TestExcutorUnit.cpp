@@ -177,6 +177,53 @@ namespace {
 		return node;
 	}
 
+	// 3일차 PDF p.6-7: func <name>(<params>...) { <body> }
+	// FunctionStatementParser가 만드는 모양을 따른다: token은 함수명 식별자 토큰,
+	// children = [파라미터 Identifier..., 마지막 원소가 body(BlockStmt)].
+	std::unique_ptr<SyntaxNode> MakeFuncDeclStmt(const std::string& name, std::vector<std::string> params,
+		std::unique_ptr<SyntaxNode> body, int line = 1) {
+		auto node = std::make_unique<FuncDeclStmtNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = name;
+		node->token.line = line;
+		for (const auto& param : params) {
+			node->children.push_back(MakeIdentifier(param, line));
+		}
+		node->children.push_back(std::move(body));
+		return node;
+	}
+
+	// return; -> children이 비어있으면 null을 반환한다.
+	std::unique_ptr<SyntaxNode> MakeReturnStmt(int line = 1) {
+		auto node = std::make_unique<ReturnStmtNode>();
+		node->token.type = TokenType::KwReturn;
+		node->token.lexeme = "return";
+		node->token.line = line;
+		return node;
+	}
+
+	// return <expression>;
+	std::unique_ptr<SyntaxNode> MakeReturnStmt(std::unique_ptr<SyntaxNode> expression, int line = 1) {
+		auto node = std::make_unique<ReturnStmtNode>();
+		node->token.type = TokenType::KwReturn;
+		node->token.lexeme = "return";
+		node->token.line = line;
+		node->children.push_back(std::move(expression));
+		return node;
+	}
+
+	// <name>(<args>...). ExpressionParser::ParseCallExpr가 만드는 모양을 따른다:
+	// token은 callee 식별자 토큰(콜리 자체는 children에 담기지 않는다), children = [인자식...].
+	template <typename... Args>
+	std::unique_ptr<SyntaxNode> MakeCallExpr(const std::string& name, int line, Args&&... args) {
+		auto node = std::make_unique<CallExprNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = name;
+		node->token.line = line;
+		(node->children.push_back(std::forward<Args>(args)), ...);
+		return node;
+	}
+
 	// this
 	std::unique_ptr<SyntaxNode> MakeThisExpr(int line = 1) {
 		auto node = std::make_unique<ThisExprNode>();
@@ -906,6 +953,223 @@ TEST_F(ExecutorUnitTest, Execute_IndexNonInteger_ThrowsRuntimeError) {
 	);
 
 	ExpectRuntimeError(*program, "Array index out of range at line 1");
+}
+
+// ---- 함수(Function) 관련 테스트 (3일차 PDF p.6-7) ----
+
+// func add(a, b) { return a + b; } print add(3, 7); -> "10"
+TEST_F(ExecutorUnitTest, Execute_FuncCall_WithParams_ReturnsSum) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("add", { "a", "b" },
+			MakeBlockStmt(
+				MakeReturnStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b")))
+			)
+		),
+		MakePrintStmt(MakeCallExpr("add", 1, MakeNumberLiteral(3), MakeNumberLiteral(7)))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("10"));
+}
+
+// func add(a, b) { return a + b; } print add("hello", " world"); -> "hello world"
+// Plus 연산자는 두 피연산자가 모두 문자열이면 숫자 변환 없이 그대로 이어붙인다.
+TEST_F(ExecutorUnitTest, Execute_FuncCall_WithStringArgs_ReturnsConcatenatedString) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("add", { "a", "b" },
+			MakeBlockStmt(
+				MakeReturnStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b")))
+			)
+		),
+		MakePrintStmt(MakeCallExpr("add", 1, MakeStringLiteral("hello"), MakeStringLiteral(" world")))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("hello world"));
+}
+
+// func add(a, b) { return a + b; } print add("hello", 1); -> 문자열 + 숫자는 concat 대상이 아니므로
+// AsNumber 타입 가드에 걸려 "Operand must be a number at line 1" 런타임 오류가 발생해야 한다.
+TEST_F(ExecutorUnitTest, Execute_FuncCall_WithMixedStringAndNumberArgs_ThrowsRuntimeError) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("add", { "a", "b" },
+			MakeBlockStmt(
+				MakeReturnStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b"), 1))
+			)
+		),
+		MakePrintStmt(MakeCallExpr("add", 1, MakeStringLiteral("hello"), MakeNumberLiteral(1)))
+	);
+
+	ExpectRuntimeError(*program, "Operand must be a number at line 1");
+}
+
+// func greet() { return "hi"; } print greet(); -> "hi"
+TEST_F(ExecutorUnitTest, Execute_FuncCall_NoParams_ReturnsStringLiteral) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("greet", {}, MakeBlockStmt(MakeReturnStmt(MakeStringLiteral("hi")))),
+		MakePrintStmt(MakeCallExpr("greet", 1))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("hi"));
+}
+
+// PDF: return ; -> null 값 반환. func noop() { return; } print noop(); -> "null"
+TEST_F(ExecutorUnitTest, Execute_FuncCall_EmptyReturn_PrintsNull) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("noop", {}, MakeBlockStmt(MakeReturnStmt())),
+		MakePrintStmt(MakeCallExpr("noop", 1))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("null"));
+}
+
+// func noop() { } print noop(); -> return문 없이 body가 끝까지 실행되면 null을 반환해야 한다.
+TEST_F(ExecutorUnitTest, Execute_FuncCall_FallsThroughWithoutReturn_PrintsNull) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("noop", {}, MakeBlockStmt()),
+		MakePrintStmt(MakeCallExpr("noop", 1))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("null"));
+}
+
+// PDF: 재귀 호출. func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); } print fact(5); -> "120"
+TEST_F(ExecutorUnitTest, Execute_FuncCall_Recursion_ComputesFactorial) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("fact", { "n" },
+			MakeBlockStmt(
+				MakeIfStmt(
+					MakeBinaryExpr(TokenType::LtEq, MakeIdentifier("n"), MakeNumberLiteral(1)),
+					MakeBlockStmt(MakeReturnStmt(MakeNumberLiteral(1)))
+				),
+				MakeReturnStmt(
+					MakeBinaryExpr(TokenType::Star, MakeIdentifier("n"),
+						MakeCallExpr("fact", 1,
+							MakeBinaryExpr(TokenType::Minus, MakeIdentifier("n"), MakeNumberLiteral(1))))
+				)
+			)
+		),
+		MakePrintStmt(MakeCallExpr("fact", 1, MakeNumberLiteral(5)))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("120"));
+}
+
+// return 이후의 나머지 문장은 실행되지 않아야 한다:
+// func f() { return 1; print "unreachable"; } print f(); -> "1"만 출력되고 "unreachable"은 출력되지 않는다.
+TEST_F(ExecutorUnitTest, Execute_FuncCall_ReturnInsideBlock_SkipsRemainingStatements) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("f", {},
+			MakeBlockStmt(
+				MakeReturnStmt(MakeNumberLiteral(1)),
+				MakePrintStmt(MakeStringLiteral("unreachable"))
+			)
+		),
+		MakePrintStmt(MakeCallExpr("f", 1))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("1"));
+}
+
+// for 루프 안에서 return하면 이후 반복(및 print)이 실행되지 않아야 한다:
+// func findTwo() { for (var i=0; i<5; i=i+1) { print "#"; if (i == 2) { return i; } } return -1; }
+// print findTwo(); -> i=0,1,2에서만 "#"이 출력되고("###") 그 뒤 반환값 "2"가 이어붙는다.
+TEST_F(ExecutorUnitTest, Execute_FuncCall_ReturnInsideForLoop_StopsRemainingIterations) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("findTwo", {},
+			MakeBlockStmt(
+				MakeForStmt(
+					/*init*/      MakeVarDeclStmt("i", MakeNumberLiteral(0)),
+					/*condition*/ MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(5)),
+					/*increment*/ MakeAssignExpr("i",
+						MakeBinaryExpr(TokenType::Plus, MakeIdentifier("i"), MakeNumberLiteral(1))),
+					/*body*/      MakeBlockStmt(
+						MakePrintStmt(MakeStringLiteral("#")),
+						MakeIfStmt(
+							MakeBinaryExpr(TokenType::Eq, MakeIdentifier("i"), MakeNumberLiteral(2)),
+							MakeBlockStmt(MakeReturnStmt(MakeIdentifier("i")))
+						)
+					)
+				),
+				MakeReturnStmt(MakeUnaryExpr(TokenType::Minus, MakeNumberLiteral(1)))
+			)
+		),
+		MakePrintStmt(MakeCallExpr("findTwo", 1))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("###2"));
+}
+
+// PDF: 인자 개수 불일치 -> "Expected 2 argument(s) but got 1 at line 1"
+TEST_F(ExecutorUnitTest, Execute_FuncCall_ArgumentCountMismatch_ThrowsRuntimeError) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("add", { "a", "b" },
+			MakeBlockStmt(MakeReturnStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("a"), MakeIdentifier("b"))))
+		),
+		MakePrintStmt(MakeCallExpr("add", 1, MakeNumberLiteral(1)))
+	);
+
+	ExpectRuntimeError(*program, "Expected 2 argument(s) but got 1 at line 1");
+}
+
+// PDF: 함수가 아닌 대상 호출. var x = "hello"; x(); -> "'x' is not callable at line 1"
+TEST_F(ExecutorUnitTest, Execute_CallingNonFunctionValue_ThrowsRuntimeError) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("x", MakeStringLiteral("hello")),
+		MakeExprStmt(MakeCallExpr("x", 1))
+	);
+
+	ExpectRuntimeError(*program, "'x' is not callable at line 1");
+}
+
+// 정의되지 않은 함수 호출은 기존 변수 조회 오류 메시지를 그대로 재사용한다.
+TEST_F(ExecutorUnitTest, Execute_CallingUndefinedFunction_ThrowsUndefinedVariableError) {
+	auto program = MakeProgram(
+		MakeExprStmt(MakeCallExpr("notDefined", 1))
+	);
+
+	ExpectRuntimeError(*program, "Undefined variable 'notDefined' at line 1");
+}
+
+// 함수는 호출자의 지역(블록) 스코프를 볼 수 없어야 한다:
+// func f() { print y; } { var y = 10; f(); } -> f 내부에서 y는 정의되지 않은 변수다.
+TEST_F(ExecutorUnitTest, Execute_FuncCall_CannotAccessCallersLocalScope_ThrowsUndefinedVariable) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("f", {}, MakeBlockStmt(MakePrintStmt(MakeIdentifier("y")))),
+		MakeBlockStmt(
+			MakeVarDeclStmt("y", MakeNumberLiteral(10)),
+			MakeExprStmt(MakeCallExpr("f", 1))
+		)
+	);
+
+	ExpectRuntimeError(*program, "Undefined variable 'y' at line 1");
+}
+
+// 함수는 전역 스코프는 정상적으로 참조할 수 있어야 한다:
+// func f() { return g + 1; } var g = 10; print f(); -> "11"
+TEST_F(ExecutorUnitTest, Execute_FuncCall_CanAccessGlobalVariable) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("f", {}, MakeBlockStmt(
+			MakeReturnStmt(MakeBinaryExpr(TokenType::Plus, MakeIdentifier("g"), MakeNumberLiteral(1)))
+		)),
+		MakeVarDeclStmt("g", MakeNumberLiteral(10)),
+		MakePrintStmt(MakeCallExpr("f", 1))
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("11"));
+}
+
+// 함수 호출이 끝난 뒤에는 호출자의 지역 스코프가 그대로 복원되어야 한다:
+// func f() { return 1; } { var y = 5; f(); print y; } -> "5"
+TEST_F(ExecutorUnitTest, Execute_FuncCall_RestoresCallersLocalScopeAfterReturn) {
+	auto program = MakeProgram(
+		MakeFuncDeclStmt("f", {}, MakeBlockStmt(MakeReturnStmt(MakeNumberLiteral(1)))),
+		MakeBlockStmt(
+			MakeVarDeclStmt("y", MakeNumberLiteral(5)),
+			MakeExprStmt(MakeCallExpr("f", 1)),
+			MakePrintStmt(MakeIdentifier("y"))
+		)
+	);
+
+	EXPECT_THAT(RunAndCapture(*program), Eq("5"));
 }
 
 // ---- 클래스(Class) 관련 테스트 ----

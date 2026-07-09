@@ -5,17 +5,20 @@
 
 bool CheckerUnit::Check(SyntaxNode* root) {
     if (!root) return true;
-    scopeStack.clear();
-    functionScopeStack.clear();
-    classScopeStack.clear();
     hasError = false;
     functionDepth = 0;
     classMethodDepth = 0;
     insideInit = false;
     classHasParentStack.clear();
-    EnterScope(); // Global 스코프
+    if (scopeStack.empty()) {
+        // Global 스코프(최초 1회만 생성 — REPL에서 이전 줄에 선언한 변수/함수/클래스를 이후 줄에서도
+        // 계속 참조할 수 있어야 하므로, ExecutorUnit::Execute()가 scopes[0]을 유지하는 것과
+        // 동일한 이유로 여기서도 매 Check() 호출마다 초기화하지 않는다. 그렇지 않으면
+        // "Func add(a, b) {...}"와 "print add(1, 2);"가 서로 다른 줄(= 서로 다른 Check() 호출)로
+        // 들어올 때 add가 미등록 함수로 오인되어 거짓 오류가 발생한다.
+        EnterScope();
+    }
     root->Accept(*this);
-    ExitScope();
     return !hasError;
 }
 
