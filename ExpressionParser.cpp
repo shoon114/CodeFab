@@ -182,6 +182,9 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseArrExpr(const TokenList& toke
 }
 
 std::unique_ptr<SyntaxNode> ExpressionParser::ParseIndexExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> array) {
+	if (array->type != NodeType::Identifier) {
+		throw std::runtime_error("Only an identifier can be indexed at line " + std::to_string(array->token.line));
+	}
 	Token bracketToken = tokenList[pos++]; // '['
 
 	std::unique_ptr<SyntaxNode> indexExpr = ParseExpression(tokenList, pos, 0);
