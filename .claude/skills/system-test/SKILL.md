@@ -115,6 +115,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 함수 호출(return 없이 종료) | `func noop() { }` → `print noop();` | `null` |
 | 함수 호출(재귀, 팩토리얼) | `func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }` → `print fact(5);` | `120` |
 | 함수 호출(전역 변수 접근 가능) | `var g = 10;` → `func showG() { return g; }` → `print showG();` | `10` |
+| 함수 호출(for/if 내부에서 return으로 조기 종료) | `func firstEvenFrom(start, n) { for (var i = start; i <= n; i = i + 1) { if (i % 2 == 0) { return i; } } return -1; }` → `print firstEvenFrom(3, 10);` | `4` |
 | 정적 오류: 함수 호출 인자 개수 불일치 | `func add(a, b) { return a + b; }` → `print add(1);` | (에러 발생 여부만 확인) — 정적 오류가 있으면 실행이 이어지지 않고 에러 메시지가 중복 출력되지 않는지 확인 |
 | 정적 오류: 정의되지 않은 함수 호출 | `print notAFunc(1);` | (에러 발생 여부만 확인) |
 | 런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가 | `func tryAccess() { return localOnly; }` → `{ var localOnly = 5; print tryAccess(); }` | (에러 발생 여부만 확인) |
