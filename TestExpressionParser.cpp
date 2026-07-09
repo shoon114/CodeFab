@@ -4,6 +4,7 @@
 #include "Tokenizer.h"
 #include "TestTokenHelpers.h"
 #include <stdexcept>
+#include <string>
 
 using namespace testing;
 
@@ -559,6 +560,247 @@ TEST_F(ExpressionParserTest, Parse_VarDeclareInitializer_ArrExpr) {
 	ASSERT_THAT(node, NotNull());
 	EXPECT_THAT(node->type, Eq(NodeType::ArrExpr));
 	EXPECT_THAT(node->token.lexeme, Eq("Array"));
+}
+
+// -----------------------------------------------------------------------
+// class 요구사항별 파서 TC
+// -----------------------------------------------------------------------
+
+TEST_F(ExpressionParserTest, Parse_InstanceCreation_BuildsCallExpr) {
+	// "Robot()" — 클래스명을 함수처럼 호출해 인스턴스 생성
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "Robot", 0, 0),
+		MakeToken(TokenType::LParen, "(", 0, 1),
+		MakeToken(TokenType::RParen, ")", 0, 2),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::CallExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("Robot"));
+	EXPECT_THAT(node->children, IsEmpty());
+	EXPECT_THAT(pos, Eq(3u));
+}
+
+TEST_F(ExpressionParserTest, Parse_FieldRead_BuildsMemberAccessExpr) {
+	// "r.name" — 필드 읽기
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "r", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "name", 0, 2),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("name"));
+	ASSERT_THAT(node->children, SizeIs(1u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::Identifier));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("r"));
+	EXPECT_THAT(pos, Eq(3u));
+}
+
+TEST_F(ExpressionParserTest, Parse_FieldWrite_BuildsAssignExprWithMemberAccess) {
+	// "r.name = \"Tony\"" — 필드 쓰기
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "r", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "name", 0, 2),
+		MakeToken(TokenType::Assign, "=", 0, 3),
+		MakeToken(TokenType::String, "Tony", 0, 4),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::AssignExpr));
+	ASSERT_THAT(node->children, SizeIs(2u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("name"));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::StringLiteral));
+}
+
+TEST_F(ExpressionParserTest, Parse_MethodCall_BuildsCallExprWithMemberAccessCallee) {
+	// "r.move(5)" — 메서드 호출
+	// CallExpr{ token=move, children=[MemberAccessExpr{token=move,children=[Identifier(r)]}, NumberLiteral(5)] }
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "r", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "move", 0, 2),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "5", 0, 4),
+		MakeToken(TokenType::RParen, ")", 0, 5),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::CallExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("move"));
+	ASSERT_THAT(node->children, SizeIs(2u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("move"));
+	EXPECT_THAT(node->children[0]->children[0]->type, Eq(NodeType::Identifier));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::NumberLiteral));
+}
+
+TEST_F(ExpressionParserTest, Parse_SuperMethodCall_BuildsCallExprWithSuperCallee) {
+	// "Super.move(5)" — 부모 클래스 메서드 호출
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::KwSuper, "Super", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "move", 0, 2),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "5", 0, 4),
+		MakeToken(TokenType::RParen, ")", 0, 5),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::CallExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("move"));
+	ASSERT_THAT(node->children, SizeIs(2u));
+	const SyntaxNode* callee = node->children[0].get();
+	EXPECT_THAT(callee->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(callee->children[0]->type, Eq(NodeType::SuperExpr));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::NumberLiteral));
+}
+
+TEST_F(ExpressionParserTest, Parse_ThisExpr_BuildsThisExprNode) {
+	// "this"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::KwThis, "this", 0, 0),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::ThisExpr));
+	EXPECT_THAT(pos, Eq(1u));
+}
+
+TEST_F(ExpressionParserTest, Parse_ThisFieldRead_BuildsMemberAccessExpr) {
+	// "this.name"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::KwThis, "this", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "name", 0, 2),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("name"));
+	ASSERT_THAT(node->children, SizeIs(1u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::ThisExpr));
+}
+
+TEST_F(ExpressionParserTest, Parse_ThisFieldWrite_BuildsAssignExprWithMemberAccess) {
+	// "this.name = \"Tony\""
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::KwThis, "this", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "name", 0, 2),
+		MakeToken(TokenType::Assign, "=", 0, 3),
+		MakeToken(TokenType::String, "Tony", 0, 4),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::AssignExpr));
+	ASSERT_THAT(node->children, SizeIs(2u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("name"));
+	EXPECT_THAT(node->children[0]->children[0]->type, Eq(NodeType::ThisExpr));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::StringLiteral));
+}
+
+TEST_F(ExpressionParserTest, Parse_ThisMethodCall_BuildsCallExprWithMemberAccessCallee) {
+	// "this.move(5)"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::KwThis, "this", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "move", 0, 2),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "5", 0, 4),
+		MakeToken(TokenType::RParen, ")", 0, 5),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::CallExpr));
+	EXPECT_THAT(node->token.lexeme, Eq("move"));
+	ASSERT_THAT(node->children, SizeIs(2u));
+	const SyntaxNode* callee = node->children[0].get();
+	EXPECT_THAT(callee->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(callee->children[0]->type, Eq(NodeType::ThisExpr));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::NumberLiteral));
+}
+
+TEST_F(ExpressionParserTest, Parse_ThisVsSuper_ProduceDistinctObjectNodeTypes) {
+	// this.name 과 Super.name 은 동일한 MemberAccessExpr 구조지만
+	// object 노드 타입이 ThisExpr vs SuperExpr 로 다르다.
+	TokenList thisTokens = {
+		MakeToken(TokenType::KwThis, "this", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "name", 0, 2),
+	};
+	TokenList superTokens = {
+		MakeToken(TokenType::KwSuper, "Super", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "name", 0, 2),
+	};
+
+	size_t thisPos = 0, superPos = 0;
+	auto thisNode = parser.Parse(thisTokens, thisPos);
+	auto superNode = parser.Parse(superTokens, superPos);
+
+	// 둘 다 MemberAccessExpr이고 member 이름도 같다
+	ASSERT_THAT(thisNode->type, Eq(NodeType::MemberAccessExpr));
+	ASSERT_THAT(superNode->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(thisNode->token.lexeme, Eq("name"));
+	EXPECT_THAT(superNode->token.lexeme, Eq("name"));
+
+	// object 노드 타입이 다르다
+	EXPECT_THAT(thisNode->children[0]->type, Eq(NodeType::ThisExpr));
+	EXPECT_THAT(superNode->children[0]->type, Eq(NodeType::SuperExpr));
+	EXPECT_THAT(thisNode->children[0]->type, Ne(superNode->children[0]->type));
+}
+
+TEST_F(ExpressionParserTest, Parse_InstanceofExpr_BuildsBinaryExpr) {
+	// "r instanceof Robot" — 타입 검사 연산자
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "r", 0, 0),
+		MakeToken(TokenType::KwInstanceof, "instanceof", 0, 1),
+		MakeToken(TokenType::Identifier, "Robot", 0, 2),
+		});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	EXPECT_THAT(node->type, Eq(NodeType::BinaryExpr));
+	EXPECT_THAT(node->token.type, Eq(TokenType::KwInstanceof));
+	ASSERT_THAT(node->children, SizeIs(2u));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::Identifier));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("r"));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::Identifier));
+	EXPECT_THAT(node->children[1]->token.lexeme, Eq("Robot"));
 }
 
 #endif
