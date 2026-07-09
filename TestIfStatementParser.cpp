@@ -48,10 +48,10 @@ protected:
 		// this fixture.
 		StatementParserRegistry::Instance().Register(TokenType::Identifier, [conditionParser = mockConditionParser]() {
 			return conditionParser;
-			});
+		});
 		StatementParserRegistry::Instance().Register(TokenType::LBrace, [thenParser = mockThenParser]() {
 			return thenParser;
-			});
+		});
 	}
 
 	void TearDown() override {
@@ -61,7 +61,7 @@ protected:
 		// already-satisfied expectations -- by a later test).
 		StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
 			return nullptr;
-			});
+		});
 
 		// LBrace's only production owner is the real BlockParser,
 		// self-registered once at static-init time. Resetting it to a
@@ -72,7 +72,7 @@ protected:
 		// real factory instead of nulling it out.
 		StatementParserRegistry::Instance().Register(TokenType::LBrace, []() {
 			return std::make_shared<BlockParser>();
-			});
+		});
 	}
 
 	// "if (a <op> 3) { }"
