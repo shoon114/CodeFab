@@ -54,6 +54,18 @@ std::unique_ptr<SyntaxNode> ForStmtParser::Parse(const TokenList& tokenList, siz
 	auto bodyNode = ResolveAndParse(tokenList, pos, "a statement to start for-loop body");
 	ConsumeOptionalTrailingSemicolon(tokenList, pos);
 
+	// '{}' body는 BlockParser가 이미 BlockStmtNode로 감싸서 ExecutorUnit의
+	// ScopeGuard(RAII)로 스코프가 격리된다. '{}' 없는 단일 문장 body는 그
+	// 격리를 받지 못하므로, 여기서 직접 BlockStmtNode 하나로 감싸 동일하게
+	// 스코프가 생기도록 한다 -- 이렇게 하면 ExecutorUnit/CheckerUnit은 전혀
+	// 손댈 필요 없이 '{}' body와 똑같은 경로로 처리된다.
+	if (bodyNode->type != NodeType::BlockStmt) {
+		auto blockNode = std::make_unique<BlockStmtNode>();
+		blockNode->token = bodyNode->token;
+		blockNode->children.push_back(std::move(bodyNode));
+		bodyNode = std::move(blockNode);
+	}
+
 	auto forNode = std::make_unique<ForStmtNode>();
 	forNode->token = forToken;
 	forNode->children.push_back(std::move(initNode));
