@@ -109,6 +109,24 @@ int main() {
 			} else if (lastRealType == TokenType::RParen
 				&& (firstType == TokenType::KwIf || firstType == TokenType::KwFor)) {
 				pendingControlBlock = true; // "if (...)"/"for (...)" 다음에 '{'를 기다리는 중
+			} else if (lastRealType == TokenType::RBrace && firstType == TokenType::KwIf) {
+				// "if (a > 3)\n{ print "x"; }"처럼 if의 body('{...}')까지만 닫힌
+				// 상태는 브레이스 개수로도, 위 두 조건으로도 "완성"처럼 보이지만,
+				// 다음 줄에 이 if를 마저 연장하는 'else'/'else if'가 올 수도 있다.
+				// 이 시점에 그대로 실행해버리면 버퍼가 비워져서, 뒤이어 오는 'else'가
+				// 짝이 되는 if 없이 홀로 나타나 구문 오류가 난다. 버퍼에 'else'가
+				// 아직 한 번도 없다면(=아직 결론이 안 난 if라면) 한 줄 더 받아서
+				// else 여부를 확인한다.
+				bool hasElse = false;
+				for (const Token& token : tokenList) {
+					if (token.type == TokenType::KwElse) {
+						hasElse = true;
+						break;
+					}
+				}
+				if (!hasElse) {
+					pendingControlBlock = true;
+				}
 			}
 		}
 		if (pendingControlBlock) {
