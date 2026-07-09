@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="430" viewBox="0 0 920 430" role="img" aria-labelledby="title desc">
+  <title id="title">Registry and Factory Pattern Class Diagram</title>
+  <desc id="desc">StatementParserRegistrar registers parser factories in StatementParserRegistry. The registry resolves IStatementParser implementations.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f4e8c"/>
+    </marker>
+    <marker id="triangle" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#ffffff" stroke="#1f4e8c" stroke-width="1.5"/>
+    </marker>
+    <style>
+      text { font-family: Segoe UI, Arial, sans-serif; fill: #1c2430; }
+      .title { font-size: 18px; font-weight: 700; fill: #173f73; }
+      .box { fill: #f8fbff; stroke: #1f4e8c; stroke-width: 2; rx: 10; }
+      .interface { fill: #f3fff8; stroke: #2c7a4b; stroke-width: 2; rx: 10; }
+      .head { fill: #dcecff; stroke: #1f4e8c; stroke-width: 2; }
+      .ihead { fill: #dcf7e7; stroke: #2c7a4b; stroke-width: 2; }
+      .name { font-size: 15px; font-weight: 700; }
+      .body { font-size: 13px; }
+      .arrow { stroke: #1f4e8c; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #1f4e8c; stroke-width: 2.2; fill: none; marker-end: url(#triangle); }
+      .label { font-size: 12px; fill: #4b5b70; }
+    </style>
+  </defs>
+  <rect width="920" height="430" fill="#ffffff"/>
+  <text x="32" y="36" class="title">Registry + Factory Pattern</text>
+
+  <g transform="translate(42 96)">
+    <rect class="box" width="248" height="126"/>
+    <rect class="head" width="248" height="42" rx="10"/>
+    <text x="124" y="27" text-anchor="middle" class="name">StatementParserRegistrar&lt;T&gt;</text>
+    <line x1="0" y1="42" x2="248" y2="42" stroke="#1f4e8c" stroke-width="2"/>
+    <text x="16" y="72" class="body">+StatementParserRegistrar(TokenType)</text>
+    <text x="16" y="96" class="body">+lambda factory for TParser</text>
+  </g>
+  <g transform="translate(366 82)">
+    <rect class="box" width="250" height="154"/>
+    <rect class="head" width="250" height="42" rx="10"/>
+    <text x="125" y="27" text-anchor="middle" class="name">StatementParserRegistry</text>
+    <line x1="0" y1="42" x2="250" y2="42" stroke="#1f4e8c" stroke-width="2"/>
+    <text x="16" y="72" class="body">-factories</text>
+    <text x="16" y="96" class="body">+Register(TokenType, Factory)</text>
+    <text x="16" y="120" class="body">+Resolve(TokenType)</text>
+  </g>
+  <g transform="translate(690 96)">
+    <rect class="interface" width="188" height="126"/>
+    <rect class="ihead" width="188" height="42" rx="10"/>
+    <text x="94" y="18" text-anchor="middle" class="label">&lt;&lt;interface&gt;&gt;</text>
+    <text x="94" y="35" text-anchor="middle" class="name">IStatementParser</text>
+    <line x1="0" y1="42" x2="188" y2="42" stroke="#2c7a4b" stroke-width="2"/>
+    <text x="16" y="72" class="body">+Parse(TokenList, pos)</text>
+    <text x="16" y="96" class="body">+SyntaxNode</text>
+  </g>
+  <g transform="translate(656 306)">
+    <rect class="box" width="196" height="54"/>
+    <text x="98" y="33" text-anchor="middle" class="name">VarDeclareParser</text>
+  </g>
+  <g transform="translate(426 306)">
+    <rect class="box" width="178" height="54"/>
+    <text x="89" y="33" text-anchor="middle" class="name">IfStatementParser</text>
+  </g>
+  <g transform="translate(190 306)">
+    <rect class="box" width="178" height="54"/>
+    <text x="89" y="33" text-anchor="middle" class="name">ExpressionParser</text>
+  </g>
+
+  <path class="arrow" d="M 290 159 L 366 159"/>
+  <path class="arrow" d="M 616 159 L 690 159"/>
+  <path class="inherit" d="M 754 306 L 774 222"/>
+  <path class="inherit" d="M 515 306 C 545 260 620 222 690 180"/>
+  <path class="inherit" d="M 279 306 C 330 244 548 178 690 158"/>
+  <text x="328" y="146" text-anchor="middle" class="label">registers</text>
+  <text x="653" y="146" text-anchor="middle" class="label">creates</text>
+</svg>
