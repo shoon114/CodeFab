@@ -81,6 +81,7 @@ $cases = @(
     @{ Category = "배열 생성/쓰기/읽기"; InputLines = @('var arr = Array(3);', 'arr[0] = 10;', 'print arr[0];'); Expect = "10" }
     @{ Category = "배열 기본값(null)"; InputLines = @('var arr = Array(3);', 'print arr[1];'); Expect = "null" }
     @{ Category = "배열(for 반복문으로 채우기)"; InputLines = @('var arr = Array(3);', 'for (var i = 0; i < 3; i = i + 1) { arr[i] = i * i; }', 'print arr[2];'); Expect = "4" }
+    @{ Category = "클래스 선언/인스턴스 생성/필드 읽기"; InputLines = @('Class Robot { init(name) { this.name = name; } }', 'var r = Robot("Wall-E");', 'print r.name;'); Expect = "Wall-E" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
