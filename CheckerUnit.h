@@ -26,6 +26,8 @@ public:
     void Visit(const SuperExprNode& node) override;
     void Visit(const MemberAccessExprNode& node) override;
     void Visit(const ClassDeclStmtNode& node) override;
+    void Visit(const ForStmtNode& node) override;
+    void Visit(const ImportStmtNode& node) override;
 
 private:
     // 스코프 스택: 각 블록마다 선언된 변수명 저장
@@ -33,6 +35,10 @@ private:
     std::vector<std::unordered_map<std::string, std::vector<std::string>>> functionScopeStack;
     // 스코프별로 선언된 클래스 이름 -> 부모 클래스 이름(없으면 nullopt).
     std::vector<std::unordered_map<std::string, std::optional<std::string>>> classScopeStack;
+    // 스코프별로 이미 import한 파일 경로 집합. 현재 스코프부터 바깥(조상)까지 훑어
+    // 같은 경로가 있으면 중복 import로 판단한다 — 형제 스코프의 독립적인 import는
+    // 서로 다른 스택 프레임에 있으므로 자연히 허용된다.
+    std::vector<std::unordered_set<std::string>> importScopeStack;
     bool hasError = false;
     int functionDepth = 0;
     // 현재 클래스 메서드(생성자 init 포함) 본문 내부인지 추적 — this/Super 위치 제약에 사용.
@@ -41,9 +47,21 @@ private:
     bool insideInit = false;
     // 방문 중인 클래스들이 부모를 가지고 있는지 여부의 스택(중첩 방어용).
     std::vector<bool> classHasParentStack;
+    // 현재 for문 내부인지 추적 — 반복문 내부에서의 import 사용 금지에 사용.
+    int loopDepth = 0;
 
-    void EnterScope() { scopeStack.push_back({}); functionScopeStack.push_back({}); classScopeStack.push_back({}); }
-    void ExitScope() { scopeStack.pop_back(); functionScopeStack.pop_back(); classScopeStack.pop_back(); }
+    void EnterScope() {
+        scopeStack.push_back({});
+        functionScopeStack.push_back({});
+        classScopeStack.push_back({});
+        importScopeStack.push_back({});
+    }
+    void ExitScope() {
+        scopeStack.pop_back();
+        functionScopeStack.pop_back();
+        classScopeStack.pop_back();
+        importScopeStack.pop_back();
+    }
 
     bool IsReferencingVar(const SyntaxNode* node, const std::string& varName);
     const std::vector<std::string>* LookupFunction(const std::string& name) const;

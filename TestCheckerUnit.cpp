@@ -178,6 +178,28 @@ protected:
 		return node;
 	}
 
+	// import "path" alias aliasName; — KwImport/KwAlias 토큰이 아직 파서 쪽에 없어서
+	// (import 문법은 미구현) token은 다른 초기 스텁 노드들과 마찬가지로 Identifier로 둔다.
+	// CheckerUnit은 token.type을 보지 않고 line 정보와 children의 lexeme만 사용한다.
+	std::unique_ptr<SyntaxNode> MakeImportStmt(const std::string& path, const std::string& aliasName) {
+		auto node = std::make_unique<ImportStmtNode>();
+		node->token = MakeToken(TokenType::Identifier, "import", 1, 1);
+		node->children.push_back(MakeStringLiteral(path));
+		node->children.push_back(MakeIdentifier(aliasName));
+		return node;
+	}
+
+	// for (var i = 0; i < 3; i = i + 1) { <bodyStatements> }
+	std::unique_ptr<SyntaxNode> MakeForStmt(std::vector<std::unique_ptr<SyntaxNode>> bodyStatements) {
+		auto node = std::make_unique<ForStmtNode>();
+		node->token = MakeToken(TokenType::KwFor, "for", 1, 1);
+		node->children.push_back(MakeVarDecl("i", MakeNumberLiteral(0.0)));
+		node->children.push_back(MakeBinaryExpr(TokenType::Lt, MakeIdentifier("i"), MakeNumberLiteral(3.0)));
+		node->children.push_back(MakeAssignExpr(MakeIdentifier("i"), MakeNumberLiteral(1.0)));
+		node->children.push_back(MakeBlock(std::move(bodyStatements)));
+		return node;
+	}
+
 	std::unique_ptr<SyntaxNode> MakeProgram(std::vector<std::unique_ptr<SyntaxNode>> statements) {
 		auto root = std::make_unique<ProgramNode>();
 		for (auto& statement : statements) {
@@ -761,6 +783,110 @@ TEST_F(CheckerUnitTest, Check_MemberAccessOnStringLiteral_ReportsError) {
 TEST_F(CheckerUnitTest, Check_MemberAccessOnIdentifier_ReturnsTrue) {
 	std::vector<std::unique_ptr<SyntaxNode>> statements;
 	statements.push_back(MakeExprStmt(MakeMemberAccess(MakeIdentifier("r"), "field")));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// import "sum.txt" alias sum; — 정상적인 단일 import는 에러가 없어야 한다.
+TEST_F(CheckerUnitTest, Check_ValidImport_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeImportStmt("sum.txt", "sum"));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// var sum = 0; import "sum.txt" alias sum; — alias 이름이 이미 선언된 변수와 충돌하면 에러.
+TEST_F(CheckerUnitTest, Check_ImportAliasCollidesWithVariable_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("sum"));
+	statements.push_back(MakeImportStmt("sum.txt", "sum"));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("별칭 'sum' 중복 선언"));
+}
+
+// import "sum.txt" alias sum; import "sum.txt" alias sum2; — alias가 달라도 같은 파일을
+// 같은 스코프에서 두 번 import하면 에러.
+TEST_F(CheckerUnitTest, Check_DuplicateImportInSameScope_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeImportStmt("sum.txt", "sum"));
+	statements.push_back(MakeImportStmt("sum.txt", "sum2"));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("이미 import되었습니다"));
+}
+
+// import "sum.txt" alias sum; { import "sum.txt" alias sum2; }
+// 상위(조상) 스코프에서 이미 import된 파일을 자손 스코프에서 다시 import하면 에러.
+TEST_F(CheckerUnitTest, Check_ReimportFileAlreadyImportedInAncestorScope_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> innerStatements;
+	innerStatements.push_back(MakeImportStmt("sum.txt", "sum2"));
+	auto innerBlock = MakeBlock(std::move(innerStatements));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeImportStmt("sum.txt", "sum"));
+	statements.push_back(std::move(innerBlock));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("이미 import되었습니다"));
+}
+
+// { import "sum.txt" alias sum; } { import "sum.txt" alias sum; }
+// 형제 스코프에서 각자 독립적으로 같은 파일을 import하는 건 정상이어야 한다.
+TEST_F(CheckerUnitTest, Check_ImportInSiblingScopes_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> firstBlockStatements;
+	firstBlockStatements.push_back(MakeImportStmt("sum.txt", "sum"));
+	auto firstBlock = MakeBlock(std::move(firstBlockStatements));
+
+	std::vector<std::unique_ptr<SyntaxNode>> secondBlockStatements;
+	secondBlockStatements.push_back(MakeImportStmt("sum.txt", "sum"));
+	auto secondBlock = MakeBlock(std::move(secondBlockStatements));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(std::move(firstBlock));
+	statements.push_back(std::move(secondBlock));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// for (...) { import "sum.txt" alias sum; } — 반복문 내부에서 import를 쓰면 에러.
+TEST_F(CheckerUnitTest, Check_ImportInsideForLoop_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> bodyStatements;
+	bodyStatements.push_back(MakeImportStmt("sum.txt", "sum"));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeForStmt(std::move(bodyStatements)));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("반복문 내부"));
+}
+
+// for (...) { ... } (import 없이 평범한 반복문 본문) — 에러가 없어야 한다.
+TEST_F(CheckerUnitTest, Check_ForLoopWithoutImport_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> bodyStatements;
+	bodyStatements.push_back(MakeExprStmt(MakeIdentifier("i")));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeForStmt(std::move(bodyStatements)));
 	auto root = MakeProgram(std::move(statements));
 
 	EXPECT_TRUE(checker.Check(root.get()));
