@@ -33,9 +33,12 @@ int PromptMode::Run() {
 
 		try {
 			trees.push_back(assembler.Parse(tokenList));
-			checker.Check(trees.back().get());
-			executor.Execute(*trees.back());
-			std::cout << std::endl;
+			// 정적 오류가 있으면 ReportError가 이미 stderr에 보고했으므로, 잘못된
+			// 트리를 실행해 런타임 오류를 또 내지 않도록 여기서 멈춘다.
+			if (checker.Check(trees.back().get())) {
+				executor.Execute(*trees.back());
+				std::cout << std::endl;
+			}
 		} catch (const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 		}

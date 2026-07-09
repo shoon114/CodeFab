@@ -71,9 +71,18 @@ $cases = @(
     @{ Category = "if/else if/else(3단 체인, 여러 줄, else 분기 참)"; InputLines = @('var a = 1;', 'var b = 0;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "z" }
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
     @{ Category = "for 반복문(단일 줄 body)"; InputLines = @('for (var j = 0; j < 3; j = j + 1) print j;'); Expect = "012" }
+    @{ Category = "함수 선언과 호출"; InputLines = @('func add(a, b) { return a + b; }', 'print add(2, 3);'); Expect = "5" }
+    @{ Category = "함수 호출(return 없이 종료)"; InputLines = @('func noop() { }', 'print noop();'); Expect = "null" }
+    @{ Category = "함수 호출(재귀, 팩토리얼)"; InputLines = @('func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }', 'print fact(5);'); Expect = "120" }
+    @{ Category = "함수 호출(전역 변수 접근 가능)"; InputLines = @('var g = 10;', 'func showG() { return g; }', 'print showG();'); Expect = "10" }
+    @{ Category = "함수 호출(for/if 내부에서 return으로 조기 종료)"; InputLines = @('func firstEvenFrom(start, n) { for (var i = start; i <= n; i = i + 1) { if (i % 2 == 0) { return i; } } return -1; }', 'print firstEvenFrom(3, 10);'); Expect = "4" }
+    @{ Category = "함수 호출(내부 지역 변수가 바깥에 영향 없음)"; InputLines = @('var x = 1;', 'func setX() { var x = 99; return x; }', 'print setX();', 'print x;'); Expect = "99`n1" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
+    @{ Category = "정적 오류: 함수 호출 인자 개수 불일치"; InputLines = @('func add(a, b) { return a + b; }', 'print add(1);'); ExpectError = $true }
+    @{ Category = "정적 오류: 정의되지 않은 함수 호출"; InputLines = @('print notAFunc(1);'); ExpectError = $true }
+    @{ Category = "런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가"; InputLines = @('func tryAccess() { return localOnly; }', '{ var localOnly = 5; print tryAccess(); }'); ExpectError = $true }
     @{ Category = "런타임 오류: for 단일 줄 body에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var i = 0; i < 3; i = i + 1) var x = i;', 'print x;'); ExpectError = $true }
     @{ Category = "런타임 오류: for init에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var a = 0; a < 3; a = a + 1) { print a; }', 'print a;'); ExpectError = $true }
     @{ Category = "구문 오류: 세미콜론 누락"; InputLines = @('print 1 + 2'); ExpectError = $true }
