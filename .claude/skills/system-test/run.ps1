@@ -104,6 +104,12 @@ $cases = @(
 # have this problem, so write the input to a temp file and redirect from it.
 # stdout/stderr는 따로 캡처한다 -- ExpectError 케이스는 stderr(에러 메시지)가
 # 비어있지 않은지만 확인하고, 그 외 케이스는 stdout만 기대값과 비교한다.
+#
+# PromptMode가 매 줄 입력 전에 ">>> "/"..> " 프롬프트를 stderr로 출력하므로
+# (stdout으로 보내면 run.ps1의 stdout 비교가 깨지기 때문에 의도적으로 stderr로
+# 분리되어 있음), 실제 에러 메시지 유무를 판단하려면 이 프롬프트 잡음을 먼저
+# 제거해야 한다. 그러지 않으면 에러가 전혀 없는 정상 실행도 stderr가 항상
+# 비어있지 않게 되어 ExpectError 판정이 무의미해진다.
 function Invoke-CodeFab {
     param(
         [string]$ExePath,
@@ -117,6 +123,10 @@ function Invoke-CodeFab {
         [System.IO.File]::WriteAllText($tmpFile, $content, (New-Object System.Text.UTF8Encoding($false)))
         $stdout = cmd /c "`"$ExePath`" < `"$tmpFile`" 2>`"$errFile`""
         $stderr = Get-Content -Raw -ErrorAction SilentlyContinue -Path $errFile
+        if ($stderr) {
+            $stderr = ($stderr -replace '>>> ', '') -replace '\.\.> ', ''
+            $stderr = $stderr.Trim()
+        }
         return [pscustomobject]@{
             Stdout = ($stdout -join "`n")
             Stderr = if ($stderr) { $stderr } else { "" }
