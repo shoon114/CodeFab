@@ -57,7 +57,17 @@ int PromptMode::Run() {
 	// 뒤에 무관한 문장이 계속 이어질 때 영원히 대기하게 된다. 이 상태를 버퍼가
 	// 실행되거나 else 체인에 확실히 들어선 시점마다 리셋해가며 추적한다.
 	bool waitedOnceForElse = false;
-	while (std::getline(std::cin, line)) {
+	while (true) {
+		// buffer가 비어있으면 새 문장의 시작(">>> "), 그렇지 않으면 이전 줄에서
+		// 이어지는 멀티라인 입력 중("..> ")이라는 뜻이다. stdout이 아니라
+		// stderr로 보내는 이유: stdout으로 보내면 파이프/리다이렉션으로 출력을
+		// 캡처하는 system test(run.ps1)에서 프롬프트 문자열이 실제 실행 결과와
+		// 같은 줄에 섞여 기대값 비교가 깨진다. 프롬프트는 UI 장식이지 프로그램의
+		// 실행 결과가 아니므로 stdout과 분리한다.
+		std::cerr << (buffer.empty() ? ">>> " : "..> ") << std::flush;
+		if (!std::getline(std::cin, line)) {
+			break;
+		}
 		if (line == "exit" || line == "quit") {
 			break;
 		}
