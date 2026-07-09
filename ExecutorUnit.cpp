@@ -3,6 +3,16 @@
 #include <iostream>
 #include <stdexcept>
 
+namespace {
+	// return문 실행을 표현하는 신호. InvokeMethod가 메서드 본문을 실행하다가 이 예외를
+	// 잡으면 그 지점에서 실행을 멈추고 값을 반환값으로 쓴다. 중첩된 if/for 안에서
+	// return을 만나도, 기존 ExecuteBlockStmt/ExecuteIfStmt/ExecuteForStmt를 전혀
+	// 건드리지 않고 C++ 예외 전파만으로 자연스럽게 그 블록들을 빠져나가게 된다.
+	struct ReturnSignal {
+		Value_t value;
+	};
+}
+
 void ExecutorUnit::Execute(const SyntaxNode& tree) {
 	if (tree.type != NodeType::Program) {
 		return;
@@ -88,6 +98,9 @@ void ExecutorUnit::Visit(const IfStmtNode& node) { ExecuteIfStmt(node); }
 void ExecutorUnit::Visit(const ExprStmtNode& node) { ExecuteExprStmt(node); }
 void ExecutorUnit::Visit(const ForStmtNode& node) { ExecuteForStmt(node); }
 
+// 최상위/일반 함수 선언은 FunctionObject로 등록해 EvaluateCallExpr(일반 함수 호출 경로)가
+// 찾아 쓸 수 있게 한다. 클래스 메서드(init 포함)도 FuncDeclStmtNode를 재사용하지만
+// InvokeMethod가 직접 body->Accept(*this)를 호출해서 실행하므로 이 Visit을 거치지 않는다.
 void ExecutorUnit::Visit(const FuncDeclStmtNode& node) {
 	// children = [파라미터 Identifier..., body(BlockStmt)]. 마지막 원소가 body.
 	auto function = std::make_shared<FunctionObject>();
@@ -98,9 +111,12 @@ void ExecutorUnit::Visit(const FuncDeclStmtNode& node) {
 	scopes.back()[node.token.lexeme] = function;
 }
 
+// return문은 값을 계산해 ReturnSignal로 던진다. EvaluateCallExpr/InvokeMethod가 이를 잡아
+// 함수/메서드의 반환값으로 사용한다(Checker가 이미 함수/메서드 밖의 return을 막아주므로,
+// 이 코드가 함수/메서드 호출 바깥에서 실행되는 일은 없다).
 void ExecutorUnit::Visit(const ReturnStmtNode& node) {
-	returnValue = node.children.empty() ? Value_t{ std::monostate{} } : Evaluate(*node.children[0]);
-	isReturning = true;
+	Value_t value = node.children.empty() ? Value_t{ std::monostate{} } : Evaluate(*node.children[0]);
+	throw ReturnSignal{ value };
 }
 
 void ExecutorUnit::Visit(const NumberLiteralNode& node) { lastValue = node.token.realValue; }
@@ -115,6 +131,37 @@ void ExecutorUnit::Visit(const CallExprNode& node) { lastValue = EvaluateCallExp
 
 void ExecutorUnit::Visit(const ArrExprNode& node) { lastValue = EvaluateArrExpr(node); }
 void ExecutorUnit::Visit(const IndexExprNode& node) { lastValue = EvaluateIndexExpr(node); }
+
+void ExecutorUnit::Visit(const ThisExprNode& node) {
+	if (thisStack.empty()) {
+		throw std::runtime_error("클래스 외부에서 'this'를 사용할 수 없습니다 at line " + std::to_string(node.token.line));
+	}
+	lastValue = thisStack.back();
+}
+
+void ExecutorUnit::Visit(const SuperExprNode& node) {
+	// Super 단독으로는 this와 같은 인스턴스 값으로 평가된다(필드는 클래스별로 분리되어
+	// 저장되지 않으므로 Super.field와 this.field는 동일한 저장소를 가리킨다). Super가
+	// 메서드 호출의 대상일 때(Super.move(...))의 "부모부터 찾기" 동작은
+	// EvaluateMethodCall이 SuperExprNode 타입을 직접 검사해서 별도로 처리한다.
+	if (thisStack.empty()) {
+		throw std::runtime_error("클래스 외부에서 'Super'를 사용할 수 없습니다 at line " + std::to_string(node.token.line));
+	}
+	lastValue = thisStack.back();
+}
+
+void ExecutorUnit::Visit(const MemberAccessExprNode& node) { lastValue = EvaluateMemberAccess(node); }
+
+void ExecutorUnit::Visit(const ClassDeclStmtNode& node) {
+	ClassInfo info;
+	if (!node.parentNameToken.lexeme.empty()) {
+		info.parentName = node.parentNameToken.lexeme;
+	}
+	for (const auto& methodNode : node.children) {
+		info.methods[methodNode->token.lexeme] = methodNode.get();
+	}
+	classes[node.token.lexeme] = std::move(info);
+}
 
 void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
 	const auto& expression = *node.children[0];
@@ -154,9 +201,6 @@ void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
 	EnterScope();
 	for (const auto& stmt : node.children) {
 		ExecuteStmt(*stmt);
-		if (isReturning) {
-			break;
-		}
 	}
 	ExitScope();
 }
@@ -185,9 +229,6 @@ void ExecutorUnit::ExecuteForStmt(const SyntaxNode& node) {
 	ExecuteStmt(init);
 	while (IsTruthy(Evaluate(condition))) {
 		ExecuteStmt(body);
-		if (isReturning) {
-			break;
-		}
 		Evaluate(increment);
 	}
 }
@@ -205,6 +246,8 @@ Value_t ExecutorUnit::EvaluateAssignExpr(const SyntaxNode& node) {
 	Value_t value = Evaluate(valueExpr);
 	if (target.type == NodeType::IndexExpr) {
 		ResolveIndexElement(target) = value;
+	} else if (target.type == NodeType::MemberAccessExpr) {
+		AssignMemberField(static_cast<const MemberAccessExprNode&>(target), value);
 	} else {
 		const auto& identifier = static_cast<const IdentifierNode&>(target);
 		ResolveVariable(identifier.token.lexeme, identifier.scopeDistance, node.token.line) = value;
@@ -256,12 +299,26 @@ Value_t& ExecutorUnit::ResolveIndexElement(const SyntaxNode& node) {
 	return array->elements[static_cast<size_t>(indexNumber)];
 }
 
-Value_t ExecutorUnit::EvaluateCallExpr(const SyntaxNode& node) {
-	// CallExprNode의 token은 callee 식별자 토큰이고, scopeDistance가 없으므로
-	// 항상 동적(선형) 탐색으로 함수 값을 찾는다.
-	Value_t calleeValue = ResolveVariable(node.token.lexeme, -1, node.token.line);
+Value_t ExecutorUnit::EvaluateCallExpr(const CallExprNode& node) {
+	// r.move(5), this.report(), Super.move(dist)처럼 children[0]이 MemberAccessExprNode면
+	// <대상>.<메서드>(...) 형태의 메서드 호출이다.
+	if (!node.children.empty() && node.children[0]->type == NodeType::MemberAccessExpr) {
+		return EvaluateMethodCall(node);
+	}
+
+	// 그 외에는 기존처럼 token.lexeme이 호출 대상 이름이고 children 전체가 인자다.
+	// 이름이 등록된 클래스면 인스턴스 생성(Robot(...))으로, 아니면 일반 함수 호출로 처리한다.
+	const std::string& name = node.token.lexeme;
+	auto classIt = classes.find(name);
+	if (classIt != classes.end()) {
+		return InstantiateClass(name, node);
+	}
+
+	// 일반 함수 호출: CallExprNode의 token은 callee 식별자 토큰이고, scopeDistance가
+	// 없으므로 항상 동적(선형) 탐색으로 함수 값을 찾는다.
+	Value_t calleeValue = ResolveVariable(name, -1, node.token.line);
 	if (!std::holds_alternative<std::shared_ptr<FunctionObject>>(calleeValue)) {
-		throw std::runtime_error("'" + node.token.lexeme + "' is not callable at line " + std::to_string(node.token.line));
+		throw std::runtime_error("'" + name + "' is not callable at line " + std::to_string(node.token.line));
 	}
 	auto function = std::get<std::shared_ptr<FunctionObject>>(calleeValue);
 
@@ -288,10 +345,12 @@ Value_t ExecutorUnit::EvaluateCallExpr(const SyntaxNode& node) {
 		scopes.back()[function->parameters[i]] = args[i];
 	}
 
-	ExecuteStmt(*function->body);
-
-	Value_t result = isReturning ? returnValue : Value_t{ std::monostate{} };
-	isReturning = false;
+	Value_t result = Value_t{ std::monostate{} };
+	try {
+		ExecuteStmt(*function->body);
+	} catch (const ReturnSignal& signal) {
+		result = signal.value;
+	}
 
 	scopes.resize(1);
 	for (auto& frame : savedLocalFrames) {
@@ -299,6 +358,144 @@ Value_t ExecutorUnit::EvaluateCallExpr(const SyntaxNode& node) {
 	}
 
 	return result;
+}
+
+Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
+	const auto& memberAccess = static_cast<const MemberAccessExprNode&>(*node.children[0]);
+	const std::string& methodName = memberAccess.token.lexeme;
+	const auto& targetExpr = *memberAccess.children[0];
+
+	Value_t targetValue = Evaluate(targetExpr);
+	if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
+		throw std::runtime_error("인스턴스가 아닌 값의 메서드 '" + methodName + "'을(를) 호출할 수 없습니다 at line " + std::to_string(node.token.line));
+	}
+	auto instance = std::get<std::shared_ptr<InstanceObject>>(targetValue);
+
+	// Super.move(...)는 인스턴스의 실제(가장 파생된) 클래스가 아니라, "현재 실행 중인
+	// 메서드가 정의된 클래스"의 부모부터 찾아야 한다(그래야 오버라이딩한 자기 자신을
+	// 다시 호출하는 무한 재귀에 빠지지 않는다).
+	std::string searchStartClass;
+	if (targetExpr.type == NodeType::SuperExpr) {
+		if (currentClassNameStack.empty()) {
+			throw std::runtime_error("클래스 외부에서 'Super'를 사용할 수 없습니다 at line " + std::to_string(node.token.line));
+		}
+		const ClassInfo& currentClassInfo = classes.at(currentClassNameStack.back());
+		if (!currentClassInfo.parentName) {
+			throw std::runtime_error("부모 클래스가 없는 클래스에서 'Super'를 사용할 수 없습니다 at line " + std::to_string(node.token.line));
+		}
+		searchStartClass = *currentClassInfo.parentName;
+	} else {
+		searchStartClass = instance->className;
+	}
+
+	ResolvedMethod resolved = FindMethod(searchStartClass, methodName);
+	if (!resolved.method) {
+		throw std::runtime_error("존재하지 않는 메서드 '" + methodName + "'을(를) 호출했습니다 at line " + std::to_string(node.token.line));
+	}
+
+	std::vector<Value_t> args;
+	for (size_t i = 1; i < node.children.size(); ++i) {
+		args.push_back(Evaluate(*node.children[i]));
+	}
+
+	return InvokeMethod(*resolved.method, resolved.owningClassName, instance, args);
+}
+
+Value_t ExecutorUnit::EvaluateMemberAccess(const MemberAccessExprNode& node) {
+	Value_t targetValue = Evaluate(*node.children[0]);
+	if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
+		throw std::runtime_error("인스턴스가 아닌 값에 멤버 '" + node.token.lexeme + "'로 접근할 수 없습니다 at line " + std::to_string(node.token.line));
+	}
+	auto instance = std::get<std::shared_ptr<InstanceObject>>(targetValue);
+
+	auto fieldIt = instance->fields.find(node.token.lexeme);
+	if (fieldIt == instance->fields.end()) {
+		throw std::runtime_error("존재하지 않는 필드 '" + node.token.lexeme + "'에 접근했습니다 at line " + std::to_string(node.token.line));
+	}
+	return fieldIt->second;
+}
+
+void ExecutorUnit::AssignMemberField(const MemberAccessExprNode& node, const Value_t& value) {
+	Value_t targetValue = Evaluate(*node.children[0]);
+	if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
+		throw std::runtime_error("인스턴스가 아닌 값에 멤버 '" + node.token.lexeme + "'로 접근할 수 없습니다 at line " + std::to_string(node.token.line));
+	}
+	auto instance = std::get<std::shared_ptr<InstanceObject>>(targetValue);
+	instance->fields[node.token.lexeme] = value; // 없는 필드면 새로 생성(슬라이드 "필드 쓰기" 명세)
+}
+
+Value_t ExecutorUnit::InstantiateClass(const std::string& className, const SyntaxNode& callNode) {
+	auto instance = std::make_shared<InstanceObject>();
+	instance->className = className;
+
+	ResolvedMethod initMethod = FindMethod(className, "init");
+	if (initMethod.method) {
+		std::vector<Value_t> args;
+		for (const auto& argExpr : callNode.children) {
+			args.push_back(Evaluate(*argExpr));
+		}
+		InvokeMethod(*initMethod.method, initMethod.owningClassName, instance, args);
+	}
+	return instance;
+}
+
+Value_t ExecutorUnit::InvokeMethod(const SyntaxNode& methodNode, const std::string& owningClassName,
+	std::shared_ptr<InstanceObject> instance, const std::vector<Value_t>& args) {
+	// FuncDeclStmtNode와 동일한 구조를 재사용: children = [파라미터(Identifier)..., body(BlockStmt)].
+	const SyntaxNode* body = methodNode.children.back().get();
+
+	EnterScope();
+	for (size_t i = 0; i + 1 < methodNode.children.size(); ++i) {
+		const std::string& paramName = methodNode.children[i]->token.lexeme;
+		scopes.back()[paramName] = (i < args.size()) ? args[i] : Value_t{ std::monostate{} };
+	}
+
+	thisStack.push_back(instance);
+	currentClassNameStack.push_back(owningClassName);
+
+	Value_t result = Value_t{ std::monostate{} };
+	try {
+		ExecuteStmt(*body);
+	} catch (const ReturnSignal& signal) {
+		result = signal.value;
+	}
+
+	currentClassNameStack.pop_back();
+	thisStack.pop_back();
+	ExitScope();
+	return result;
+}
+
+ExecutorUnit::ResolvedMethod ExecutorUnit::FindMethod(const std::string& startClassName, const std::string& methodName) const {
+	std::string current = startClassName;
+	while (true) {
+		auto classIt = classes.find(current);
+		if (classIt == classes.end()) {
+			return {};
+		}
+		auto methodIt = classIt->second.methods.find(methodName);
+		if (methodIt != classIt->second.methods.end()) {
+			return { methodIt->second, current };
+		}
+		if (!classIt->second.parentName) {
+			return {};
+		}
+		current = *classIt->second.parentName;
+	}
+}
+
+bool ExecutorUnit::IsInstanceOf(const std::string& actualClassName, const std::string& targetClassName) const {
+	std::string current = actualClassName;
+	while (true) {
+		if (current == targetClassName) {
+			return true;
+		}
+		auto classIt = classes.find(current);
+		if (classIt == classes.end() || !classIt->second.parentName) {
+			return false;
+		}
+		current = *classIt->second.parentName;
+	}
 }
 
 Value_t ExecutorUnit::EvaluateBinaryExpr(const BinaryExprNode& node) {
@@ -321,6 +518,17 @@ Value_t ExecutorUnit::EvaluateBinaryExpr(const BinaryExprNode& node) {
 			return true;
 		}
 		return IsTruthy(Evaluate(rightExpr));
+	}
+
+	// instanceof는 우변을 값으로 평가하지 않는다 — 클래스 이름을 직접 가리키는
+	// Identifier 토큰이기 때문이다(w instanceof Robot에서 Robot은 변수가 아니다).
+	if (node.token.type == TokenType::KwInstanceof) {
+		Value_t leftValue = Evaluate(leftExpr);
+		const std::string& targetClassName = rightExpr.token.lexeme;
+		if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(leftValue)) {
+			return false;
+		}
+		return IsInstanceOf(std::get<std::shared_ptr<InstanceObject>>(leftValue)->className, targetClassName);
 	}
 
 	Value_t leftValue = Evaluate(leftExpr);

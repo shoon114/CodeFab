@@ -11,6 +11,9 @@ class AssignExprNode;
 class CallExprNode;
 class ArrExprNode;
 class IndexExprNode;
+class ThisExprNode;
+class SuperExprNode;
+class MemberAccessExprNode;
 class VarDeclareStatementNode;
 class ExprStmtNode;
 class PrintStmtNode;
@@ -19,6 +22,7 @@ class ForStmtNode;
 class BlockStmtNode;
 class FuncDeclStmtNode;
 class ReturnStmtNode;
+class ClassDeclStmtNode;
 class ProgramNode;
 
 // SyntaxNode 계층에 대한 Visitor 인터페이스.
@@ -45,6 +49,9 @@ public:
 	virtual void Visit(const CallExprNode& node);
 	virtual void Visit(const ArrExprNode& node);
 	virtual void Visit(const IndexExprNode& node);
+	virtual void Visit(const ThisExprNode& node);
+	virtual void Visit(const SuperExprNode& node);
+	virtual void Visit(const MemberAccessExprNode& node);
 	virtual void Visit(const VarDeclareStatementNode& node);
 	virtual void Visit(const ExprStmtNode& node);
 	virtual void Visit(const PrintStmtNode& node);
@@ -53,6 +60,7 @@ public:
 	virtual void Visit(const BlockStmtNode& node);
 	virtual void Visit(const FuncDeclStmtNode& node);
 	virtual void Visit(const ReturnStmtNode& node);
+	virtual void Visit(const ClassDeclStmtNode& node);
 	virtual void Visit(const ProgramNode& node);
 
 protected:
