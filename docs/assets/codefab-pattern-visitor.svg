@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="430" viewBox="0 0 920 430" role="img" aria-labelledby="title desc">
+  <title id="title">Visitor Pattern Class Diagram</title>
+  <desc id="desc">SyntaxNode accepts a NodeVisitor. CheckerUnit and ExecutorUnit implement visitor behavior for the same AST.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f4e8c"/>
+    </marker>
+    <marker id="triangle" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#ffffff" stroke="#1f4e8c" stroke-width="1.5"/>
+    </marker>
+    <style>
+      text { font-family: Segoe UI, Arial, sans-serif; fill: #1c2430; }
+      .title { font-size: 18px; font-weight: 700; fill: #173f73; }
+      .box { fill: #f8fbff; stroke: #1f4e8c; stroke-width: 2; rx: 10; }
+      .abstract { fill: #fffaf0; stroke: #b56b00; stroke-width: 2; rx: 10; }
+      .head { fill: #ffe7bf; stroke: #b56b00; stroke-width: 2; }
+      .vhead { fill: #dcecff; stroke: #1f4e8c; stroke-width: 2; }
+      .name { font-size: 15px; font-weight: 700; }
+      .body { font-size: 13px; }
+      .arrow { stroke: #1f4e8c; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #1f4e8c; stroke-width: 2.2; fill: none; marker-end: url(#triangle); }
+      .label { font-size: 12px; fill: #4b5b70; }
+    </style>
+  </defs>
+  <rect width="920" height="430" fill="#ffffff"/>
+  <text x="32" y="36" class="title">Visitor Pattern</text>
+
+  <g transform="translate(76 82)">
+    <rect class="abstract" width="220" height="118"/>
+    <rect class="head" width="220" height="48" rx="10"/>
+    <text x="110" y="19" text-anchor="middle" class="label">&lt;&lt;abstract&gt;&gt;</text>
+    <text x="110" y="38" text-anchor="middle" class="name">SyntaxNode</text>
+    <line x1="0" y1="48" x2="220" y2="48" stroke="#b56b00" stroke-width="2"/>
+    <text x="16" y="78" class="body">+Accept(NodeVisitor&amp;)</text>
+    <text x="16" y="102" class="body">+children</text>
+  </g>
+  <g transform="translate(76 294)">
+    <rect class="box" width="196" height="54"/>
+    <text x="98" y="33" text-anchor="middle" class="name">NumberLiteralNode</text>
+  </g>
+  <g transform="translate(314 294)">
+    <rect class="box" width="196" height="54"/>
+    <text x="98" y="33" text-anchor="middle" class="name">FuncDeclStmtNode</text>
+  </g>
+  <g transform="translate(520 72)">
+    <rect class="box" width="246" height="150"/>
+    <rect class="vhead" width="246" height="42" rx="10"/>
+    <text x="123" y="27" text-anchor="middle" class="name">NodeVisitor</text>
+    <line x1="0" y1="42" x2="246" y2="42" stroke="#1f4e8c" stroke-width="2"/>
+    <text x="16" y="72" class="body">+Visit(NumberLiteralNode)</text>
+    <text x="16" y="96" class="body">+Visit(FuncDeclStmtNode)</text>
+    <text x="16" y="120" class="body">#Traverse(SyntaxNode)</text>
+  </g>
+  <g transform="translate(528 312)">
+    <rect class="box" width="154" height="54"/>
+    <text x="77" y="33" text-anchor="middle" class="name">CheckerUnit</text>
+  </g>
+  <g transform="translate(722 312)">
+    <rect class="box" width="154" height="54"/>
+    <text x="77" y="33" text-anchor="middle" class="name">ExecutorUnit</text>
+  </g>
+
+  <path class="arrow" d="M 296 141 L 520 141"/>
+  <text x="408" y="126" text-anchor="middle" class="label">Accept(visitor)</text>
+  <path class="inherit" d="M 174 294 L 174 200"/>
+  <path class="inherit" d="M 412 294 C 360 242 310 210 296 160"/>
+  <path class="inherit" d="M 605 312 L 622 222"/>
+  <path class="inherit" d="M 799 312 C 760 262 725 238 690 222"/>
+</svg>

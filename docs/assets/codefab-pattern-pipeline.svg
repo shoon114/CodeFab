@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" role="img" aria-labelledby="title desc">
+  <title id="title">Pipeline Pattern Class Diagram</title>
+  <desc id="desc">Tokenizer passes tokens to AssemblerUnit, which passes AST to CheckerUnit, which passes checked AST to ExecutorUnit.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f4e8c"/>
+    </marker>
+    <style>
+      text { font-family: Segoe UI, Arial, sans-serif; fill: #1c2430; }
+      .title { font-size: 18px; font-weight: 700; fill: #173f73; }
+      .box { fill: #f8fbff; stroke: #1f4e8c; stroke-width: 2; rx: 10; }
+      .head { fill: #dcecff; stroke: #1f4e8c; stroke-width: 2; }
+      .name { font-size: 16px; font-weight: 700; }
+      .body { font-size: 13px; }
+      .arrow { stroke: #1f4e8c; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .label { font-size: 12px; fill: #4b5b70; }
+    </style>
+  </defs>
+  <rect width="920" height="360" fill="#ffffff"/>
+  <text x="32" y="36" class="title">Pipeline Pattern</text>
+
+  <g transform="translate(34 92)">
+    <rect class="box" width="178" height="136"/>
+    <rect class="head" width="178" height="42" rx="10"/>
+    <text x="89" y="27" text-anchor="middle" class="name">Tokenizer</text>
+    <line x1="0" y1="42" x2="178" y2="42" stroke="#1f4e8c" stroke-width="2"/>
+    <text x="16" y="72" class="body">+CreateTokenForCode()</text>
+    <text x="16" y="96" class="body">+TokenList</text>
+  </g>
+  <g transform="translate(264 92)">
+    <rect class="box" width="178" height="136"/>
+    <rect class="head" width="178" height="42" rx="10"/>
+    <text x="89" y="27" text-anchor="middle" class="name">AssemblerUnit</text>
+    <line x1="0" y1="42" x2="178" y2="42" stroke="#1f4e8c" stroke-width="2"/>
+    <text x="16" y="72" class="body">+Parse(TokenList)</text>
+    <text x="16" y="96" class="body">+SyntaxNode AST</text>
+  </g>
+  <g transform="translate(494 92)">
+    <rect class="box" width="178" height="136"/>
+    <rect class="head" width="178" height="42" rx="10"/>
+    <text x="89" y="27" text-anchor="middle" class="name">CheckerUnit</text>
+    <line x1="0" y1="42" x2="178" y2="42" stroke="#1f4e8c" stroke-width="2"/>
+    <text x="16" y="72" class="body">+Check(AST)</text>
+    <text x="16" y="96" class="body">+Semantic pass</text>
+  </g>
+  <g transform="translate(724 92)">
+    <rect class="box" width="162" height="136"/>
+    <rect class="head" width="162" height="42" rx="10"/>
+    <text x="81" y="27" text-anchor="middle" class="name">ExecutorUnit</text>
+    <line x1="0" y1="42" x2="162" y2="42" stroke="#1f4e8c" stroke-width="2"/>
+    <text x="16" y="72" class="body">+Execute(AST)</text>
+    <text x="16" y="96" class="body">+Runtime result</text>
+  </g>
+
+  <path class="arrow" d="M 212 160 L 264 160"/>
+  <path class="arrow" d="M 442 160 L 494 160"/>
+  <path class="arrow" d="M 672 160 L 724 160"/>
+  <text x="238" y="146" text-anchor="middle" class="label">tokens</text>
+  <text x="468" y="146" text-anchor="middle" class="label">AST</text>
+  <text x="698" y="146" text-anchor="middle" class="label">checked AST</text>
+</svg>
