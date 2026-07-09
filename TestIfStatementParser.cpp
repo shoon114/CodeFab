@@ -1,9 +1,15 @@
 #ifdef _DEBUG
+#include <string>
 #include <utility>
 #include "gmock/gmock.h"
+#include "AssemblerUnit.h"
 #include "BlockParser.h"
+#include "CheckerUnit.h"
+#include "ExecutorUnit.h"
+#include "ExpressionParser.h"
 #include "IfStatementParser.h"
 #include "MockStatementParser.h"
+#include "SourceFileLoader.h"
 #include "StatementParserRegistry.h"
 #include "TestTokenHelpers.h"
 
@@ -210,7 +216,7 @@ TEST_F(IfStatementParserTest, Parse_MissingCloseParen_ThrowsOnMalformedSyntax) {
 		.WillOnce([](const TokenList& tokens, size_t& pos) {
 			auto node = std::make_unique<BinaryExprNode>();
 			node->token = tokens[pos];
-			pos += 3; 
+			pos += 3;
 			return node;
 		});
 
@@ -498,6 +504,33 @@ TEST_F(IfStatementParserTest, Parse_ThenBodyWithoutBraces_DoesNotSwallowFollowin
 
 	ASSERT_THAT(pos, Lt(tokenList.size()));
 	EXPECT_THAT(tokenList[pos].lexeme, Eq("y"));
+}
+
+TEST_F(IfStatementParserTest, Execute_IfSingleStatementVarDeclare_DoesNotLeakOutsideScope) {
+	// if (true) var a = 1;
+	// print a;
+	// 여러 모듈이 함께 만드는 버그라 Mock으로는 검증이 어려워서 Fake Object로 진행.
+	StatementParserRegistry::Instance().Register(TokenType::Identifier, []() {
+		return std::make_shared<ExpressionParser>();
+		});
+
+	TokenList tokenList = SourceFileLoader::Tokenize(
+		"if (true) var a = 1;\n"
+		"print a;\n");
+
+	AssemblerUnit assembler;
+	CheckerUnit checker;
+	ExecutorUnit executor;
+	std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
+	checker.Check(tree.get());
+
+	try {
+		executor.Execute(*tree);
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_THAT(std::string(e.what()), HasSubstr("Undefined variable 'a'"));
+	}
 }
 
 TEST_F(IfStatementParserTest, Parse_ElseIfPropagatesInnerIfError_ThrowsOnMalformedSyntax) {

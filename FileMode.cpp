@@ -24,7 +24,11 @@ int FileMode::Run() {
 
 	try {
 		std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
-		checker.Check(tree.get());
+		// 정적 오류가 있으면 ReportError가 이미 stderr에 보고했으므로, 잘못된
+		// 트리를 실행해 런타임 오류를 또 내지 않도록 여기서 멈춘다.
+		if (!checker.Check(tree.get())) {
+			return 1;
+		}
 		executor.Execute(*tree);
 	} catch (const std::exception& e) {
 		// 기존 ExecutorUnit의 모든 throw std::runtime_error가 이미 메시지에
