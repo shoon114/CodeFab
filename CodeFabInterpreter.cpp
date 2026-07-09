@@ -56,6 +56,13 @@ int main() {
 	// 매번 std::cin을 누적 버퍼만 담은 istringstream으로 잠시 바꿔치기해서 호출한다.
 	std::string buffer;
 	std::string line;
+	// if가 '{}' 없는 단일 문장 body를 가질 때(예: "if (a > 3)\nprint "x";"), body가
+	// ';'로 끝나는 순간에도 'else'가 이어질 수 있어 한 번은 다음 줄을 더 확인해야
+	// 한다. 다만 그 확인이 끝났는데도(=이미 한 번 대기했는데도) 여전히 'else'가
+	// 없다면 더 기다리지 않고 바로 실행해야 한다 -- 그러지 않으면 else 없는 if
+	// 뒤에 무관한 문장이 계속 이어질 때 영원히 대기하게 된다. 이 상태를 버퍼가
+	// 실행되거나 else 체인에 확실히 들어선 시점마다 리셋해가며 추적한다.
+	bool waitedOnceForElse = false;
 	while (std::getline(std::cin, line)) {
 		if (buffer.empty() && line.empty()) {
 			continue;
@@ -106,17 +113,19 @@ int main() {
 			TokenType lastRealType = tokenList[tokenList.size() - 2].type;
 			if (lastRealType == TokenType::KwElse) {
 				pendingControlBlock = true; // "... else" 다음에 '{' 또는 'if'를 기다리는 중
+				waitedOnceForElse = false; // 이미 'else'를 만났으니 "혹시 else?" 대기 상태는 아니다
 			} else if (lastRealType == TokenType::RParen
 				&& (firstType == TokenType::KwIf || firstType == TokenType::KwFor)) {
 				pendingControlBlock = true; // "if (...)"/"for (...)" 다음에 '{'를 기다리는 중
-			} else if (lastRealType == TokenType::RBrace && firstType == TokenType::KwIf) {
-				// "if (a > 3)\n{ print "x"; }"처럼 if의 body('{...}')까지만 닫힌
-				// 상태는 브레이스 개수로도, 위 두 조건으로도 "완성"처럼 보이지만,
-				// 다음 줄에 이 if를 마저 연장하는 'else'/'else if'가 올 수도 있다.
-				// 이 시점에 그대로 실행해버리면 버퍼가 비워져서, 뒤이어 오는 'else'가
-				// 짝이 되는 if 없이 홀로 나타나 구문 오류가 난다. 버퍼에 'else'가
-				// 아직 한 번도 없다면(=아직 결론이 안 난 if라면) 한 줄 더 받아서
-				// else 여부를 확인한다.
+				waitedOnceForElse = false;
+			} else if (firstType == TokenType::KwIf
+				&& (lastRealType == TokenType::RBrace || lastRealType == TokenType::Semicolon)) {
+				// if의 body가 방금 닫혔다(브레이스 body든 '{}' 없는 단일 문장
+				// body든). 아직 'else'가 하나도 없다면, 다음 줄에 이 if를 마저
+				// 연장하는 'else'/'else if'가 올 수도 있으므로 한 줄 더 받아서
+				// 확인해야 한다. 다만 이미 한 번 확인했는데도(waitedOnceForElse)
+				// 여전히 'else'가 없다면 더 기다리지 않고 지금 실행한다 -- 안 그러면
+				// else 없는 if 뒤에 무관한 문장이 계속 이어질 때 영원히 대기하게 된다.
 				bool hasElse = false;
 				for (const Token& token : tokenList) {
 					if (token.type == TokenType::KwElse) {
@@ -125,14 +134,24 @@ int main() {
 					}
 				}
 				if (!hasElse) {
-					pendingControlBlock = true;
+					if (!waitedOnceForElse) {
+						pendingControlBlock = true;
+						waitedOnceForElse = true;
+					} else {
+						waitedOnceForElse = false;
+					}
+				} else {
+					waitedOnceForElse = false;
 				}
+			} else {
+				waitedOnceForElse = false;
 			}
 		}
 		if (pendingControlBlock) {
 			continue;
 		}
 
+		waitedOnceForElse = false;
 		runBuffer(buffer);
 	}
 
