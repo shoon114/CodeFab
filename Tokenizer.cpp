@@ -12,6 +12,7 @@ namespace {
 		{"true", TokenType::KwTrue}, {"false", TokenType::KwFalse}, {"print", TokenType::Print},
 		{"class", TokenType::KwClass}, {"this", TokenType::KwThis}, {"super", TokenType::KwSuper},
 		{"instanceof", TokenType::KwInstanceof},
+		{"import", TokenType::KwImport}, {"alias", TokenType::KwAlias},
 	};
 	const std::unordered_map<std::string, TokenType> operators = {
 		{"+", TokenType::Plus}, {"-", TokenType::Minus}, {"*", TokenType::Star}, {"/", TokenType::Slash},
