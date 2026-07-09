@@ -71,11 +71,9 @@ int main() {
 		TokenList tokenList = tokenizer.CreateTokenForCode();
 
 		int braceDepth = 0;
-		bool sawOpenBrace = false;
 		for (const Token& token : tokenList) {
 			if (token.type == TokenType::LBrace) {
 				braceDepth++;
-				sawOpenBrace = true;
 			} else if (token.type == TokenType::RBrace) {
 				braceDepth--;
 			}
@@ -89,6 +87,11 @@ int main() {
 		// 다음 줄에 올 '{'를 기다리는 중인 미완성 상태다. 이 상태에서 그대로
 		// 파싱을 시도하면 예외가 나서 버퍼가 통째로 비워지고, 뒤이어 입력되는
 		// '{ ... }' 블록이 앞의 if/for 조건과 분리된 채 무조건 실행되어 버린다.
+		// 이 판단은 버퍼 전체에 '{'가 한 번이라도 나왔는지가 아니라, 버퍼의 마지막
+		// 토큰이 어떤 모양인지로만 해야 한다 -- 예를 들어
+		// "if (a > 3) { print "x"; } else if (b > 1)"처럼 앞부분에 이미 완결된
+		// '{...}' 블록이 있어도, 마지막의 "else if (...)"는 여전히 자기 블록을
+		// 기다리는 중인 미완성 상태다.
 		//
 		// 다만 "블록을 기다리는 중"인지 판단하는 조건은 좁게 잡아야 한다. 처음엔
 		// "'{'도 없고 ';'로 끝나지도 않았으면 무조건 대기"로 했었는데, 이러면
@@ -98,7 +101,7 @@ int main() {
 		// 끝났거나, else가 막 끝난 경우처럼 "다음이 반드시 '{'여야 하는" 패턴만
 		// 좁게 감지해서 그 경우에만 대기한다.
 		bool pendingControlBlock = false;
-		if (!sawOpenBrace && tokenList.size() >= 2) {
+		if (tokenList.size() >= 2) {
 			TokenType firstType = tokenList[0].type;
 			TokenType lastRealType = tokenList[tokenList.size() - 2].type;
 			if (lastRealType == TokenType::KwElse) {
