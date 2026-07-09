@@ -215,6 +215,8 @@
     <ClCompile Include="DebugMode.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="ImportStatementParser.cpp" />
+    <ClCompile Include="TestImportStatementParser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
@@ -222,6 +224,7 @@
     <ClInclude Include="BlockParser.h" />
     <ClInclude Include="IfStatementParser.h" />
     <ClInclude Include="PrintStatementParser.h" />
+    <ClInclude Include="ImportStatementParser.h" />
     <ClInclude Include="FunctionStatementParser.h" />
     <ClInclude Include="ReturnStatementParser.h" />
     <ClInclude Include="SyntaxNode.h" />
