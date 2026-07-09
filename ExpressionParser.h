@@ -20,6 +20,7 @@ private:
 	std::unique_ptr<SyntaxNode> ParsePrimary(const TokenList& tokenList, size_t& pos);
 	std::unique_ptr<SyntaxNode> ParseAtom(const TokenList& tokenList, size_t& pos);
 	std::unique_ptr<SyntaxNode> ParseCallExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> callee);
+	std::unique_ptr<SyntaxNode> ParseMemberAccessExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> object);
 	std::unique_ptr<SyntaxNode> ParseArrExpr(const TokenList& tokenList, size_t& pos, Token calleeToken);
 	std::unique_ptr<SyntaxNode> ParseIndexExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> array);
 

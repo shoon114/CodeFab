@@ -106,6 +106,10 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="DebugMode.cpp">
+    <ClCompile Include="ClassStatementParser.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="TestClassStatementParser.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -174,6 +178,7 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="DebugMode.h">
+    <ClInclude Include="ClassStatementParser.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

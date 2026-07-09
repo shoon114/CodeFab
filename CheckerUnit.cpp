@@ -10,12 +10,13 @@ bool CheckerUnit::Check(SyntaxNode* root) {
     classMethodDepth = 0;
     insideInit = false;
     classHasParentStack.clear();
+    loopDepth = 0;
     if (scopeStack.empty()) {
-        // Global 스코프(최초 1회만 생성 — REPL에서 이전 줄에 선언한 변수/함수/클래스를 이후 줄에서도
-        // 계속 참조할 수 있어야 하므로, ExecutorUnit::Execute()가 scopes[0]을 유지하는 것과
-        // 동일한 이유로 여기서도 매 Check() 호출마다 초기화하지 않는다. 그렇지 않으면
-        // "Func add(a, b) {...}"와 "print add(1, 2);"가 서로 다른 줄(= 서로 다른 Check() 호출)로
-        // 들어올 때 add가 미등록 함수로 오인되어 거짓 오류가 발생한다.
+        // Global 스코프(최초 1회만 생성 — REPL에서 이전 줄에 선언한 변수/함수/클래스/import를
+        // 이후 줄에서도 계속 참조할 수 있어야 하므로, ExecutorUnit::Execute()가 scopes[0]을
+        // 유지하는 것과 동일한 이유로 여기서도 매 Check() 호출마다 초기화하지 않는다. 그렇지
+        // 않으면 "Func add(a, b) {...}"와 "print add(1, 2);"가 서로 다른 줄(= 서로 다른
+        // Check() 호출)로 들어올 때 add가 미등록 함수로 오인되어 거짓 오류가 발생한다.
         EnterScope();
     }
     root->Accept(*this);
@@ -421,6 +422,40 @@ void CheckerUnit::CheckClassMethod(const SyntaxNode& methodNode, const std::stri
     classMethodDepth--;
     functionDepth--;
     insideInit = previousInsideInit;
+}
+
+void CheckerUnit::Visit(const ForStmtNode& node) {
+    // init/condition/update/body 전체를 "반복문 내부"로 취급한다 — import는
+    // 이 구간 어디에서도 쓸 수 없다(예: for 안의 블록뿐 아니라 init에서도 금지).
+    loopDepth++;
+    Traverse(node);
+    loopDepth--;
+}
+
+void CheckerUnit::Visit(const ImportStmtNode& node) {
+    if (loopDepth > 0) {
+        ReportError("반복문 내부에서는 import를 사용할 수 없습니다.", node.token.line);
+    }
+
+    const std::string& path = node.children[0]->token.lexeme;
+    const std::string& alias = node.children[1]->token.lexeme;
+
+    // 같은 scope 내 중복 import / 상위(조상) scope에서 이미 import된 파일 재-import 금지.
+    // 현재 스코프부터 바깥으로 훑으므로, 형제 스코프의 독립적인 import는 서로 다른
+    // 스택 프레임에 있어 자연히 허용되고, 조상-자손 관계일 때만 걸린다.
+    for (auto it = importScopeStack.rbegin(); it != importScopeStack.rend(); ++it) {
+        if (it->count(path)) {
+            ReportError("파일 '" + path + "'은(는) 이미 import되었습니다.", node.token.line);
+            break;
+        }
+    }
+    importScopeStack.back().insert(path);
+
+    // alias 이름 충돌: 변수 중복 선언 검사와 동일한 메커니즘(현재 스코프만 확인)을 재사용.
+    if (scopeStack.back().count(alias)) {
+        ReportError("별칭 '" + alias + "' 중복 선언.", node.token.line);
+    }
+    scopeStack.back().insert(alias);
 }
 
 bool CheckerUnit::IsObviouslyScalarLiteral(const SyntaxNode& node) const {
