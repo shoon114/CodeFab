@@ -118,6 +118,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 함수 호출(for/if 내부에서 return으로 조기 종료) | `func firstEvenFrom(start, n) { for (var i = start; i <= n; i = i + 1) { if (i % 2 == 0) { return i; } } return -1; }` → `print firstEvenFrom(3, 10);` | `4` |
 | 함수 호출(내부 지역 변수가 바깥에 영향 없음) | `var x = 1;` → `func setX() { var x = 99; return x; }` → `print setX();` → `print x;` | `99` (첫 print), `1` (두 번째 print) |
 | 배열 생성/쓰기/읽기 | `var arr = Array(3);` → `arr[0] = 10;` → `print arr[0];` | `10` |
+| 배열 기본값(null) | `var arr = Array(3);` → `print arr[1];` | `null` |
 | 정적 오류: 함수 호출 인자 개수 불일치 | `func add(a, b) { return a + b; }` → `print add(1);` | (에러 발생 여부만 확인) — 정적 오류가 있으면 실행이 이어지지 않고 에러 메시지가 중복 출력되지 않는지 확인 |
 | 정적 오류: 정의되지 않은 함수 호출 | `print notAFunc(1);` | (에러 발생 여부만 확인) |
 | 런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가 | `func tryAccess() { return localOnly; }` → `{ var localOnly = 5; print tryAccess(); }` | (에러 발생 여부만 확인) |

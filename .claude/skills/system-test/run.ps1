@@ -78,6 +78,7 @@ $cases = @(
     @{ Category = "함수 호출(for/if 내부에서 return으로 조기 종료)"; InputLines = @('func firstEvenFrom(start, n) { for (var i = start; i <= n; i = i + 1) { if (i % 2 == 0) { return i; } } return -1; }', 'print firstEvenFrom(3, 10);'); Expect = "4" }
     @{ Category = "함수 호출(내부 지역 변수가 바깥에 영향 없음)"; InputLines = @('var x = 1;', 'func setX() { var x = 99; return x; }', 'print setX();', 'print x;'); Expect = "99`n1" }
     @{ Category = "배열 생성/쓰기/읽기"; InputLines = @('var arr = Array(3);', 'arr[0] = 10;', 'print arr[0];'); Expect = "10" }
+    @{ Category = "배열 기본값(null)"; InputLines = @('var arr = Array(3);', 'print arr[1];'); Expect = "null" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
