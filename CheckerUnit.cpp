@@ -109,18 +109,22 @@ void CheckerUnit::Visit(const ReturnStmtNode& node) {
 }
 
 void CheckerUnit::Visit(const CallExprNode& node) {
-    // r.move(...), this.init(...), Super.init(...)처럼 children[0]이
-    // MemberAccessExprNode면 메서드 호출이다. 메서드는 일반 함수 호출
-    // 네임스페이스(functionScopeStack)에 등록되지 않으므로(위 CheckClassMethod의
-    // 설명 참고) 아래의 "정의되지 않은 함수"/"함수가 아니다" 검사를 적용하면 안 된다
-    // -- 실제로 존재하는 메서드도 항상 미정의로 오판된다. 메서드 존재 여부는
-    // ExecutorUnit::EvaluateMethodCall이 런타임에 검사한다.
+    // 메서드 호출(children[0]이 MemberAccessExpr)은 methods가 functionScopeStack에
+    // 등록되지 않아 아래 검사를 적용하면 오판된다. 존재 여부는 런타임에 검사한다.
     if (!node.children.empty() && node.children[0]->type == NodeType::MemberAccessExpr) {
         Traverse(node);
         return;
     }
 
     const std::string& calleeName = node.token.lexeme;
+
+    // Robot(...)처럼 calleeName이 클래스 이름이면 인스턴스 생성 호출이다. 클래스는
+    // functionScopeStack이 아니라 classScopeStack에 등록되므로 아래 함수 호출 검사를
+    // 적용하면 안 된다 -- 실제로 존재하는 클래스도 항상 미정의 함수로 오판된다.
+    if (LookupClass(calleeName)) {
+        Traverse(node);
+        return;
+    }
 
     bool isVar = false;
     for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
