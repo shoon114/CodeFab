@@ -151,8 +151,10 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="IfStatementParser.cpp" />
+    <ClCompile Include="ImportStatementParser.cpp" />
     <ClCompile Include="PrintStatementParser.cpp" />
     <ClCompile Include="TestIfStatementParser.cpp" />
+    <ClCompile Include="TestImportStatementParser.cpp" />
     <ClCompile Include="TestPrintStatementParser.cpp" />
     <ClCompile Include="FunctionStatementParser.cpp" />
     <ClCompile Include="TestFunctionStatementParser.cpp" />
@@ -207,6 +209,7 @@
     <ClInclude Include="CheckerUnit.h" />
     <ClInclude Include="BlockParser.h" />
     <ClInclude Include="IfStatementParser.h" />
+    <ClInclude Include="ImportStatementParser.h" />
     <ClInclude Include="PrintStatementParser.h" />
     <ClInclude Include="FunctionStatementParser.h" />
     <ClInclude Include="ReturnStatementParser.h" />

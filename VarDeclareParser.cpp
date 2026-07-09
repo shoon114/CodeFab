@@ -26,7 +26,9 @@ std::unique_ptr<SyntaxNode> VarDeclareParser::Parse(const TokenList& tokenList, 
 		throw std::runtime_error("Expected a variable name after 'var' at line " + std::to_string(tokenList[pos].line));
 	}
 
+	Token declaredNameToken = tokenList[pos];
 	auto childNode = stmtParser->Parse(tokenList, pos);
+	varDeclNode->token = declaredNameToken;
 	varDeclNode->children.push_back(std::move(childNode));
 
 	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::Semicolon) {

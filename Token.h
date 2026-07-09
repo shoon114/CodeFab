@@ -13,6 +13,8 @@ enum class TokenType {
 	KwFor,
 	KwFunc,
 	KwReturn,
+	KwImport,
+	KwAlias,
 	KwTrue,
 	KwFalse,
 	Print,

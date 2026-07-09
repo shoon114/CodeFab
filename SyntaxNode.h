@@ -31,6 +31,7 @@ enum class NodeType {
 	FuncDeclStmt,
 	ReturnStmt,
 	ClassDeclStmt,
+	ImportStmt,
 
 	Program
 };
@@ -206,6 +207,17 @@ public:
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
 
 	Token parentNameToken;
+};
+
+// import "파일주소" alias 별칭명;
+// token = import 키워드 토큰, pathToken = 문자열 literal, aliasToken = 별칭 식별자.
+class ImportStmtNode : public SyntaxNode {
+public:
+	ImportStmtNode() { type = NodeType::ImportStmt; }
+	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	Token pathToken;
+	Token aliasToken;
 };
 
 class ProgramNode : public SyntaxNode {

@@ -75,7 +75,13 @@
     <ClCompile Include="IfStatementParser.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="ImportStatementParser.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="TestIfStatementParser.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="TestImportStatementParser.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="FunctionStatementParser.cpp">
@@ -138,6 +144,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="IfStatementParser.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ImportStatementParser.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="FunctionStatementParser.h">

@@ -56,7 +56,10 @@ int main() {
 
 		try {
 			std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
-			checker.Check(tree.get());
+			if (!checker.Check(tree.get())) {
+				buffer.clear();
+				continue;
+			}
 			executor.Execute(*tree);
 			std::cout << std::endl;
 		} catch (const std::exception& e) {

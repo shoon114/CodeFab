@@ -561,4 +561,29 @@ TEST_F(ExpressionParserTest, Parse_VarDeclareInitializer_ArrExpr) {
 	EXPECT_THAT(node->token.lexeme, Eq("Array"));
 }
 
+TEST_F(ExpressionParserTest, Parse_MemberCallExpr_ModuleFunctionCall) {
+	// "sum.add(1, 2)"
+	TokenList tokenList = MakeTokens({
+		MakeToken(TokenType::Identifier, "sum", 0, 0),
+		MakeToken(TokenType::Dot, ".", 0, 1),
+		MakeToken(TokenType::Identifier, "add", 0, 2),
+		MakeToken(TokenType::LParen, "(", 0, 3),
+		MakeToken(TokenType::Number, "1", 0, 4),
+		MakeToken(TokenType::Comma, ",", 0, 5),
+		MakeToken(TokenType::Number, "2", 0, 6),
+		MakeToken(TokenType::RParen, ")", 0, 7),
+	});
+	size_t pos = 0;
+
+	std::unique_ptr<SyntaxNode> node = parser.Parse(tokenList, pos);
+
+	ASSERT_THAT(node, NotNull());
+	ASSERT_THAT(node->type, Eq(NodeType::CallExpr));
+	ASSERT_THAT(node->children, SizeIs(3));
+	EXPECT_THAT(node->children[0]->type, Eq(NodeType::MemberAccessExpr));
+	EXPECT_THAT(node->children[0]->token.lexeme, Eq("add"));
+	EXPECT_THAT(node->children[1]->type, Eq(NodeType::NumberLiteral));
+	EXPECT_THAT(node->children[2]->type, Eq(NodeType::NumberLiteral));
+}
+
 #endif

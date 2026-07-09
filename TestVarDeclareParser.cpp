@@ -82,7 +82,7 @@ TEST_F(VarDeclareParserTest, Parse_WithoutInitializer_DelegatesToRegisteredTailP
 
 	ASSERT_THAT(root, NotNull());
 	EXPECT_THAT(root->type, Eq(NodeType::VarDeclareStatement));
-	EXPECT_THAT(root->token.lexeme, Eq("var"));
+	EXPECT_THAT(root->token.lexeme, Eq("a"));
 	ASSERT_THAT(root->children, SizeIs(1));
 
 	const std::unique_ptr<SyntaxNode>& identNode = root->children[0];
@@ -119,7 +119,7 @@ TEST_F(VarDeclareParserTest, Parse_WithInitializer_DelegatesToRegisteredTailPars
 
 	ASSERT_THAT(root, NotNull());
 	EXPECT_THAT(root->type, Eq(NodeType::VarDeclareStatement));
-	EXPECT_THAT(root->token.lexeme, Eq("var"));
+	EXPECT_THAT(root->token.lexeme, Eq("a"));
 	ASSERT_THAT(root->children, SizeIs(1));
 
 	const std::unique_ptr<SyntaxNode>& assignNode = root->children[0];

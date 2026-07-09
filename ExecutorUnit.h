@@ -2,9 +2,11 @@
 #include "NodeVisitor.h"
 #include "SyntaxNode.h"
 #include "Value.h"
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class ExecutorUnit : public NodeVisitor {
@@ -20,6 +22,7 @@ public:
 	void Visit(const ForStmtNode& node) override;
 	void Visit(const FuncDeclStmtNode& node) override;
 	void Visit(const ReturnStmtNode& node) override;
+	void Visit(const ImportStmtNode& node) override;
 
 	// 식(expression) 노드: 결과를 lastValue에 남기고, Evaluate()가 이를 읽어 반환한다.
 	void Visit(const NumberLiteralNode& node) override;
@@ -38,6 +41,8 @@ public:
 	void Visit(const ClassDeclStmtNode& node) override;
 
 private:
+	class ScopeGuard;
+
 	// 클래스 하나의 런타임 정보: 부모 이름(없으면 nullopt) + 메서드 이름 -> AST(FuncDeclStmtNode) 포인터.
 	// 트리는 Execute() 호출 동안 계속 살아있으므로 raw pointer로 충분하다(FunctionObject::body와 동일한 관례).
 	struct ClassInfo {
@@ -61,6 +66,7 @@ private:
 	void ExecuteIfStmt(const SyntaxNode& node);
 	void ExecuteExprStmt(const SyntaxNode& node);
 	void ExecuteForStmt(const SyntaxNode& node);
+	void ExecuteImportStmt(const ImportStmtNode& node);
 
 	// Visit(Expr)가 위임하는 식(expression)별 평가 메서드
 	Value_t EvaluateIdentifier(const IdentifierNode& node);
@@ -70,6 +76,7 @@ private:
 	Value_t EvaluateArrExpr(const SyntaxNode& node);
 	Value_t EvaluateIndexExpr(const SyntaxNode& node);
 	Value_t EvaluateCallExpr(const CallExprNode& node);
+	Value_t InvokeFunction(std::shared_ptr<FunctionObject> function, const std::vector<Value_t>& args);
 	Value_t EvaluateMethodCall(const CallExprNode& node);
 	Value_t EvaluateMemberAccess(const MemberAccessExprNode& node);
 
@@ -101,9 +108,17 @@ private:
 	ResolvedMethod FindMethod(const std::string& startClassName, const std::string& methodName) const;
 	// actualClassName이 targetClassName 자신이거나, 그 조상 클래스 중 하나인지 검사한다.
 	bool IsInstanceOf(const std::string& actualClassName, const std::string& targetClassName) const;
+	std::shared_ptr<ModuleObject> LoadModule(const std::string& path, int line);
+	std::string ResolveImportPath(const std::string& path) const;
+	void EnsureImportAllowed(const std::string& resolvedPath, const std::string& aliasName, int line) const;
+	std::shared_ptr<FunctionObject> MakeFunctionObject(const SyntaxNode& functionNode,
+		std::shared_ptr<std::unordered_map<std::string, Value_t>> closure = nullptr) const;
 
 	// scopes[0]이 Global 스코프, 이후 요소는 BlockStmt 진입마다 추가되는 Local 스코프.
 	std::vector<std::unordered_map<std::string, Value_t>> scopes;
+	std::vector<std::unordered_set<std::string>> importedPathScopes;
+	std::vector<std::string> importStack;
+	std::vector<std::unique_ptr<SyntaxNode>> importedTrees;
 
 	// 클래스 이름 -> 런타임 정보. ClassDeclStmtNode를 실행(Visit)할 때 등록된다.
 	std::unordered_map<std::string, ClassInfo> classes;
@@ -112,6 +127,7 @@ private:
 	// 현재 실행 중인 메서드가 "정의된" 클래스 이름 스택(인스턴스의 실제 클래스가 아니라
 	// lexical하게 그 메서드를 담고 있는 클래스 — Super 호출의 시작점을 정하는 데 쓰인다).
 	std::vector<std::string> currentClassNameStack;
+	int loopDepth = 0;
 
 	// Evaluate()가 Accept()를 통해 식 노드를 방문한 뒤 결과를 꺼내가는 임시 저장소.
 	Value_t lastValue;

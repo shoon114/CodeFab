@@ -17,6 +17,7 @@ public:
     void Visit(const FuncDeclStmtNode& node) override;
     void Visit(const ReturnStmtNode& node) override;
     void Visit(const CallExprNode& node) override;
+    void Visit(const ForStmtNode& node) override;
     void Visit(const IdentifierNode& node) override;
     void Visit(const BinaryExprNode& node) override;
     void Visit(const UnaryExprNode& node) override;
@@ -26,6 +27,7 @@ public:
     void Visit(const SuperExprNode& node) override;
     void Visit(const MemberAccessExprNode& node) override;
     void Visit(const ClassDeclStmtNode& node) override;
+    void Visit(const ImportStmtNode& node) override;
 
 private:
     // 스코프 스택: 각 블록마다 선언된 변수명 저장
@@ -33,19 +35,21 @@ private:
     std::vector<std::unordered_map<std::string, std::vector<std::string>>> functionScopeStack;
     // 스코프별로 선언된 클래스 이름 -> 부모 클래스 이름(없으면 nullopt).
     std::vector<std::unordered_map<std::string, std::optional<std::string>>> classScopeStack;
+    std::vector<std::unordered_set<std::string>> importedPathScopeStack;
     bool hasError = false;
     int functionDepth = 0;
     // 현재 클래스 메서드(생성자 init 포함) 본문 내부인지 추적 — this/Super 위치 제약에 사용.
     int classMethodDepth = 0;
+    int loopDepth = 0;
     // 현재 init 메서드 본문 내부인지 — init에서의 return 사용 금지에 사용.
     bool insideInit = false;
     // 방문 중인 클래스들이 부모를 가지고 있는지 여부의 스택(중첩 방어용).
     std::vector<bool> classHasParentStack;
 
-    void EnterScope() { scopeStack.push_back({}); functionScopeStack.push_back({}); classScopeStack.push_back({}); }
-    void ExitScope() { scopeStack.pop_back(); functionScopeStack.pop_back(); classScopeStack.pop_back(); }
+    void EnterScope() { scopeStack.push_back({}); functionScopeStack.push_back({}); classScopeStack.push_back({}); importedPathScopeStack.push_back({}); }
+    void ExitScope() { importedPathScopeStack.pop_back(); scopeStack.pop_back(); functionScopeStack.pop_back(); classScopeStack.pop_back(); }
 
-    bool IsReferencingVar(SyntaxNode* node, const std::string& varName);
+    bool IsReferencingVar(const SyntaxNode* node, const std::string& varName);
     const std::vector<std::string>* LookupFunction(const std::string& name) const;
     const std::optional<std::string>* LookupClass(const std::string& name) const;
     void ReportError(const std::string& message, int line);

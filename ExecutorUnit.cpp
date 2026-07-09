@@ -1,7 +1,14 @@
 ﻿#include "ExecutorUnit.h"
+#include "AssemblerUnit.h"
+#include "CheckerUnit.h"
+#include "Tokenizer.h"
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace {
 	// return문 실행을 표현하는 신호. InvokeMethod가 메서드 본문을 실행하다가 이 예외를
@@ -12,6 +19,22 @@ namespace {
 		Value_t value;
 	};
 }
+
+class ExecutorUnit::ScopeGuard {
+public:
+	explicit ScopeGuard(ExecutorUnit& executor) : executor(executor) {
+		executor.EnterScope();
+	}
+	~ScopeGuard() {
+		executor.ExitScope();
+	}
+
+	ScopeGuard(const ScopeGuard&) = delete;
+	ScopeGuard& operator=(const ScopeGuard&) = delete;
+
+private:
+	ExecutorUnit& executor;
+};
 
 void ExecutorUnit::Execute(const SyntaxNode& tree) {
 	if (tree.type != NodeType::Program) {
@@ -30,9 +53,11 @@ void ExecutorUnit::Execute(const SyntaxNode& tree) {
 
 void ExecutorUnit::EnterScope() {
 	scopes.emplace_back();
+	importedPathScopes.emplace_back();
 }
 
 void ExecutorUnit::ExitScope() {
+	importedPathScopes.pop_back();
 	scopes.pop_back();
 }
 
@@ -98,10 +123,11 @@ void ExecutorUnit::Visit(const IfStmtNode& node) { ExecuteIfStmt(node); }
 void ExecutorUnit::Visit(const ExprStmtNode& node) { ExecuteExprStmt(node); }
 void ExecutorUnit::Visit(const ForStmtNode& node) { ExecuteForStmt(node); }
 
-// 최상위/일반 함수는 아직 실행 단계에서 지원하지 않는다(체커 단계까지만 검증 대상).
-// 클래스 메서드(init 포함)는 FuncDeclStmtNode를 재사용하지만 InvokeMethod가 직접
-// body->Accept(*this)를 호출해서 실행하므로 이 Visit을 거치지 않는다.
-void ExecutorUnit::Visit(const FuncDeclStmtNode&) {}
+void ExecutorUnit::Visit(const FuncDeclStmtNode& node) {
+	scopes.back()[node.token.lexeme] = MakeFunctionObject(node);
+}
+
+void ExecutorUnit::Visit(const ImportStmtNode& node) { ExecuteImportStmt(node); }
 
 // return문은 값을 계산해 ReturnSignal로 던진다. InvokeMethod가 이를 잡아 메서드의
 // 반환값으로 사용한다(Checker가 이미 함수/메서드 밖의 return을 막아주므로, 이 코드가
@@ -171,6 +197,10 @@ void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
 		} else {
 			std::cout << number;
 		}
+	} else if (std::holds_alternative<std::shared_ptr<FunctionObject>>(value)) {
+		std::cout << "<function>";
+	} else if (std::holds_alternative<std::shared_ptr<ModuleObject>>(value)) {
+		std::cout << "<module>";
 	} else {
 		throw std::runtime_error("Unsupported value type for print at line " + std::to_string(node.token.line));
 	}
@@ -190,11 +220,13 @@ void ExecutorUnit::ExecuteVarDeclareStatement(const SyntaxNode& node) {
 }
 
 void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
-	EnterScope();
+	ScopeGuard scope(*this);
 	for (const auto& stmt : node.children) {
+		if (stmt->token.type == TokenType::RBrace) {
+			continue;
+		}
 		ExecuteStmt(*stmt);
 	}
-	ExitScope();
 }
 
 void ExecutorUnit::ExecuteIfStmt(const SyntaxNode& node) {
@@ -202,6 +234,8 @@ void ExecutorUnit::ExecuteIfStmt(const SyntaxNode& node) {
 	const auto& thenBranch = *node.children[1];
 	if (IsTruthy(Evaluate(condition))) {
 		ExecuteStmt(thenBranch);
+	} else if (node.children.size() > 2) {
+		ExecuteStmt(*node.children[2]);
 	}
 }
 
@@ -216,10 +250,17 @@ void ExecutorUnit::ExecuteForStmt(const SyntaxNode& node) {
 	const auto& increment = *node.children[2];
 	const auto& body = *node.children[3];
 	ExecuteStmt(init);
+	loopDepth++;
+	try {
 	while (IsTruthy(Evaluate(condition))) {
 		ExecuteStmt(body);
 		Evaluate(increment);
 	}
+	} catch (...) {
+		loopDepth--;
+		throw;
+	}
+	loopDepth--;
 }
 
 Value_t ExecutorUnit::EvaluateIdentifier(const IdentifierNode& node) {
@@ -296,15 +337,23 @@ Value_t ExecutorUnit::EvaluateCallExpr(const CallExprNode& node) {
 	}
 
 	// 그 외에는 기존처럼 token.lexeme이 호출 대상 이름이고 children 전체가 인자다.
-	// 이름이 등록된 클래스면 인스턴스 생성(Robot(...))으로, 아니면 아직 지원하지
-	// 않는 일반 함수 호출로 처리한다.
+	// 이름이 등록된 클래스면 인스턴스 생성(Robot(...))으로, 아니면 일반 함수 호출로 처리한다.
 	const std::string& name = node.token.lexeme;
 	auto classIt = classes.find(name);
 	if (classIt != classes.end()) {
 		return InstantiateClass(name, node);
 	}
 
-	throw std::runtime_error("Function calls are not supported yet at line " + std::to_string(node.token.line));
+	Value_t callable = ResolveVariable(name, -1, node.token.line);
+	if (!std::holds_alternative<std::shared_ptr<FunctionObject>>(callable)) {
+		throw std::runtime_error("'" + name + "' is not callable at line " + std::to_string(node.token.line));
+	}
+
+	std::vector<Value_t> args;
+	for (const auto& argExpr : node.children) {
+		args.push_back(Evaluate(*argExpr));
+	}
+	return InvokeFunction(std::get<std::shared_ptr<FunctionObject>>(callable), args);
 }
 
 Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
@@ -313,6 +362,21 @@ Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
 	const auto& targetExpr = *memberAccess.children[0];
 
 	Value_t targetValue = Evaluate(targetExpr);
+	if (std::holds_alternative<std::shared_ptr<ModuleObject>>(targetValue)) {
+		auto module = std::get<std::shared_ptr<ModuleObject>>(targetValue);
+		auto memberIt = module->members->find(methodName);
+		if (memberIt == module->members->end() ||
+			!std::holds_alternative<std::shared_ptr<FunctionObject>>(memberIt->second)) {
+			throw std::runtime_error("Imported module has no function '" + methodName + "' at line " + std::to_string(node.token.line));
+		}
+
+		std::vector<Value_t> args;
+		for (size_t i = 1; i < node.children.size(); ++i) {
+			args.push_back(Evaluate(*node.children[i]));
+		}
+		return InvokeFunction(std::get<std::shared_ptr<FunctionObject>>(memberIt->second), args);
+	}
+
 	if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
 		throw std::runtime_error("인스턴스가 아닌 값의 메서드 '" + methodName + "'을(를) 호출할 수 없습니다 at line " + std::to_string(node.token.line));
 	}
@@ -350,6 +414,15 @@ Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
 
 Value_t ExecutorUnit::EvaluateMemberAccess(const MemberAccessExprNode& node) {
 	Value_t targetValue = Evaluate(*node.children[0]);
+	if (std::holds_alternative<std::shared_ptr<ModuleObject>>(targetValue)) {
+		auto module = std::get<std::shared_ptr<ModuleObject>>(targetValue);
+		auto memberIt = module->members->find(node.token.lexeme);
+		if (memberIt == module->members->end()) {
+			throw std::runtime_error("Imported module has no member '" + node.token.lexeme + "' at line " + std::to_string(node.token.line));
+		}
+		return memberIt->second;
+	}
+
 	if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
 		throw std::runtime_error("인스턴스가 아닌 값에 멤버 '" + node.token.lexeme + "'로 접근할 수 없습니다 at line " + std::to_string(node.token.line));
 	}
@@ -369,6 +442,133 @@ void ExecutorUnit::AssignMemberField(const MemberAccessExprNode& node, const Val
 	}
 	auto instance = std::get<std::shared_ptr<InstanceObject>>(targetValue);
 	instance->fields[node.token.lexeme] = value; // 없는 필드면 새로 생성(슬라이드 "필드 쓰기" 명세)
+}
+
+std::shared_ptr<FunctionObject> ExecutorUnit::MakeFunctionObject(const SyntaxNode& functionNode,
+	std::shared_ptr<std::unordered_map<std::string, Value_t>> closure) const {
+	auto function = std::make_shared<FunctionObject>();
+	for (size_t i = 0; i + 1 < functionNode.children.size(); ++i) {
+		function->parameters.push_back(functionNode.children[i]->token.lexeme);
+	}
+	function->body = functionNode.children.empty() ? nullptr : functionNode.children.back().get();
+	function->closure = std::move(closure);
+	return function;
+}
+
+Value_t ExecutorUnit::InvokeFunction(std::shared_ptr<FunctionObject> function, const std::vector<Value_t>& args) {
+	if (!function || !function->body) {
+		throw std::runtime_error("Invalid function object");
+	}
+
+	std::optional<ScopeGuard> closureScope;
+	if (function->closure) {
+		closureScope.emplace(*this);
+		scopes.back() = *function->closure;
+	}
+
+	ScopeGuard callScope(*this);
+	for (size_t i = 0; i < function->parameters.size(); ++i) {
+		scopes.back()[function->parameters[i]] = (i < args.size()) ? args[i] : Value_t{ std::monostate{} };
+	}
+
+	try {
+		ExecuteStmt(*function->body);
+	} catch (const ReturnSignal& signal) {
+		return signal.value;
+	}
+	return Value_t{ std::monostate{} };
+}
+
+std::string ExecutorUnit::ResolveImportPath(const std::string& path) const {
+	namespace fs = std::filesystem;
+	fs::path importPath(path);
+	if (importPath.is_relative()) {
+		fs::path base = importStack.empty() ? fs::current_path() : fs::path(importStack.back()).parent_path();
+		importPath = base / importPath;
+	}
+	return fs::absolute(importPath).lexically_normal().string();
+}
+
+void ExecutorUnit::EnsureImportAllowed(const std::string& resolvedPath, const std::string& aliasName, int line) const {
+	if (loopDepth > 0) {
+		throw std::runtime_error("Import is not allowed inside a loop at line " + std::to_string(line));
+	}
+	if (scopes.empty() || importedPathScopes.empty()) {
+		throw std::runtime_error("Import cannot run without an active scope at line " + std::to_string(line));
+	}
+	if (scopes.back().count(aliasName)) {
+		throw std::runtime_error("Import alias '" + aliasName + "' already exists at line " + std::to_string(line));
+	}
+	for (const auto& importedPaths : importedPathScopes) {
+		if (importedPaths.count(resolvedPath)) {
+			throw std::runtime_error("Duplicate import of '" + resolvedPath + "' at line " + std::to_string(line));
+		}
+	}
+	for (const auto& activePath : importStack) {
+		if (activePath == resolvedPath) {
+			throw std::runtime_error("Circular import detected for '" + resolvedPath + "' at line " + std::to_string(line));
+		}
+	}
+}
+
+void ExecutorUnit::ExecuteImportStmt(const ImportStmtNode& node) {
+	const std::string resolvedPath = ResolveImportPath(node.pathToken.lexeme);
+	EnsureImportAllowed(resolvedPath, node.aliasToken.lexeme, node.token.line);
+
+	auto module = LoadModule(resolvedPath, node.token.line);
+	scopes.back()[node.aliasToken.lexeme] = module;
+	importedPathScopes.back().insert(resolvedPath);
+}
+
+std::shared_ptr<ModuleObject> ExecutorUnit::LoadModule(const std::string& path, int line) {
+	std::ifstream input(path);
+	if (!input) {
+		throw std::runtime_error("Import target file not found: '" + path + "' at line " + std::to_string(line));
+	}
+
+	std::ostringstream buffer;
+	buffer << input.rdbuf();
+
+	Tokenizer tokenizer;
+	tokenizer.SetCode(buffer.str());
+	TokenList tokenList = tokenizer.CreateTokenForCode();
+
+	AssemblerUnit assembler;
+	std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
+
+	CheckerUnit checker;
+	if (!checker.Check(tree.get())) {
+		throw std::runtime_error("Imported file has semantic errors: '" + path + "'");
+	}
+
+	importStack.push_back(path);
+	ScopeGuard moduleScope(*this);
+	try {
+		for (const auto& stmt : tree->children) {
+			if (stmt->type == NodeType::FuncDeclStmt ||
+				stmt->type == NodeType::VarDeclareStatement ||
+				stmt->type == NodeType::ImportStmt) {
+				ExecuteStmt(*stmt);
+			}
+		}
+	} catch (...) {
+		importStack.pop_back();
+		throw;
+	}
+	importStack.pop_back();
+
+	auto members = std::make_shared<std::unordered_map<std::string, Value_t>>(scopes.back());
+	for (auto& member : *members) {
+		if (std::holds_alternative<std::shared_ptr<FunctionObject>>(member.second)) {
+			std::get<std::shared_ptr<FunctionObject>>(member.second)->closure = members;
+		}
+	}
+
+	auto module = std::make_shared<ModuleObject>();
+	module->path = path;
+	module->members = members;
+	importedTrees.push_back(std::move(tree));
+	return module;
 }
 
 Value_t ExecutorUnit::InstantiateClass(const std::string& className, const SyntaxNode& callNode) {
@@ -391,7 +591,7 @@ Value_t ExecutorUnit::InvokeMethod(const SyntaxNode& methodNode, const std::stri
 	// FuncDeclStmtNode와 동일한 구조를 재사용: children = [파라미터(Identifier)..., body(BlockStmt)].
 	const SyntaxNode* body = methodNode.children.back().get();
 
-	EnterScope();
+	ScopeGuard callScope(*this);
 	for (size_t i = 0; i + 1 < methodNode.children.size(); ++i) {
 		const std::string& paramName = methodNode.children[i]->token.lexeme;
 		scopes.back()[paramName] = (i < args.size()) ? args[i] : Value_t{ std::monostate{} };
@@ -405,11 +605,14 @@ Value_t ExecutorUnit::InvokeMethod(const SyntaxNode& methodNode, const std::stri
 		ExecuteStmt(*body);
 	} catch (const ReturnSignal& signal) {
 		result = signal.value;
+	} catch (...) {
+		currentClassNameStack.pop_back();
+		thisStack.pop_back();
+		throw;
 	}
 
 	currentClassNameStack.pop_back();
 	thisStack.pop_back();
-	ExitScope();
 	return result;
 }
 

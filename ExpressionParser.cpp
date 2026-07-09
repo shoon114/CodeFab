@@ -13,6 +13,8 @@ namespace {
 	StatementParserRegistrar<ExpressionParser> identifierRegistrar(TokenType::Identifier);
 	StatementParserRegistrar<ExpressionParser> trueRegistrar(TokenType::KwTrue);
 	StatementParserRegistrar<ExpressionParser> falseRegistrar(TokenType::KwFalse);
+	StatementParserRegistrar<ExpressionParser> thisRegistrar(TokenType::KwThis);
+	StatementParserRegistrar<ExpressionParser> superRegistrar(TokenType::KwSuper);
 	StatementParserRegistrar<ExpressionParser> lParenRegistrar(TokenType::LParen);
 	StatementParserRegistrar<ExpressionParser> minusRegistrar(TokenType::Minus);
 	StatementParserRegistrar<ExpressionParser> notRegistrar(TokenType::Not);
@@ -46,6 +48,7 @@ namespace {
 		case TokenType::Gt:
 		case TokenType::LtEq:
 		case TokenType::GtEq:
+		case TokenType::KwInstanceof:
 			return InfixInfo{ 5, NodeType::BinaryExpr };
 		case TokenType::Plus:
 		case TokenType::Minus:
@@ -122,6 +125,8 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParsePrimary(const TokenList& toke
 			node = ParseCallExpr(tokenList, pos, std::move(node));
 		} else if (type == TokenType::LBracket) {
 			node = ParseIndexExpr(tokenList, pos, std::move(node));
+		} else if (type == TokenType::Dot) {
+			node = ParseMemberAccessExpr(tokenList, pos, std::move(node));
 		} else {
 			break;
 		}
@@ -131,18 +136,21 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParsePrimary(const TokenList& toke
 }
 
 std::unique_ptr<SyntaxNode> ExpressionParser::ParseCallExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> callee) {
-	if (callee->type != NodeType::Identifier) {
-		throw std::runtime_error("Only an identifier can be called at line " + std::to_string(callee->token.line));
+	if (callee->type != NodeType::Identifier && callee->type != NodeType::MemberAccessExpr) {
+		throw std::runtime_error("Only an identifier or member can be called at line " + std::to_string(callee->token.line));
 	}
 	Token calleeToken = callee->token;
 	pos++; // '('
 
-	if (calleeToken.lexeme == "Array") {
+	if (callee->type == NodeType::Identifier && calleeToken.lexeme == "Array") {
 		return ParseArrExpr(tokenList, pos, calleeToken);
 	}
 
 	auto node = std::make_unique<CallExprNode>();
 	node->token = calleeToken;
+	if (callee->type == NodeType::MemberAccessExpr) {
+		node->children.push_back(std::move(callee));
+	}
 
 	if (PeekType(tokenList, pos) != TokenType::RParen) {
 		node->children.push_back(ParseExpression(tokenList, pos, 0));
@@ -174,9 +182,6 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseArrExpr(const TokenList& toke
 }
 
 std::unique_ptr<SyntaxNode> ExpressionParser::ParseIndexExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> array) {
-	if (array->type != NodeType::Identifier) {
-		throw std::runtime_error("Only an identifier can be indexed at line " + std::to_string(array->token.line));
-	}
 	Token bracketToken = tokenList[pos++]; // '['
 
 	std::unique_ptr<SyntaxNode> indexExpr = ParseExpression(tokenList, pos, 0);
@@ -189,6 +194,18 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseIndexExpr(const TokenList& to
 	node->token = bracketToken;
 	node->children.push_back(std::move(array));
 	node->children.push_back(std::move(indexExpr));
+	return node;
+}
+
+std::unique_ptr<SyntaxNode> ExpressionParser::ParseMemberAccessExpr(const TokenList& tokenList, size_t& pos, std::unique_ptr<SyntaxNode> target) {
+	pos++; // '.'
+	if (PeekType(tokenList, pos) != TokenType::Identifier) {
+		throw std::runtime_error("Expected member name after '.' at line " + std::to_string(target->token.line));
+	}
+
+	auto node = std::make_unique<MemberAccessExprNode>();
+	node->token = tokenList[pos++];
+	node->children.push_back(std::move(target));
 	return node;
 }
 
@@ -209,6 +226,18 @@ std::unique_ptr<SyntaxNode> ExpressionParser::ParseAtom(const TokenList& tokenLi
 
 	if (type == TokenType::KwTrue || type == TokenType::KwFalse) {
 		auto node = std::make_unique<BoolLiteralNode>();
+		node->token = tokenList[pos++];
+		return node;
+	}
+
+	if (type == TokenType::KwThis) {
+		auto node = std::make_unique<ThisExprNode>();
+		node->token = tokenList[pos++];
+		return node;
+	}
+
+	if (type == TokenType::KwSuper) {
+		auto node = std::make_unique<SuperExprNode>();
 		node->token = tokenList[pos++];
 		return node;
 	}

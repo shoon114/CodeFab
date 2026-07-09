@@ -8,9 +8,11 @@ bool CheckerUnit::Check(SyntaxNode* root) {
     scopeStack.clear();
     functionScopeStack.clear();
     classScopeStack.clear();
+    importedPathScopeStack.clear();
     hasError = false;
     functionDepth = 0;
     classMethodDepth = 0;
+    loopDepth = 0;
     insideInit = false;
     classHasParentStack.clear();
     EnterScope(); // Global 스코프
@@ -30,7 +32,11 @@ void CheckerUnit::Visit(const VarDeclareStatementNode& node) {
     // 2. 자기 참조 검사: 초기화식 노드(보통 자식 노드에 위치) 탐색
     // var a = a + 1; 구조에서 우항이 첫 번째 자식이라고 가정
     if (!node.children.empty()) {
-        if (IsReferencingVar(node.children[0].get(), varName)) {
+        const SyntaxNode* initializer = node.children[0].get();
+        if (initializer->type == NodeType::AssignExpr && initializer->children.size() > 1) {
+            initializer = initializer->children[1].get();
+        }
+        if (IsReferencingVar(initializer, varName)) {
             ReportError("자신의 초기화식에서 변수 '" + varName + "'을(를) 참조할 수 없습니다.", node.token.line);
         }
     }
@@ -93,6 +99,11 @@ void CheckerUnit::Visit(const ReturnStmtNode& node) {
 }
 
 void CheckerUnit::Visit(const CallExprNode& node) {
+    if (!node.children.empty() && node.children[0]->type == NodeType::MemberAccessExpr) {
+        Traverse(node);
+        return;
+    }
+
     const std::string& calleeName = node.token.lexeme;
 
     bool isVar = false;
@@ -117,6 +128,21 @@ void CheckerUnit::Visit(const CallExprNode& node) {
     }
 
     Traverse(node);
+}
+
+void CheckerUnit::Visit(const ForStmtNode& node) {
+    if (node.children.size() < 4) {
+        Traverse(node);
+        return;
+    }
+
+    node.children[0]->Accept(*this);
+    node.children[1]->Accept(*this);
+    node.children[2]->Accept(*this);
+
+    loopDepth++;
+    node.children[3]->Accept(*this);
+    loopDepth--;
 }
 
 void CheckerUnit::Visit(const IdentifierNode& node) {
@@ -365,6 +391,31 @@ void CheckerUnit::Visit(const ClassDeclStmtNode& node) {
     classHasParentStack.pop_back();
 }
 
+void CheckerUnit::Visit(const ImportStmtNode& node) {
+    const std::string& path = node.pathToken.lexeme;
+    const std::string& aliasName = node.aliasToken.lexeme;
+
+    if (loopDepth > 0) {
+        ReportError("반복문 내부에서는 import문을 사용할 수 없습니다.", node.token.line);
+    }
+
+    for (const auto& importedPaths : importedPathScopeStack) {
+        if (importedPaths.count(path)) {
+            ReportError("이미 import된 파일 '" + path + "'을(를) 다시 import할 수 없습니다.", node.token.line);
+            break;
+        }
+    }
+
+    if (scopeStack.back().count(aliasName) ||
+        functionScopeStack.back().count(aliasName) ||
+        classScopeStack.back().count(aliasName)) {
+        ReportError("import alias '" + aliasName + "'이(가) 현재 scope의 선언과 충돌합니다.", node.aliasToken.line);
+    }
+
+    importedPathScopeStack.back().insert(path);
+    scopeStack.back().insert(aliasName);
+}
+
 void CheckerUnit::CheckClassMethod(const SyntaxNode& methodNode, const std::string& className) {
     const std::string& methodName = methodNode.token.lexeme;
 
@@ -425,7 +476,7 @@ std::string CheckerUnit::FormatNumber(double value) const {
     return std::to_string(value);
 }
 
-bool CheckerUnit::IsReferencingVar(SyntaxNode* node, const std::string& varName) {
+bool CheckerUnit::IsReferencingVar(const SyntaxNode* node, const std::string& varName) {
     if (!node) return false;
 
     // Identifier 타입이고 이름이 같다면 자기 참조
@@ -434,7 +485,7 @@ bool CheckerUnit::IsReferencingVar(SyntaxNode* node, const std::string& varName)
     }
 
     // 하위 트리 재귀 탐색
-    for (auto& child : node->children) {
+    for (const auto& child : node->children) {
         if (IsReferencingVar(child.get(), varName)) return true;
     }
     return false;

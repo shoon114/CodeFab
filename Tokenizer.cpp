@@ -9,6 +9,7 @@ namespace {
 	const std::unordered_map<std::string, TokenType> keywords = {
 		{"var", TokenType::KwVar}, {"if", TokenType::KwIf}, {"else", TokenType::KwElse},
 		{"for", TokenType::KwFor}, {"func", TokenType::KwFunc}, {"return", TokenType::KwReturn},
+		{"import", TokenType::KwImport}, {"alias", TokenType::KwAlias},
 		{"true", TokenType::KwTrue}, {"false", TokenType::KwFalse}, {"print", TokenType::Print},
 		{"class", TokenType::KwClass}, {"this", TokenType::KwThis}, {"super", TokenType::KwSuper},
 		{"instanceof", TokenType::KwInstanceof},
@@ -35,6 +36,11 @@ void Tokenizer::GetCodeFromUser()
 	std::ostringstream buffer;
 	buffer << std::cin.rdbuf();
 	originalCode = buffer.str();
+}
+
+void Tokenizer::SetCode(const std::string& code)
+{
+	originalCode = code;
 }
 
 bool Tokenizer::CanExtendToTwoCharOperator(char c)

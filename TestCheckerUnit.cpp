@@ -146,6 +146,14 @@ protected:
 		return node;
 	}
 
+	std::unique_ptr<SyntaxNode> MakeImportStmt(const std::string& path, const std::string& aliasName) {
+		auto node = std::make_unique<ImportStmtNode>();
+		node->token = MakeToken(TokenType::KwImport, "import", 1, 1);
+		node->pathToken = MakeToken(TokenType::String, path, 1, 2);
+		node->aliasToken = MakeToken(TokenType::Identifier, aliasName, 1, 3);
+		return node;
+	}
+
 	// target.memberName
 	std::unique_ptr<SyntaxNode> MakeMemberAccess(std::unique_ptr<SyntaxNode> target, const std::string& memberName) {
 		auto node = std::make_unique<MemberAccessExprNode>();
@@ -755,5 +763,57 @@ TEST_F(CheckerUnitTest, Check_MemberAccessOnIdentifier_ReturnsTrue) {
 	auto root = MakeProgram(std::move(statements));
 
 	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+TEST_F(CheckerUnitTest, Check_ImportAliasConflictWithVariable_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("sum", MakeNumberLiteral(1.0)));
+	statements.push_back(MakeImportStmt("sum.txt", "sum"));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("alias"));
+	EXPECT_THAT(output, HasSubstr("충돌"));
+}
+
+TEST_F(CheckerUnitTest, Check_DuplicateImportInNestedScope_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> innerStatements;
+	innerStatements.push_back(MakeImportStmt("sum.txt", "innerSum"));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeImportStmt("sum.txt", "sum"));
+	statements.push_back(MakeBlock(std::move(innerStatements)));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("이미 import"));
+}
+
+TEST_F(CheckerUnitTest, Check_ImportInsideForLoop_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> bodyStatements;
+	bodyStatements.push_back(MakeImportStmt("sum.txt", "sum"));
+
+	auto forNode = std::make_unique<ForStmtNode>();
+	forNode->token = MakeToken(TokenType::KwFor, "for", 1, 1);
+	forNode->children.push_back(MakeVarDecl("i", MakeNumberLiteral(0.0)));
+	forNode->children.push_back(MakeBoolLiteral(false));
+	forNode->children.push_back(MakeAssignExpr(MakeIdentifier("i"), MakeNumberLiteral(1.0)));
+	forNode->children.push_back(MakeBlock(std::move(bodyStatements)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(std::move(forNode));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("반복문 내부"));
 }
 #endif
