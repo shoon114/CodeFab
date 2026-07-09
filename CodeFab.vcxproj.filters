@@ -96,6 +96,18 @@
     <ClCompile Include="TestForStmtParser.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="PromptMode.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="SourceFileLoader.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="FileMode.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugMode.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h">
@@ -147,6 +159,21 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="ForStmtParser.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ShellMode.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PromptMode.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="SourceFileLoader.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="FileMode.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugMode.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
