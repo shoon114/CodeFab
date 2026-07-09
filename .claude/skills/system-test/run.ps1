@@ -77,9 +77,18 @@ $cases = @(
     @{ Category = "함수 호출(전역 변수 접근 가능)"; InputLines = @('var g = 10;', 'func showG() { return g; }', 'print showG();'); Expect = "10" }
     @{ Category = "함수 호출(for/if 내부에서 return으로 조기 종료)"; InputLines = @('func firstEvenFrom(start, n) { for (var i = start; i <= n; i = i + 1) { if (i % 2 == 0) { return i; } } return -1; }', 'print firstEvenFrom(3, 10);'); Expect = "4" }
     @{ Category = "함수 호출(내부 지역 변수가 바깥에 영향 없음)"; InputLines = @('var x = 1;', 'func setX() { var x = 99; return x; }', 'print setX();', 'print x;'); Expect = "99`n1" }
+    @{ Category = "배열 생성/쓰기/읽기"; InputLines = @('var arr = Array(3);', 'arr[0] = 10;', 'print arr[0];'); Expect = "10" }
+    @{ Category = "배열 기본값(null)"; InputLines = @('var arr = Array(3);', 'print arr[1];'); Expect = "null" }
+    @{ Category = "배열(for 반복문으로 채우기)"; InputLines = @('var arr = Array(3);', 'for (var i = 0; i < 3; i = i + 1) { arr[i] = i * i; }', 'print arr[2];'); Expect = "4" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
+    @{ Category = "런타임 오류: 배열 인덱스 범위 초과"; InputLines = @('var arr = Array(3);', 'print arr[5];'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 음수 인덱스"; InputLines = @('var arr = Array(3);', 'print arr[-1];'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열이 아닌 값 인덱싱"; InputLines = @('var x = 5;', 'print x[0];'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 크기가 음수"; InputLines = @('var arr = Array(-1);'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 크기가 정수가 아님"; InputLines = @('var arr = Array(2.5);'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 값 자체를 print"; InputLines = @('var arr = Array(3);', 'print arr;'); ExpectError = $true }
     @{ Category = "정적 오류: 함수 호출 인자 개수 불일치"; InputLines = @('func add(a, b) { return a + b; }', 'print add(1);'); ExpectError = $true }
     @{ Category = "정적 오류: 정의되지 않은 함수 호출"; InputLines = @('print notAFunc(1);'); ExpectError = $true }
     @{ Category = "런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가"; InputLines = @('func tryAccess() { return localOnly; }', '{ var localOnly = 5; print tryAccess(); }'); ExpectError = $true }
@@ -104,6 +113,12 @@ $cases = @(
 # have this problem, so write the input to a temp file and redirect from it.
 # stdout/stderr는 따로 캡처한다 -- ExpectError 케이스는 stderr(에러 메시지)가
 # 비어있지 않은지만 확인하고, 그 외 케이스는 stdout만 기대값과 비교한다.
+#
+# PromptMode가 매 줄 입력 전에 ">>> "/"..> " 프롬프트를 stderr로 출력하므로
+# (stdout으로 보내면 run.ps1의 stdout 비교가 깨지기 때문에 의도적으로 stderr로
+# 분리되어 있음), 실제 에러 메시지 유무를 판단하려면 이 프롬프트 잡음을 먼저
+# 제거해야 한다. 그러지 않으면 에러가 전혀 없는 정상 실행도 stderr가 항상
+# 비어있지 않게 되어 ExpectError 판정이 무의미해진다.
 function Invoke-CodeFab {
     param(
         [string]$ExePath,
@@ -117,6 +132,10 @@ function Invoke-CodeFab {
         [System.IO.File]::WriteAllText($tmpFile, $content, (New-Object System.Text.UTF8Encoding($false)))
         $stdout = cmd /c "`"$ExePath`" < `"$tmpFile`" 2>`"$errFile`""
         $stderr = Get-Content -Raw -ErrorAction SilentlyContinue -Path $errFile
+        if ($stderr) {
+            $stderr = ($stderr -replace '>>> ', '') -replace '\.\.> ', ''
+            $stderr = $stderr.Trim()
+        }
         return [pscustomobject]@{
             Stdout = ($stdout -join "`n")
             Stderr = if ($stderr) { $stderr } else { "" }
