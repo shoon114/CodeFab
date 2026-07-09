@@ -194,6 +194,8 @@
     <ClCompile Include="TestBlockParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="ClassStatementParser.cpp" />
+    <ClCompile Include="TestClassStatementParser.cpp" />
     <ClCompile Include="NodeVisitor.cpp" />
     <ClCompile Include="ForStmtParser.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> %(AdditionalOptions)</AdditionalOptions>
@@ -222,6 +224,7 @@
     <ClInclude Include="TestTokenHelpers.h" />
     <ClInclude Include="ExecutorUnit.h" />
     <ClInclude Include="NodeVisitor.h" />
+    <ClInclude Include="ClassStatementParser.h" />
     <ClInclude Include="ForStmtParser.h" />
   </ItemGroup>
   <ItemGroup>
