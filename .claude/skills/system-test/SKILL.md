@@ -128,6 +128,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 정적 오류: 클래스가 자기 자신을 상속 | `Class Loop : Loop { }` | (에러 발생 여부만 확인) |
 | 정적 오류: 정의되지 않은 클래스 상속 | `Class Dog : Ghost { }` | (에러 발생 여부만 확인) |
 | 런타임 오류: 존재하지 않는 필드 읽기 | `Class Robot { init() { } }` → `var r = Robot();` → `print r.name;` | (에러 발생 여부만 확인) |
+| 런타임 오류: 인스턴스가 아닌 값의 필드 접근 | `var x = 5;` → `print x.name;` | (에러 발생 여부만 확인) |
 | 런타임 오류: 배열 인덱스 범위 초과 | `var arr = Array(3);` → `print arr[5];` | (에러 발생 여부만 확인) |
 | 런타임 오류: 배열 음수 인덱스 | `var arr = Array(3);` → `print arr[-1];` | (에러 발생 여부만 확인) |
 | 런타임 오류: 배열이 아닌 값 인덱싱 | `var x = 5;` → `print x[0];` | (에러 발생 여부만 확인) |
