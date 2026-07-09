@@ -51,8 +51,55 @@ private:
 		const SyntaxNode* method = nullptr;
 		std::string owningClassName;
 	};
+
+	// 아래 RAII 가드들은 "정상 종료/return문/그 외 예외" 세 경로 모두에서 스코프나
+	// 실행 컨텍스트 스택이 반드시 원상복구되게 한다. 예전에는 EnterScope()/push_back()과
+	// 짝이 되는 복원 코드를 나중에 순서대로 실행되는 일반 코드로 작성했는데, 그 사이에서
+	// std::runtime_error 같은(ReturnSignal이 아닌) 예외가 나면 복원 코드가 스킵되어
+	// 스코프/스택이 leak됐다. 예: `{ var a=1; print a; divide(1,0); }` 처럼 블록 안에서
+	// 에러가 나면 블록 스코프가 정리되지 않고 남아, 블록 밖에서 `print a;`가 존재하지
+	// 않아야 할 변수를 leak된 프레임에서 찾아 잘못된 값을 출력했다.
+
+	// 생성 시 EnterScope(), 소멸 시 무조건 ExitScope().
+	class ScopeGuard {
+	public:
+		explicit ScopeGuard(ExecutorUnit& owner);
+		~ScopeGuard();
+		ScopeGuard(const ScopeGuard&) = delete;
+		ScopeGuard& operator=(const ScopeGuard&) = delete;
+	private:
+		ExecutorUnit& owner;
+	};
+
+	// 생성 시 thisStack/currentClassNameStack에 push, 소멸 시 무조건 pop.
+	class MethodContextGuard {
+	public:
+		MethodContextGuard(ExecutorUnit& owner, std::shared_ptr<InstanceObject> instance, std::string owningClassName);
+		~MethodContextGuard();
+		MethodContextGuard(const MethodContextGuard&) = delete;
+		MethodContextGuard& operator=(const MethodContextGuard&) = delete;
+	private:
+		ExecutorUnit& owner;
+	};
+
+	// 일반 함수 호출 시 caller의 로컬 프레임을 global만 남기고 떼어냈다가, 소멸 시
+	// 무조건(중첩 스코프가 예외로 안 정리된 채 남아있어도 resize(1)로 강제 정리 후) 복원.
+	class FunctionCallFrameGuard {
+	public:
+		explicit FunctionCallFrameGuard(ExecutorUnit& owner);
+		~FunctionCallFrameGuard();
+		FunctionCallFrameGuard(const FunctionCallFrameGuard&) = delete;
+		FunctionCallFrameGuard& operator=(const FunctionCallFrameGuard&) = delete;
+	private:
+		ExecutorUnit& owner;
+		std::vector<std::unordered_map<std::string, Value_t>> savedLocalFrames;
+	};
+
 	void ExecuteStmt(const SyntaxNode& node);
 	Value_t Evaluate(const SyntaxNode& node);
+	// 함수/메서드 본문 실행 공통 로직: return문은 ReturnSignal 예외로 구현되어 있어
+	// 여기서 잡아 반환값으로 변환한다. EvaluateCallExpr/InvokeMethod가 공유한다.
+	Value_t ExecuteFunctionBody(const SyntaxNode& body);
 
 	// Visit(Stmt)가 위임하는 문(statement)별 실행 메서드
 	void ExecutePrintStmt(const SyntaxNode& node);
