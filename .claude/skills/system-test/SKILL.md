@@ -124,6 +124,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 클래스 선언/인스턴스 생성/필드 읽기 | `Class Robot { init(name) { this.name = name; } }` → `var r = Robot("Wall-E");` → `print r.name;` | `Wall-E` |
 | 클래스 메서드 호출 | `Class Counter { init() { this.value = 0; } increment() { this.value = this.value + 1; return this.value; } }` → `var c = Counter();` → `c.increment();` → `print c.increment();` | `2` |
 | 클래스 상속/오버라이딩/Super 호출 | `Class Animal { speak() { return "..."; } describe() { return "I say " + this.speak(); } }` → `Class Dog : Animal { speak() { return "Woof, and " + Super.speak(); } }` → `var d = Dog();` → `print d.describe();` | `I say Woof, and ...` |
+| 클래스 선언(이름과 body가 별도 줄) | `Class Robot` → `{` → `  init(name) { this.name = name; }` → `}` → `var r = Robot("Wall-E");` → `print r.name;` | `Wall-E` |
 | 정적 오류: 클래스 외부에서 this 사용 | `print this;` | (에러 발생 여부만 확인) |
 | 정적 오류: 클래스가 자기 자신을 상속 | `Class Loop : Loop { }` | (에러 발생 여부만 확인) |
 | 정적 오류: 정의되지 않은 클래스 상속 | `Class Dog : Ghost { }` | (에러 발생 여부만 확인) |

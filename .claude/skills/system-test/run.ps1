@@ -84,6 +84,7 @@ $cases = @(
     @{ Category = "클래스 선언/인스턴스 생성/필드 읽기"; InputLines = @('Class Robot { init(name) { this.name = name; } }', 'var r = Robot("Wall-E");', 'print r.name;'); Expect = "Wall-E" }
     @{ Category = "클래스 메서드 호출"; InputLines = @('Class Counter { init() { this.value = 0; } increment() { this.value = this.value + 1; return this.value; } }', 'var c = Counter();', 'c.increment();', 'print c.increment();'); Expect = "2" }
     @{ Category = "클래스 상속/오버라이딩/Super 호출"; InputLines = @('Class Animal { speak() { return "..."; } describe() { return "I say " + this.speak(); } }', 'Class Dog : Animal { speak() { return "Woof, and " + Super.speak(); } }', 'var d = Dog();', 'print d.describe();'); Expect = "I say Woof, and ..." }
+    @{ Category = "클래스 선언(이름과 body가 별도 줄)"; InputLines = @('Class Robot', '{', '  init(name) { this.name = name; }', '}', 'var r = Robot("Wall-E");', 'print r.name;'); Expect = "Wall-E" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
