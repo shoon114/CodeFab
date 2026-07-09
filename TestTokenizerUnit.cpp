@@ -1067,6 +1067,36 @@ TEST_F(TokenizerTest, CreateTokenForCode_LogicalOperatorsWithoutSurroundingSpace
 		TokenType::EndOfFile));
 }
 
+// ===== import 구문 =====
+
+TEST_F(TokenizerTest, SplitIntoWords_ImportStatement) {
+	EXPECT_THAT(SplitWords("import \"math.cf\" alias math;\n"),
+		ElementsAre("import", "\"math.cf\"", "alias", "math", ";"));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ImportStatementProducesExpectedTypeSequence) {
+	TokenList tokens = CreateTokens("import \"math.cf\" alias math;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::EndOfFile));
+
+	EXPECT_EQ(tokens[1].lexeme, "math.cf");
+	EXPECT_EQ(tokens[3].lexeme, "math");
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesImportAndAliasKeywordsCaseInsensitive) {
+	EXPECT_EQ(CreateTokens("Import\n")[0].type, TokenType::KwImport);
+	EXPECT_EQ(CreateTokens("import\n")[0].type, TokenType::KwImport);
+	EXPECT_EQ(CreateTokens("Alias\n")[0].type, TokenType::KwAlias);
+	EXPECT_EQ(CreateTokens("alias\n")[0].type, TokenType::KwAlias);
+}
+
 TEST_F(TokenizerTest, CreateTokenForCode_NotEqualStillTokenizesAsSingleOperator) {
 	TokenList tokens = CreateTokens("print a != b;\n");
 
