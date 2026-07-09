@@ -88,6 +88,7 @@ $cases = @(
     @{ Category = "런타임 오류: 배열이 아닌 값 인덱싱"; InputLines = @('var x = 5;', 'print x[0];'); ExpectError = $true }
     @{ Category = "런타임 오류: 배열 크기가 음수"; InputLines = @('var arr = Array(-1);'); ExpectError = $true }
     @{ Category = "런타임 오류: 배열 크기가 정수가 아님"; InputLines = @('var arr = Array(2.5);'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 값 자체를 print"; InputLines = @('var arr = Array(3);', 'print arr;'); ExpectError = $true }
     @{ Category = "정적 오류: 함수 호출 인자 개수 불일치"; InputLines = @('func add(a, b) { return a + b; }', 'print add(1);'); ExpectError = $true }
     @{ Category = "정적 오류: 정의되지 않은 함수 호출"; InputLines = @('print notAFunc(1);'); ExpectError = $true }
     @{ Category = "런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가"; InputLines = @('func tryAccess() { return localOnly; }', '{ var localOnly = 5; print tryAccess(); }'); ExpectError = $true }
