@@ -20,6 +20,8 @@ enum class TokenType {
 	KwThis,
 	KwSuper,
 	KwInstanceof,
+	KwImport,
+	KwAlias,
 
 	Plus,
 	Minus,

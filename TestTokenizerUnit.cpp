@@ -3,11 +3,30 @@
 #include "Tokenizer.h"
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <filesystem>
 
 using namespace testing;
 
 class TokenizerTest : public Test {
 protected:
+	std::vector<std::filesystem::path> tempFiles;
+
+	std::string CreateTempFile(const std::string& filename, const std::string& content) {
+		std::filesystem::path path = std::filesystem::temp_directory_path() / filename;
+		std::ofstream out(path);
+		out << content;
+		out.close();
+		tempFiles.push_back(path);
+		return path.string();
+	}
+
+	void TearDown() override {
+		for (const std::filesystem::path& path : tempFiles) {
+			std::filesystem::remove(path);
+		}
+	}
+
 	Tokenizer MakeTokenizerWithInput(const std::string& input) {
 		std::istringstream fakeInput(input);
 		std::streambuf* originalCinBuffer = std::cin.rdbuf(fakeInput.rdbuf());
@@ -1065,6 +1084,126 @@ TEST_F(TokenizerTest, CreateTokenForCode_LogicalOperatorsWithoutSurroundingSpace
 		TokenType::Print, TokenType::Identifier, TokenType::And, TokenType::Identifier,
 		TokenType::Or, TokenType::Not, TokenType::Identifier, TokenType::Semicolon,
 		TokenType::EndOfFile));
+}
+
+// ===== import 구문 =====
+
+TEST_F(TokenizerTest, SplitIntoWords_ImportStatement) {
+	EXPECT_THAT(SplitWords("import \"math.cf\" alias math;\n"),
+		ElementsAre("import", "\"math.cf\"", "alias", "math", ";"));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ImportStatementProducesExpectedTypeSequence) {
+	std::string path = CreateTempFile("codefab_test_import_seq.cf", "");
+
+	TokenList tokens = CreateTokens("import \"" + path + "\" alias math;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::EndOfFile));
+
+	EXPECT_EQ(tokens[1].lexeme, path);
+	EXPECT_EQ(tokens[3].lexeme, "math");
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ClassifiesImportAndAliasKeywordsCaseInsensitive) {
+	EXPECT_EQ(CreateTokens("Import\n")[0].type, TokenType::KwImport);
+	EXPECT_EQ(CreateTokens("import\n")[0].type, TokenType::KwImport);
+	EXPECT_EQ(CreateTokens("Alias\n")[0].type, TokenType::KwAlias);
+	EXPECT_EQ(CreateTokens("alias\n")[0].type, TokenType::KwAlias);
+}
+
+// ===== import 대상 파일 토큰화 (import 문 바로 뒤에 삽입) =====
+
+TEST_F(TokenizerTest, CreateTokenForCode_ImportSplicesImportedFileTokensRightAfterStatement) {
+	std::string path = CreateTempFile("codefab_test_math.cf", "func add(a, b) {\nreturn a + b;\n}\n");
+
+	TokenList tokens = CreateTokens("import \"" + path + "\" alias math;\nprint 1;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::KwFunc, TokenType::Identifier, TokenType::LParen,
+		TokenType::Identifier, TokenType::Comma, TokenType::Identifier, TokenType::RParen,
+		TokenType::LBrace,
+		TokenType::KwReturn, TokenType::Identifier, TokenType::Plus, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::RBrace,
+		TokenType::Print, TokenType::Number, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ImportRecursivelySplicesNestedImports) {
+	std::string innerPath = CreateTempFile("codefab_test_inner.cf", "var b = 2;\n");
+	std::string outerPath = CreateTempFile("codefab_test_outer.cf", "import \"" + innerPath + "\" alias inner;\nvar a = 1;\n");
+
+	TokenList tokens = CreateTokens("import \"" + outerPath + "\" alias outer;\n");
+
+	std::vector<TokenType> types;
+	for (const Token& token : tokens) {
+		types.push_back(token.type);
+	}
+
+	EXPECT_THAT(types, ElementsAre(
+		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::KwVar, TokenType::Identifier, TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::KwVar, TokenType::Identifier, TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::EndOfFile));
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_ImportOfMissingFileThrows) {
+	std::filesystem::path missing = std::filesystem::temp_directory_path() / "codefab_test_does_not_exist.cf";
+	std::filesystem::remove(missing);
+
+	try {
+		CreateTokens("import \"" + missing.string() + "\" alias missing;\n");
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_STREQ(e.what(), ("Cannot open import file: " + missing.string() + " at line 0").c_str());
+	}
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_CircularImportThrows) {
+	std::filesystem::path pathA = std::filesystem::temp_directory_path() / "codefab_test_cycle_a.cf";
+	std::filesystem::path pathB = std::filesystem::temp_directory_path() / "codefab_test_cycle_b.cf";
+	tempFiles.push_back(pathA);
+	tempFiles.push_back(pathB);
+
+	std::ofstream(pathA) << "import \"" + pathB.string() + "\" alias b;\n";
+	std::ofstream(pathB) << "import \"" + pathA.string() + "\" alias a;\n";
+
+	try {
+		CreateTokens("import \"" + pathA.string() + "\" alias a;\n");
+		FAIL();
+	}
+	catch (const std::runtime_error& e) {
+		EXPECT_STREQ(e.what(), ("Circular import detected: " + pathA.string() + " at line 0").c_str());
+	}
+}
+
+TEST_F(TokenizerTest, CreateTokenForCode_CircularImportThroughDifferentlyFormattedPathStillThrows) {
+	std::filesystem::path pathA = std::filesystem::temp_directory_path() / "codefab_test_cycle_fmt_a.cf";
+	std::filesystem::path pathB = std::filesystem::temp_directory_path() / "codefab_test_cycle_fmt_b.cf";
+	tempFiles.push_back(pathA);
+	tempFiles.push_back(pathB);
+
+	// pathA와 같은 파일을 가리키지만 "./" 세그먼트가 섞여 문자열 표기가 다른 경로.
+	std::string altPathA = (pathA.parent_path() / "." / pathA.filename()).string();
+
+	std::ofstream(pathA) << "import \"" + pathB.string() + "\" alias b;\n";
+	std::ofstream(pathB) << "import \"" + altPathA + "\" alias a;\n";
+
+	EXPECT_THROW(CreateTokens("import \"" + pathA.string() + "\" alias a;\n"), std::runtime_error);
 }
 
 TEST_F(TokenizerTest, CreateTokenForCode_NotEqualStillTokenizesAsSingleOperator) {
