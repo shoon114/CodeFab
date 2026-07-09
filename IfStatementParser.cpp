@@ -29,6 +29,16 @@ namespace {
 		pos++;
 	}
 
+	std::unique_ptr<SyntaxNode> WrapInBlockIfNeeded(std::unique_ptr<SyntaxNode> bodyNode) {
+		if (bodyNode->type == NodeType::BlockStmt) {
+			return bodyNode;
+		}
+		auto blockNode = std::make_unique<BlockStmtNode>();
+		blockNode->token = bodyNode->token;
+		blockNode->children.push_back(std::move(bodyNode));
+		return blockNode;
+	}
+
 	std::unique_ptr<SyntaxNode> ParseBody(const TokenList& tokenList, size_t& pos, const char* context) {
 		auto bodyNode = ResolveAndParse(tokenList, pos, (std::string("a statement or '{' to start ") + context).c_str());
 
@@ -36,14 +46,7 @@ namespace {
 			pos++;
 		}
 
-		if (bodyNode->type != NodeType::BlockStmt) {
-			auto blockNode = std::make_unique<BlockStmtNode>();
-			blockNode->token = bodyNode->token;
-			blockNode->children.push_back(std::move(bodyNode));
-			return blockNode;
-		}
-
-		return bodyNode;
+		return WrapInBlockIfNeeded(std::move(bodyNode));
 	}
 }
 
