@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <filesystem>
+#include <memory>
 
 namespace { 
 	const std::unordered_map<std::string, TokenType> keywords = {
