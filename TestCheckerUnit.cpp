@@ -134,6 +134,41 @@ protected:
 		return node;
 	}
 
+	std::unique_ptr<SyntaxNode> MakeThisExpr() {
+		auto node = std::make_unique<ThisExprNode>();
+		node->token = MakeToken(TokenType::KwThis, "this", 1, 1);
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeSuperExpr() {
+		auto node = std::make_unique<SuperExprNode>();
+		node->token = MakeToken(TokenType::KwSuper, "Super", 1, 1);
+		return node;
+	}
+
+	// target.memberName
+	std::unique_ptr<SyntaxNode> MakeMemberAccess(std::unique_ptr<SyntaxNode> target, const std::string& memberName) {
+		auto node = std::make_unique<MemberAccessExprNode>();
+		node->token = MakeToken(TokenType::Identifier, memberName, 1, 1);
+		node->children.push_back(std::move(target));
+		return node;
+	}
+
+	// Class name [: parentName] { methods... } — methods는 MakeFuncDecl로 만든 노드를 재사용.
+	// parentName이 빈 문자열이면 부모가 없는 클래스로 취급한다.
+	std::unique_ptr<SyntaxNode> MakeClassDecl(const std::string& name, const std::string& parentName,
+		std::vector<std::unique_ptr<SyntaxNode>> methods) {
+		auto node = std::make_unique<ClassDeclStmtNode>();
+		node->token = MakeToken(TokenType::KwClass, name, 1, 1);
+		if (!parentName.empty()) {
+			node->parentNameToken = MakeToken(TokenType::Identifier, parentName, 1, 1);
+		}
+		for (auto& method : methods) {
+			node->children.push_back(std::move(method));
+		}
+		return node;
+	}
+
 	std::unique_ptr<SyntaxNode> MakeProgram(std::vector<std::unique_ptr<SyntaxNode>> statements) {
 		auto root = std::make_unique<ProgramNode>();
 		for (auto& statement : statements) {
@@ -502,6 +537,221 @@ TEST_F(CheckerUnitTest, Check_InlineArrIndexInRange_ReturnsTrue) {
 TEST_F(CheckerUnitTest, Check_InlineArrIndexWithVariableIndex_ReturnsTrue) {
 	std::vector<std::unique_ptr<SyntaxNode>> statements;
 	statements.push_back(MakeExprStmt(MakeIndexExpr(MakeArrExpr(MakeNumberLiteral(3.0)), MakeIdentifier("i"))));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Class Robot : Robot { } - 자기 자신을 상속하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_ClassSelfInheritance_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "Robot", {}));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("자기 자신을 상속"));
+}
+
+// Class Robot : NotDefined { } - 정의되지 않은 이름을 상속하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_ClassInheritFromUndefinedName_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "NotDefined", {}));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("정의되지 않은 클래스"));
+}
+
+// var x = 10; Class Robot : x { } - 클래스가 아닌 변수를 상속하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_ClassInheritFromVariable_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("x", MakeNumberLiteral(10.0)));
+	statements.push_back(MakeClassDecl("Robot", "x", {}));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("클래스가 아니므로"));
+}
+
+// Class Robot { } Class SpeedRobot : Robot { } - 정상적인 상속은 에러가 없어야 한다.
+TEST_F(CheckerUnitTest, Check_ValidInheritance_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", {}));
+	statements.push_back(MakeClassDecl("SpeedRobot", "Robot", {}));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// 같은 스코프에서 같은 이름의 클래스를 두 번 선언하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_DuplicateClassDeclaration_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", {}));
+	statements.push_back(MakeClassDecl("Robot", "", {}));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("클래스 'Robot' 중복 선언"));
+}
+
+// Class Robot { move(){...} move(){...} } - 같은 클래스 내 메서드 이름 중복은 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_DuplicateMethodName_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeFuncDecl("move", {}, MakeBlock({})));
+	methods.push_back(MakeFuncDecl("move", {}, MakeBlock({})));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", std::move(methods)));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("메서드 'move'"));
+	EXPECT_THAT(output, HasSubstr("중복"));
+}
+
+// print this; 를 클래스 밖(최상위)에서 사용하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_ThisOutsideClass_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeThisExpr()));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("'this'"));
+}
+
+// Class Robot { report() { this를 사용 } } - 메서드 내부의 this는 허용되어야 한다.
+TEST_F(CheckerUnitTest, Check_ThisInsideMethod_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> body;
+	body.push_back(MakeExprStmt(MakeThisExpr()));
+
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeFuncDecl("report", {}, MakeBlock(std::move(body))));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", std::move(methods)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Super.move(); 를 클래스 밖(최상위)에서 사용하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_SuperOutsideClass_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeSuperExpr()));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("'Super'"));
+}
+
+// Class Robot(부모 없음) { move() { Super 사용 } } - 부모 없는 클래스의 Super 사용은 에러.
+TEST_F(CheckerUnitTest, Check_SuperInClassWithoutParent_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> body;
+	body.push_back(MakeExprStmt(MakeSuperExpr()));
+
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeFuncDecl("move", {}, MakeBlock(std::move(body))));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", std::move(methods)));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("부모 클래스가 없는"));
+}
+
+// Class Robot {} Class SpeedRobot : Robot { move() { Super.move(); } } - 부모가 있으면 허용.
+TEST_F(CheckerUnitTest, Check_SuperInClassWithParent_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> body;
+	body.push_back(MakeExprStmt(MakeMemberAccess(MakeSuperExpr(), "move")));
+
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeFuncDecl("move", {}, MakeBlock(std::move(body))));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", {}));
+	statements.push_back(MakeClassDecl("SpeedRobot", "Robot", std::move(methods)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// Class Robot { init() { return 5; } } - 생성자(init)에서 return을 쓰면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_ReturnInsideInit_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> body;
+	body.push_back(MakeReturnStmt(MakeNumberLiteral(5.0)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeFuncDecl("init", {}, MakeBlock(std::move(body))));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", std::move(methods)));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("생성자(init)"));
+}
+
+// Class Robot { move() { return 5; } } - init이 아닌 일반 메서드의 return은 허용되어야 한다.
+TEST_F(CheckerUnitTest, Check_ReturnInsideNonInitMethod_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> body;
+	body.push_back(MakeReturnStmt(MakeNumberLiteral(5.0)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> methods;
+	methods.push_back(MakeFuncDecl("move", {}, MakeBlock(std::move(body))));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeClassDecl("Robot", "", std::move(methods)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// "hello".field 처럼 문자열 리터럴에 직접 멤버 접근하면 에러를 보고해야 한다.
+TEST_F(CheckerUnitTest, Check_MemberAccessOnStringLiteral_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeMemberAccess(MakeStringLiteral("hello"), "field")));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("인스턴스가 아닌"));
+}
+
+// r.field처럼 식별자에 멤버 접근하는 경우, 변수의 실제 타입은 정적으로 알 수 없으므로
+// (값 흐름 추적을 하지 않음) 에러를 보고하지 않아야 한다.
+TEST_F(CheckerUnitTest, Check_MemberAccessOnIdentifier_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeExprStmt(MakeMemberAccess(MakeIdentifier("r"), "field")));
 	auto root = MakeProgram(std::move(statements));
 
 	EXPECT_TRUE(checker.Check(root.get()));

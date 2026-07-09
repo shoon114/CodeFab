@@ -17,6 +17,9 @@ enum class NodeType {
 	CallExpr,
 	ArrExpr,
 	IndexExpr,
+	ThisExpr,
+	SuperExpr,
+	MemberAccessExpr,
 
 	// statement
 	VarDeclareStatement,
@@ -27,6 +30,7 @@ enum class NodeType {
 	BlockStmt,
 	FuncDeclStmt,
 	ReturnStmt,
+	ClassDeclStmt,
 
 	Program
 };
@@ -121,6 +125,28 @@ public:
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
 };
 
+// 클래스 메서드 내부에서 자기 인스턴스를 가리키는 'this'. children 없음.
+class ThisExprNode : public SyntaxNode {
+public:
+	ThisExprNode() { type = NodeType::ThisExpr; }
+	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+};
+
+// 클래스 메서드 내부에서 부모 클래스를 가리키는 'Super'. children 없음.
+class SuperExprNode : public SyntaxNode {
+public:
+	SuperExprNode() { type = NodeType::SuperExpr; }
+	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+};
+
+// <대상>.<멤버> 형태의 필드/메서드 접근. children = [대상식]. token은 멤버 이름 토큰
+// (예: 'name', 'move'). r.speed, this.name, Super.move 모두 이 노드로 표현한다.
+class MemberAccessExprNode : public SyntaxNode {
+public:
+	MemberAccessExprNode() { type = NodeType::MemberAccessExpr; }
+	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+};
+
 class VarDeclareStatementNode : public SyntaxNode {
 public:
 	VarDeclareStatementNode() { type = NodeType::VarDeclareStatement; }
@@ -167,6 +193,19 @@ class ReturnStmtNode : public SyntaxNode {
 public:
 	ReturnStmtNode() { type = NodeType::ReturnStmt; }
 	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+};
+
+// Class <이름> [: <부모이름>] { 메서드... }
+// token = 클래스 이름 토큰. parentNameToken은 상속 대상 이름 토큰(lexeme이 비어있으면
+// 부모 없음을 뜻한다). children = 메서드 선언들 — FuncDeclStmtNode를 그대로 재사용하며
+// (파라미터... , body 순서로 children을 갖는 기존 구조 그대로), 이름이 "init"인 메서드는
+// 생성자로 취급한다.
+class ClassDeclStmtNode : public SyntaxNode {
+public:
+	ClassDeclStmtNode() { type = NodeType::ClassDeclStmt; }
+	void Accept(NodeVisitor& visitor) const override { visitor.Visit(*this); }
+
+	Token parentNameToken;
 };
 
 class ProgramNode : public SyntaxNode {
