@@ -1191,6 +1191,21 @@ TEST_F(TokenizerTest, CreateTokenForCode_CircularImportThrows) {
 	}
 }
 
+TEST_F(TokenizerTest, CreateTokenForCode_CircularImportThroughDifferentlyFormattedPathStillThrows) {
+	std::filesystem::path pathA = std::filesystem::temp_directory_path() / "codefab_test_cycle_fmt_a.cf";
+	std::filesystem::path pathB = std::filesystem::temp_directory_path() / "codefab_test_cycle_fmt_b.cf";
+	tempFiles.push_back(pathA);
+	tempFiles.push_back(pathB);
+
+	// pathA와 같은 파일을 가리키지만 "./" 세그먼트가 섞여 문자열 표기가 다른 경로.
+	std::string altPathA = (pathA.parent_path() / "." / pathA.filename()).string();
+
+	std::ofstream(pathA) << "import \"" + pathB.string() + "\" alias b;\n";
+	std::ofstream(pathB) << "import \"" + altPathA + "\" alias a;\n";
+
+	EXPECT_THROW(CreateTokens("import \"" + pathA.string() + "\" alias a;\n"), std::runtime_error);
+}
+
 TEST_F(TokenizerTest, CreateTokenForCode_NotEqualStillTokenizesAsSingleOperator) {
 	TokenList tokens = CreateTokens("print a != b;\n");
 
