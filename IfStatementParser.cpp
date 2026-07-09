@@ -36,6 +36,13 @@ namespace {
 			pos++;
 		}
 
+		if (bodyNode->type != NodeType::BlockStmt) {
+			auto blockNode = std::make_unique<BlockStmtNode>();
+			blockNode->token = bodyNode->token;
+			blockNode->children.push_back(std::move(bodyNode));
+			return blockNode;
+		}
+
 		return bodyNode;
 	}
 }
