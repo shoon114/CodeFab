@@ -15,6 +15,7 @@ class WatchList {
 public:
 	void Add(const std::string& name);
 	void Remove(const std::string& name);
+	bool Contains(const std::string& name) const;
 	void PrintAll(const ExecutorUnit& executor) const;
 
 private:
