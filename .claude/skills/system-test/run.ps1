@@ -70,9 +70,12 @@ $cases = @(
     @{ Category = "if/else if/else(3단 체인, 여러 줄, else-if 분기 참)"; InputLines = @('var a = 1;', 'var b = 5;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "y" }
     @{ Category = "if/else if/else(3단 체인, 여러 줄, else 분기 참)"; InputLines = @('var a = 1;', 'var b = 0;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "z" }
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
+    @{ Category = "for 반복문(단일 줄 body)"; InputLines = @('for (var j = 0; j < 3; j = j + 1) print j;'); Expect = "012" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
+    @{ Category = "런타임 오류: for 단일 줄 body에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var i = 0; i < 3; i = i + 1) var x = i;', 'print x;'); ExpectError = $true }
+    @{ Category = "런타임 오류: for init에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var a = 0; a < 3; a = a + 1) { print a; }', 'print a;'); ExpectError = $true }
     @{ Category = "구문 오류: 세미콜론 누락"; InputLines = @('print 1 + 2'); ExpectError = $true }
     @{ Category = "구문 오류: 닫는 괄호 누락"; InputLines = @('print (1 + 2;'); ExpectError = $true }
     @{ Category = "런타임 오류: 잘못된 할당 대상"; InputLines = @('var a = 1;', 'var b = 2;', 'a + b = 3;'); ExpectError = $true }

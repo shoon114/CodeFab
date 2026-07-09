@@ -427,9 +427,17 @@ void CheckerUnit::CheckClassMethod(const SyntaxNode& methodNode, const std::stri
 void CheckerUnit::Visit(const ForStmtNode& node) {
     // init/condition/update/body 전체를 "반복문 내부"로 취급한다 — import는
     // 이 구간 어디에서도 쓸 수 없다(예: for 안의 블록뿐 아니라 init에서도 금지).
+    //
+    // init에서 선언되는 변수(예: "var i")는 for문이 끝나면 사라져야 하므로
+    // ExecutorUnit::ExecuteForStmt와 동일하게 이 노드 전체를 새 스코프 하나로
+    // 감싼다. 이 프레임 하나를 빠뜨리면 ExecutorUnit의 실제 스코프 깊이와
+    // 어긋나서, IdentifierNode::scopeDistance(정적으로 계산해두는 스코프까지의
+    // 거리)가 잘못된 값을 가리키게 된다.
+    EnterScope();
     loopDepth++;
     Traverse(node);
     loopDepth--;
+    ExitScope();
 }
 
 void CheckerUnit::Visit(const ImportStmtNode& node) {
