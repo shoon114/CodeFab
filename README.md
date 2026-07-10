@@ -33,7 +33,7 @@ MSBuild.exe CodeFab.vcxproj /p:Configuration=Release /p:Platform=x64
 |---|---|
 | `CodeFab.exe` | 인자 없이 실행하면 REPL(대화형 프롬프트) 모드로 진입합니다. |
 | `CodeFab.exe run <file>` | 지정한 소스 파일을 파싱 → 정적 검사 → 실행까지 한 번에 수행합니다. |
-| `CodeFab.exe debug <file>` | 디버그 모드 (현재 stub — 구현 예정). |
+| `CodeFab.exe debug <file>` | 디버그 모드. Statement 단위로 실행을 멈추고 `step`/`next`/`continue`/`break <line>`/`remove <line>`/`breakpoints`/`watch <var>`/`unwatch <var>`/`watches`/`inspect`/`exit`(`quit`) 명령을 지원합니다. |
 
 ## 구현된 기능
 
@@ -50,8 +50,8 @@ MSBuild.exe CodeFab.vcxproj /p:Configuration=Release /p:Platform=x64
 | 출력 | ✅ | `print expr;` |
 | 정적 바인딩 최적화 | ✅ | 변수 참조의 스코프 거리를 실행 전에 계산(`scopeDistance`), 런타임에 스코프를 매번 탐색하지 않음 |
 | 상수 폴딩 최적화 | ✅ | 리터럴로만 구성된 산술/비교/논리식을 실행 전에 미리 계산 |
-| `import` | ⚠️ | 파일을 토큰 단위로 splice하는 방식으로 동작. `alias`는 아직 네임스페이싱에 사용되지 않음(inert) |
-| 디버그 모드(`debug <file>`) | ❌ | CLI 스켈레톤만 존재, 미구현(stub) |
+| `import` | ✅ | `import "경로" alias 별칭;`. 파일을 토큰 단위로 splice하되 `ImportEnd` 경계 마커로 구분해 `ImportStmtNode` 하위에 흡수하고, `alias`는 `ModuleObject`에 바인딩되어 `math.add(1, 2)`처럼 네임스페이스 멤버 접근이 실제로 동작함. import 대상 파일은 선언(함수/전역 변수/import)만 실행되고 그 외 구문은 무시됨 |
+| 디버그 모드(`debug <file>`) | ✅ | Observer 패턴(`ExecutionObserver`)으로 `ExecutorUnit`과 분리된 `DebugSession`이 `step`/`next`/`continue`/`break`/`watch`/`inspect`를 전부 지원 |
 
 ## 언어 문법 및 구문 규칙
 
@@ -159,21 +159,23 @@ x64\Debug\CodeFab.exe
 | [`docs/CodeFab_Design.md`](docs/CodeFab_Design.md) | 전체 설계 문서. 파이프라인, Parser의 Strategy+Registry 구조, `SyntaxNode`의 Visitor 패턴, `ShellMode`, 현재 미구현 항목(Import 실행부/DebugMode)까지 현재 구현 기준으로 정리 |
 | [`docs/CodeFab_Design_Presentation.md`](docs/CodeFab_Design_Presentation.md) / [`.html`](docs/CodeFab_Design_Presentation.html) / [`.pdf`](docs/CodeFab_Design_Presentation.pdf) | 위 설계를 발표용으로 재구성한 자료(패턴별 UML 다이어그램 포함). md가 원본, html/pdf는 렌더링 산출물 |
 | [`docs/CodeFab_Visitor_Pattern.md`](docs/CodeFab_Visitor_Pattern.md) | `SyntaxNode`/`NodeVisitor` 더블 디스패치 구조에 대한 상세 설명 |
-| [`docs/feature_Import_design.md`](docs/feature_Import_design.md) | Import 기능의 에러 처리 책임 분담 설계. 최초 설계와 실제 구현(Tokenizer 스플라이스 방식)의 차이, 아직 미결정인 오픈 이슈(alias 네임스페이싱 등)를 기록 |
+| [`docs/feature_Import_design.md`](docs/feature_Import_design.md) | Import 기능의 에러 처리 책임 분담 설계. 최초 설계 → Tokenizer 스플라이스 방식 → `ImportEnd` 마커 기반 alias 네임스페이스(`ModuleObject`) 구현까지의 변천사를 기록 |
 | [`docs/feature_class_design.md`](docs/feature_class_design.md) | Class 기능(상속, `this`/`super`, 생성자) 설계 문서 |
+| [`docs/feature_Implementation_Status.md`](docs/feature_Implementation_Status.md) | 기능 추가 요구사항(PDF Chapter 2~7) 대비 실제 구현 상태를 근거 파일/테스트와 함께 정리한 현황 문서. 코드가 바뀔 때마다 갱신 |
 | [`docs/assets/*.svg`](docs/assets) | 발표 자료에 쓰이는 패턴별(Pipeline/Registry+Factory/Strategy/Composite/Visitor/Singleton) UML 다이어그램 |
 
 > `src/skelton.cpp`와 `docs/CodeFab_Design.md`의 구버전 서술 일부는 outdated 배경이 있었으나(자세한 내용은 [`CLAUDE.md`](CLAUDE.md) 1절), `CodeFab_Design.md`는 2026-07-10에 현재 구현 기준으로 전면 개정되었습니다. `CLAUDE.md`가 아키텍처 관련 최우선 참고 문서입니다.
 
 ## 진행 상황
 
-**구현 완료 (2026-07-10 기준)**: 변수/제어문/함수/배열/클래스(상속 포함)/`instanceof`/정적 바인딩·상수 폴딩 최적화 — 위 [구현된 기능](#구현된-기능) 표 참고. Import는 파서(`ImportStatementParser`)와 `CheckerUnit`의 정적 검사(alias 충돌/중복 import/반복문 내부 금지)까지는 실제로 동작합니다.
+**구현 완료 (2026-07-10 기준)**: 위 [구현된 기능](#구현된-기능) 표에 있는 항목 전부 — 변수/제어문/함수/배열/클래스(상속 포함)/`instanceof`/정적 바인딩·상수 폴딩 최적화에 더해, Import 실행부(alias 네임스페이스)와 DebugMode(step/next/continue/breakpoint/watch/inspect)까지 모두 동작합니다. 자세한 근거 파일/테스트는 [`docs/feature_Implementation_Status.md`](docs/feature_Implementation_Status.md) 참고.
 
-**진행 중 / 미구현**:
+**남은 작업**: 기능 누락이 아니라 회귀 테스트 커버리지 공백 수준입니다.
 
-| 항목 | 상태 | 비고 |
-|---|---|---|
-| Import 실행부(`ModuleLoader`, alias 네임스페이스) | 미구현 | `ExecutorUnit`에 `Visit(const ImportStmtNode&)`가 없어 alias가 아직 아무 역할도 하지 않음. 실제 코드 유입은 `Tokenizer::ResolveImports`의 텍스트 splice에만 의존. 자세한 내용은 [`docs/feature_Import_design.md`](docs/feature_Import_design.md) |
-| `DebugMode`(`debug <file>`) | 스텁 | `step/next/break/breakpoints/watch/inspect` 등 전부 미구현. 진입만 가능하고 안내 메시지만 출력 |
+| 항목 | 비고 |
+|---|---|
+| 함수 파라미터 이름 중복 검사 | `CheckerUnit`에 로직은 있으나 전용 테스트가 없음 |
+| `this.메서드()` 체이닝(메서드 내부에서 다른 메서드 호출) | 동작은 하지만 전용 테스트가 없음 |
+| import 대상 파일 내용 제약(선언 외 구문 정책) | 실행 시 무시하도록 구현됨 — Checker 레벨의 명시적 검증은 미도입 |
 
 **테스트 전략 전환**: 각 모듈 API를 유닛 테스트로 검증하는 TDD 단계는 완료되었고, 이후 신규 기능/버그 수정은 system test(콘솔 입력 → 실행 결과 검증) 기준으로 진행합니다. 기존 유닛 테스트(TC)는 회귀 테스트로 계속 유지하며 커밋 전 항상 전체 스위트를 통과시킵니다. 자세한 내용은 [`CLAUDE.md`](CLAUDE.md) 5절 참고.

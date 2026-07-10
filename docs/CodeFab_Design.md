@@ -1,6 +1,6 @@
 # Design Document: CodeFab Interpreter
 
-> **2026-07-10 전면 개정**: 이 문서는 초기 설계(3~4일차 기준)를 그대로 담고 있어 CLAUDE.md가 "outdated"로 지적한 문서였다. 이번 개정에서 현재 저장소의 실제 구현(Strategy+Registry 기반 self-registration 파서, `SyntaxNode`의 GoF Visitor 패턴, Class/Array/Import/ShellMode 등)에 맞춰 전면 재작성했다. **12절은 "Import 실행부(ModuleLoader)와 DebugMode가 완성됐다고 가정"한 시나리오이며 실제 구현 상태가 아니다** — 실제 상태는 11절 "현재 미구현/진행 중 항목"을 참고할 것.
+> **2026-07-10 전면 개정, 같은 날 재갱신**: 이 문서는 초기 설계(3~4일차 기준)를 그대로 담고 있어 CLAUDE.md가 "outdated"로 지적한 문서였다. 처음 개정 시점에는 Import 실행부(ModuleLoader/alias)와 DebugMode가 아직 미구현이라 11~12절을 "미구현 현황 + 가정 시나리오"로 나눠 적었으나, 같은 날 안에 `bd03407`/`eabc281`(Import alias 네임스페이스)과 `e64dd4f`/`7117b13`(DebugMode Observer 패턴 + StepController + WatchList)이 모두 병합되어 **두 항목 다 실제로 구현 완료됐다**. 11~12절은 이제 "가정"이 아니라 실제 구현을 설명한다.
 
 ## 1. 개요 (Overview)
 * **목적**: 팀 전용 Custom Language를 설계하고, 이를 실행하는 인터프리터(CodeFab)를 제작함.
@@ -116,7 +116,7 @@ EndOfFile
 
 * **PromptMode**: 사용자가 소스를 한 줄씩 입력하는 대화형 REPL. `ExecutorUnit`(전역 변수 저장소)은 세션 종료 전까지 유지된다.
 * **FileMode**: `.txt` 소스 파일 전체를 한 번에 읽어 실행한다.
-* **DebugMode**: `step/next/break/breakpoints/remove/continue/watch/unwatch/watches/inspect`를 지원할 예정 — **현재는 스텁**(11절 참고).
+* **DebugMode**: `step/next/break/breakpoints/remove/continue/watch/unwatch/watches/inspect`를 전부 지원한다(11절 참고). `ExecutorUnit`이 디버깅 개념을 몰라도 되도록 Observer 패턴으로 분리되어 있다 — `DebugSession`이 `ExecutionObserver`를 구현해 `ExecutorUnit::SetObserver`로 등록되고, `ExecutorUnit::ExecuteStmt`가 문(statement) 진입/이탈마다 `OnStmtEnter`/`OnStmtExit`를 통보한다. "언제 멈출지"는 `StepController`(Step/Next/Continue 모드 + breakpoint 집합), "멈췄을 때 뭘 보여줄지"는 `WatchList`(watch/unwatch/watches/inspect)가 각각 담당하며, `DebugSession`은 이 둘을 오케스트레이션하고 명령 문자열을 라우팅하는 역할만 한다.
 
 ## 8. 테스트 전략
 * **1단계(완료)**: TDD로 각 모듈 API를 유닛 테스트 수준까지 검증. 다른 파서 의존성은 `MockStatementParser`(gmock)로 stub해서 격리 검증(CLAUDE.md 3절 패턴).
@@ -244,31 +244,27 @@ sequenceDiagram
     ExecutorUnit-->>User: 실행 결과 출력
 ```
 
-## 11. 현재 미구현/진행 중 항목 (2026-07-10 기준)
+## 11. Import 실행부 — ModuleObject 기반 네임스페이스
 
-* **Import 실행부**: `ImportStatementParser`는 존재하고 `CheckerUnit`도 `ImportStmtNode`를 실제로 검사하지만, `ExecutorUnit`은 `Visit(const ImportStmtNode&)`를 override하지 않는다 — `alias`를 통한 네임스페이스 접근(`math.add(...)`)은 아직 없고, 실제 파일 내용 유입은 `Tokenizer::ResolveImports`의 텍스트 스플라이스에 의존한다. 자세한 배경은 `docs/feature_Import_design.md`.
-* **DebugMode**: `Run()`이 "Debug mode is not implemented yet"만 출력하는 스텁. `step/next/break/watch/inspect` 등 전부 미구현.
+`ImportStatementParser`가 `import "경로" alias 별칭;`을 파싱하고, `CheckerUnit`이 alias 충돌/중복 import/반복문 내부 금지를 검사하는 데 더해, **`ExecutorUnit`도 실제로 `Visit(const ImportStmtNode&)`를 구현한다** — `math.add(1, 2)` 같은 alias 네임스페이스 멤버 접근이 실제로 동작한다.
 
-## 12. (가정) 완료 상태 스냅샷 — "Import 실행부 + DebugMode가 다 구현됐다면"
-
-> **주의**: 아래는 실제 구현이 아니라, 11절의 두 미구현 항목이 완성됐다고 가정했을 때 문서 전체가 어떤 모습이 될지 미리 그려본 것이다. 실제 여부는 항상 `ExecutorUnit.cpp`(`Visit(const ImportStmtNode&)` 존재 여부)와 `DebugMode.cpp`(스텁 여부)로 재확인할 것.
-
-### 12.1 Import — ModuleObject 기반 네임스페이스 (가정)
-`docs/feature_Import_design.md` 6절과 동일한 전제(오픈 이슈 5번을 "alias 네임스페이싱"으로 결정)를 따른다.
-
-* `ExecutorUnit::Visit(const ImportStmtNode&)`가 추가되어, 스플라이스된 하위 선언들을 실행해 함수/전역 변수를 수집한 뒤 `ModuleObject`(alias 이름 → export 맵)로 감싸 alias 식별자를 **현재 스코프에만** 바인딩한다.
+* **Tokenizer 스플라이스 + `ImportEnd` 경계 마커**: `Tokenizer::ResolveImports`는 여전히 대상 파일의 토큰을 `import ...;` 문 뒤에 이어붙이지만, 그 끝에 `ImportEnd` 마커 토큰을 심는다.
+* **`ImportStatementParser`**: `import ... alias X;`의 5개 토큰을 파싱한 뒤, `ImportEnd` 마커를 만날 때까지 이어지는 문장들을 계속 파싱해 `ImportStmtNode`의 자식(`children[2:]`)으로 흡수한다 — 스플라이스된 선언들이 더 이상 전역 최상위 토큰이 아니라 `ImportStmtNode` 아래에 있다. 이 과정에서 import 대상 파일에 선언(함수/전역 변수/import) 외의 구문이 있으면 무시한다.
+* **`ExecutorUnit::Visit(const ImportStmtNode&)`**: 흡수된 하위 선언들을 별도 스코프에서 실행해 함수/전역 변수를 수집한 뒤, `ModuleObject`(alias 이름 → export 맵)로 감싸 alias 식별자를 **현재 스코프에만** 바인딩한다. alias 없이는 그 이름이 보이지 않는다(네임스페이스 격리).
 * `MemberAccessExprNode`의 대상이 `ModuleObject`이면 export 맵에서 이름을 찾아 호출/참조한다 — 클래스 인스턴스의 `.` 접근과 코드 경로를 공유하되, 대상 타입으로 분기한다.
-* `Value_t`에 `shared_ptr<ModuleObject>`가 새 alternative로 추가된다.
-* 파일없음/순환 import는 여전히 `Tokenizer`가 가장 먼저 잡으므로 이 지점의 책임 분담(2절 표)은 바뀌지 않는다.
+* 파일없음/순환 import는 여전히 `Tokenizer`가 가장 먼저 잡는다(2절 책임 분담 표는 유지). 자세한 배경/변천사는 `docs/feature_Import_design.md`.
 
-### 12.2 DebugMode — Stmt 단위 stepping (가정)
-* `ExecutorUnit`이 "다음 statement 실행 전 콜백" 훅을 하나 노출하고(예: `std::function<void(const SyntaxNode&)> onBeforeStmt`), `DebugMode::Run()`이 이 훅에 `step`/`next`/`break` 상태 머신을 연결한다.
-* `watch <var>`는 `ExecutorUnit::scopes`를 매 스텝 스냅샷 비교해 변경분만 출력하는 방식으로 구현될 수 있다(정확한 내부 자료구조는 실제 구현 시 재검토 필요).
-* `breakpoints`는 `line` 번호 집합으로 관리하고, `onBeforeStmt` 훅에서 `node.token.line`과 대조한다.
+## 12. DebugMode — Observer 패턴 기반 Stmt 단위 stepping
 
-### 12.3 이 절이 실제로 유효해지는 조건
-* `ExecutorUnit.h/.cpp`에 `Visit(const ImportStmtNode&)`가 추가되고,
-* `Value.h`의 `Value_t`에 모듈 관련 alternative가 추가되며,
-* `DebugMode.cpp`가 더 이상 "not implemented yet"을 출력하지 않아야
+7절에서 요약한 대로, `DebugMode`는 이제 실제로 동작한다.
 
-비로소 이 절의 그림이 현실이 된다. 그 전까지는 1~11절이 현재 진실이다.
+* **`ExecutionObserver`**: Stmt 실행 경계(`OnStmtEnter`/`OnStmtExit`) 이벤트를 구독하는 인터페이스. `ExecutorUnit::SetObserver`로 등록하며, observer가 `nullptr`이면(PromptMode/FileMode) 기존 동작에 변화가 없다.
+* **`StepController`**: "언제 멈출지"만 담당. `Mode`(`Stepping`/`SteppingOver`/`Running`) + breakpoint 집합을 들고 있으며, `ShouldPause(line, depth)`가 현재 모드 기준으로 정지 여부를 판단한다 — `Stepping`은 항상 정지, `SteppingOver`는 depth가 `stepOverDepth` 이하로 돌아올 때까지 정지 보류, `Running`은 breakpoint 라인에서만 정지.
+* **`WatchList`**: "멈췄을 때 뭘 보여줄지"만 담당. 등록된 이름을 `executor.TryGetVariable`/`CurrentScope`로 조회해 스코프 표시(`[LOCAL]`/`[GLOBAL]`)와 함께 값+타입을 출력한다. `inspect`는 watch 목록과 무관하게 현재 스코프의 변수 전부를 같은 포맷으로 보여준다.
+* **`DebugSession`**: `ExecutionObserver`를 구현하는 오케스트레이터. `OnStmtEnter`에서 `stepController.ShouldPause()`가 참이면 현재 줄을 출력하고 명령 프롬프트로 진입, `step`/`next`/`continue`/`break <line>`/`remove <line>`/`breakpoints`/`watch <var>`/`unwatch <var>`/`watches`/`inspect`/`exit`(`quit`) 명령을 라우팅한다.
+
+## 13. 향후 개선 방향
+
+- `ExecutorUnit`이 여전히 클래스/함수/배열/import/디버그 훅 등 여러 책임을 한 클래스에 갖고 있다 — 장기적으로 `Environment`/`FunctionRuntime`/`ClassRuntime`/`ModuleLoader` 분리를 고려할 수 있다.
+- 회귀 테스트 공백: 함수 파라미터 이름 중복, `this.메서드()` 체이닝 전용 테스트가 없다(기능 자체는 동작).
+- import 대상 파일의 "선언 외 구문 무시" 정책이 실행 시점에만 있고 `CheckerUnit` 레벨의 명시적 검증은 없다.

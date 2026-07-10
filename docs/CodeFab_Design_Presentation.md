@@ -42,7 +42,7 @@ Source Code
 |---|---|---|
 | `PromptMode` | REPL(한 줄씩 입력) | 구현됨 |
 | `FileMode` | `run <file>` — 파일 전체 실행 | 구현됨 |
-| `DebugMode` | `debug <file>` — step/break/watch 등 | **스텁** — `"Debug mode is not implemented yet"`만 출력 |
+| `DebugMode` | `debug <file>` — step/next/continue/break/watch/inspect | 구현됨 — Observer 패턴(`ExecutionObserver`)으로 `ExecutorUnit`과 분리, `StepController`+`WatchList` |
 
 ## 3. 주요 모듈 책임
 
@@ -531,10 +531,10 @@ classDiagram
 - `RuntimeError`
 - `ImportError`
 
-### 12.6 Import 실행부 / DebugMode 미구현
+### 12.6 Import 실행부 / DebugMode — 구현 완료 (2026-07-10)
 
-- `ImportStatementParser`와 `CheckerUnit::Visit(const ImportStmtNode&)`는 실제로 동작한다(alias 충돌/중복 import/반복문 내부 금지 검사). 하지만 `ExecutorUnit`에는 `Visit(const ImportStmtNode&)`가 없어 `ModuleLoader`/`alias` 네임스페이스 바인딩이 아직 없다 — 실제 파일 내용 유입은 여전히 `Tokenizer::ResolveImports`의 텍스트 스플라이스(alias 무시)에 의존한다. 자세한 내용은 `docs/feature_Import_design.md`.
-- `DebugMode::Run()`은 스텁이다(`step/next/break/watch/inspect` 등 미구현). `ShellMode` 전략(2.1절)에서 `PromptMode`/`FileMode`는 실제 동작하지만 `DebugMode`는 진입만 가능하다.
+- `ImportStatementParser`가 `ImportEnd` 경계 마커까지 이어지는 스플라이스된 선언을 `ImportStmtNode`의 자식으로 흡수하고, `ExecutorUnit::Visit(const ImportStmtNode&)`가 이를 실행해 `ModuleObject`(alias → export 맵)로 감싼다 — `math.add(1, 2)` 같은 alias 네임스페이스 멤버 접근이 실제로 동작한다. 자세한 내용은 `docs/feature_Import_design.md` 6절.
+- `DebugMode`는 Observer 패턴(`ExecutionObserver`)으로 `ExecutorUnit`과 분리되어 있다 — `StepController`가 "언제 멈출지"(Stepping/SteppingOver/Running 모드 + breakpoint), `WatchList`가 "멈췄을 때 뭘 보여줄지"(watch/unwatch/watches/inspect)를 담당하고 `DebugSession`이 오케스트레이션한다. `step/next/continue/break/remove/breakpoints/watch/unwatch/watches/inspect/exit` 전부 동작한다.
 
 ## 13. 향후 리팩토링 방향
 
@@ -547,8 +547,8 @@ classDiagram
 5. `StatementParserRegistry` 테스트 안정성 개선
 6. error type 계층 도입
 7. 설계 문서와 실제 코드 API 동기화
-8. Import `ModuleLoader`/alias 네임스페이스 실행부 구현 (`ExecutorUnit::Visit(const ImportStmtNode&)`)
-9. `DebugMode`의 step/next/break/watch/inspect 구현
+
+> ~~Import `ModuleLoader`/alias 네임스페이스 실행부 구현~~, ~~`DebugMode`의 step/next/break/watch/inspect 구현~~ — 2026-07-10에 완료되어 로드맵에서 제외.
 
 ## 14. 발표 결론
 
