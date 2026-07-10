@@ -1,7 +1,7 @@
 #include "WatchList.h"
 #include "ExecutorUnit.h"
 #include <algorithm>
-#include <iostream>
+#include <sstream>
 
 namespace {
 
@@ -58,7 +58,8 @@ bool WatchList::Contains(const std::string& name) const {
 	return std::find(names.begin(), names.end(), name) != names.end();
 }
 
-void WatchList::Watches(const ExecutorUnit& executor) const {
+std::string WatchList::Watches(const ExecutorUnit& executor) const {
+	std::ostringstream out;
 	for (const std::string& name : names) {
 		// "d[0]"처럼 인덱스가 붙은 이름은 배열 변수(baseName)를 찾은 뒤 그 원소값만 가리킨다.
 		size_t bracketPos = name.find('[');
@@ -66,7 +67,7 @@ void WatchList::Watches(const ExecutorUnit& executor) const {
 
 		Value_t value;
 		if (!executor.TryGetVariable(baseName, value)) {
-			std::cout << name << " = <undefined>" << std::endl;
+			out << name << " = <undefined>" << std::endl;
 			continue;
 		}
 
@@ -74,28 +75,31 @@ void WatchList::Watches(const ExecutorUnit& executor) const {
 
 		if (bracketPos != std::string::npos) {
 			if (!std::holds_alternative<std::shared_ptr<ArrayObject>>(value)) {
-				std::cout << name << " = <undefined>" << std::endl;
+				out << name << " = <undefined>" << std::endl;
 				continue;
 			}
 			const auto& elements = std::get<std::shared_ptr<ArrayObject>>(value)->elements;
 			size_t index = static_cast<size_t>(std::stoul(name.substr(bracketPos + 1)));
 			if (index >= elements.size()) {
-				std::cout << name << " = <undefined>" << std::endl;
+				out << name << " = <undefined>" << std::endl;
 				continue;
 			}
 			value = elements[index];
 		}
 
-		std::cout << (isLocal ? "[LOCAL] " : "[GLOBAL] ") << name << " = ";
-		PrintValue(std::cout, value);
-		std::cout << " (" << TypeNameOf(value) << ")" << std::endl;
+		out << (isLocal ? "[LOCAL] " : "[GLOBAL] ") << name << " = ";
+		PrintValue(out, value);
+		out << " (" << TypeNameOf(value) << ")" << std::endl;
 	}
+	return out.str();
 }
 
-void WatchList::Inspect(const ExecutorUnit& executor) const {
+std::string WatchList::Inspect(const ExecutorUnit& executor) const {
+	std::ostringstream out;
 	for (const auto& entry : executor.CurrentScope()) {
-		std::cout << "[LOCAL] " << entry.first << " = ";
-		PrintValue(std::cout, entry.second);
-		std::cout << " (" << TypeNameOf(entry.second) << ")" << std::endl;
+		out << "[LOCAL] " << entry.first << " = ";
+		PrintValue(out, entry.second);
+		out << " (" << TypeNameOf(entry.second) << ")" << std::endl;
 	}
+	return out.str();
 }

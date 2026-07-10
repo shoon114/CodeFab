@@ -13,13 +13,15 @@ class ExecutorUnit;
 // 이름/범위 밖 인덱스/배열이 아닌 값에 대한 인덱스는 "<undefined>"로 표시한다.
 // Inspect는 watch 목록과 무관하게 executor.CurrentScope()의 변수 전부를 같은
 // 값+타입 포맷으로 출력한다.
+// 실제 화면 출력(std::cout)은 이 클래스가 하지 않는다 -- 포맷된 문자열만 만들어
+// 반환하고, 그걸 언제/어디에 찍을지는 호출자(DebugSession)의 책임이다.
 class WatchList {
 public:
 	void Add(const std::string& name);
 	void Remove(const std::string& name);
 	bool Contains(const std::string& name) const;
-	void Watches(const ExecutorUnit& executor) const;
-	void Inspect(const ExecutorUnit& executor) const;
+	std::string Watches(const ExecutorUnit& executor) const;
+	std::string Inspect(const ExecutorUnit& executor) const;
 
 private:
 	std::vector<std::string> names; // 추가한 순서 유지
