@@ -222,6 +222,7 @@
     <ClCompile Include="WatchList.cpp" />
     <ClCompile Include="DebugSession.cpp" />
     <ClCompile Include="TestWatchList.cpp" />
+    <ClCompile Include="TestDebugSession.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
