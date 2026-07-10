@@ -11,12 +11,15 @@ class ExecutorUnit;
 // "[LOCAL]"/"[GLOBAL]" 스코프 표시와 함께 값+타입을 출력한다("d[0]"처럼 대괄호
 // 인덱스가 붙은 이름은 배열 변수를 찾아 그 원소값만 가리킨다). 존재하지 않는
 // 이름/범위 밖 인덱스/배열이 아닌 값에 대한 인덱스는 "<undefined>"로 표시한다.
+// Inspect는 watch 목록과 무관하게 executor.CurrentScope()의 변수 전부를 같은
+// 값+타입 포맷으로 출력한다.
 class WatchList {
 public:
 	void Add(const std::string& name);
 	void Remove(const std::string& name);
 	bool Contains(const std::string& name) const;
 	void Watches(const ExecutorUnit& executor) const;
+	void Inspect(const ExecutorUnit& executor) const;
 
 private:
 	std::vector<std::string> names; // 추가한 순서 유지

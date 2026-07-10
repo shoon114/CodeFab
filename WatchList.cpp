@@ -91,3 +91,11 @@ void WatchList::Watches(const ExecutorUnit& executor) const {
 		std::cout << " (" << TypeNameOf(value) << ")" << std::endl;
 	}
 }
+
+void WatchList::Inspect(const ExecutorUnit& executor) const {
+	for (const auto& entry : executor.CurrentScope()) {
+		std::cout << "[LOCAL] " << entry.first << " = ";
+		PrintValue(std::cout, entry.second);
+		std::cout << " (" << TypeNameOf(entry.second) << ")" << std::endl;
+	}
+}

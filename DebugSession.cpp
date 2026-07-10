@@ -104,8 +104,7 @@ bool DebugSession::HandleCommand(const std::string& command) {
 		return false;
 	}
 	if (verb == "inspect") {
-		// TODO(watch 담당자): executor.CurrentScope()의 각 항목을 watches와
-		// 동일한 값 포맷으로 출력
+		watchList.Inspect(executor);
 		return false;
 	}
 
