@@ -29,9 +29,8 @@ int PromptMode::Run() {
 		tokenizer.GetCodeFromUser();
 		std::cin.rdbuf(originalCinBuffer);
 
-		TokenList tokenList = tokenizer.CreateTokenForCode();
-
 		try {
+			TokenList tokenList = tokenizer.CreateTokenForCode();
 			trees.push_back(assembler.Parse(tokenList));
 			// 정적 오류가 있으면 ReportError가 이미 stderr에 보고했으므로, 잘못된
 			// 트리를 실행해 런타임 오류를 또 내지 않도록 여기서 멈춘다.
@@ -95,7 +94,18 @@ int PromptMode::Run() {
 		tokenizer.GetCodeFromUser();
 		std::cin.rdbuf(originalCinBuffer);
 
-		TokenList tokenList = tokenizer.CreateTokenForCode();
+		TokenList tokenList;
+		try {
+			tokenList = tokenizer.CreateTokenForCode();
+		} catch (const std::exception& e) {
+			// import 파일을 못 여는 등, 아직 문장이 완성되기도 전에 토큰화 단계에서
+			// 실패할 수 있다. 이 경우 미완성 판단 로직까지 갈 필요 없이 바로 에러를
+			// 보고하고 버퍼를 비운 뒤 다음 입력을 받는다.
+			std::cerr << e.what() << std::endl;
+			buffer.clear();
+			waitedOnceForElse = false;
+			continue;
+		}
 
 		int braceDepth = 0;
 		for (const Token& token : tokenList) {

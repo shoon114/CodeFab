@@ -17,12 +17,12 @@ int FileMode::Run() {
 		return 1;
 	}
 
-	TokenList tokenList = SourceFileLoader::Tokenize(content);
 	AssemblerUnit assembler;
 	CheckerUnit checker;
 	ExecutorUnit executor;
 
 	try {
+		TokenList tokenList = SourceFileLoader::Tokenize(content);
 		std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
 		// 정적 오류가 있으면 ReportError가 이미 stderr에 보고했으므로, 잘못된
 		// 트리를 실행해 런타임 오류를 또 내지 않도록 여기서 멈춘다.

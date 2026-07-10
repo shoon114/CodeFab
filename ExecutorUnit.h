@@ -102,15 +102,6 @@ private:
 	// 여기서 잡아 반환값으로 변환한다. EvaluateCallExpr/InvokeMethod가 공유한다.
 	Value_t ExecuteFunctionBody(const SyntaxNode& body);
 
-	// [알려진 단순화] Tokenizer가 import 대상 파일의 토큰을 경계 표시 없이 이어붙이므로,
-	// "import는 한 줄에 단독으로 입력된다"고 가정하고 import를 만나면 그 뒤 남은
-	// 문장 전부를 그 import의 모듈 내용으로 간주한다(같은 줄에 다른 코드가 더 있으면
-	// 부정확). Execute()/ExecuteBlockStmt가 기존 for문 대신 이 함수를 쓴다.
-	void ExecuteTopLevelStatements(const std::vector<std::unique_ptr<SyntaxNode>>& statements, size_t startIndex = 0);
-	// statements[contentStart:]를 importNode의 모듈 내용으로 실행해 alias에 바인딩한다.
-	void ExecuteImportAndRemaining(const ImportStmtNode& importNode,
-		const std::vector<std::unique_ptr<SyntaxNode>>& statements, size_t contentStart);
-
 	// Visit(Stmt)가 위임하는 문(statement)별 실행 메서드
 	void ExecutePrintStmt(const SyntaxNode& node);
 	void ExecuteVarDeclareStatement(const SyntaxNode& node);
@@ -179,4 +170,11 @@ private:
 
 	// Evaluate()가 Accept()를 통해 식 노드를 방문한 뒤 결과를 꺼내가는 임시 저장소.
 	Value_t lastValue;
+
+	// import 모듈 내용(ImportStmtNode::children[2:])을 실행하는 동안 true. 이 파일에서
+	// import되는 건 선언(var/Func/Class/중첩 import)뿐이고 print/if/for/단독 식 같은
+	// "동작"은 무시해야 하므로, 각 Visit(...Stmt)이 이 플래그를 보고 스스로 건너뛴다
+	// (타입으로 분기하는 새 switch/if-chain을 만들지 않기 위해 Visitor 디스패치 결과인
+	// 각 Visit 안에서 판단한다).
+	bool suppressActionsDuringImport = false;
 };

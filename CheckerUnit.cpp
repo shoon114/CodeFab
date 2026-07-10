@@ -485,6 +485,15 @@ void CheckerUnit::Visit(const ImportStmtNode& node) {
         ReportError("별칭 '" + alias + "' 중복 선언.", node.token.line);
     }
     scopeStack.back().insert(alias);
+
+    // node.children[2:]는 import 대상 파일의 최상위 선언들(ExecutorUnit이 모듈 멤버로
+    // 등록하는 것과 동일한 목록)이다. 이 파일만의 독립된 스코프에서 검사해야
+    // alias.member로만 접근 가능하고 바깥 스코프 이름과 충돌하지 않는다.
+    EnterScope();
+    for (size_t i = 2; i < node.children.size(); ++i) {
+        node.children[i]->Accept(*this);
+    }
+    ExitScope();
 }
 
 bool CheckerUnit::IsObviouslyScalarLiteral(const SyntaxNode& node) const {
