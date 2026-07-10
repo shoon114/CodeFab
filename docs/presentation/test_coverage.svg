@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="676" viewBox="0 0 800 676" font-family="Segoe UI, Malgun Gothic, sans-serif">
+<title>CodeFab 모듈별 테스트 커버리지 (UnitTC + SystemTC)</title>
+<rect x="0" y="0" width="800" height="676" fill="#ffffff"/>
+<text x="400.0" y="30" text-anchor="middle" font-size="20" font-weight="700" fill="#1b1e26">CodeFab 모듈별 테스트 커버리지</text>
+<text x="400.0" y="52" text-anchor="middle" font-size="13" fill="#6b7280">UnitTC(324) + SystemTC(77) 종합 · 라인 커버리지 · 전체 평균 89.5%</text>
+<text x="220" y="87.68" text-anchor="end" font-size="12.5" fill="#1b1e26">Tokenizer.cpp</text>
+<rect x="230" y="74" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="74" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="87.68" font-size="12" fill="#1b1e26">100% (211/211)</text>
+<text x="220" y="113.68" text-anchor="end" font-size="12.5" fill="#1b1e26">AssemblerUnit.cpp</text>
+<rect x="230" y="100" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="100" width="454.7" height="16" fill="#2ecc71"/>
+<text x="720" y="113.68" font-size="12" fill="#1b1e26">95% (18/19)</text>
+<text x="220" y="139.68" text-anchor="end" font-size="12.5" fill="#1b1e26">StatementParserRegistry.cpp</text>
+<rect x="230" y="126" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="126" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="139.68" font-size="12" fill="#1b1e26">100% (13/13)</text>
+<text x="220" y="165.68" text-anchor="end" font-size="12.5" fill="#1b1e26">VarDeclareParser.cpp</text>
+<rect x="230" y="152" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="152" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="165.68" font-size="12" fill="#1b1e26">100% (16/16)</text>
+<text x="220" y="191.68" text-anchor="end" font-size="12.5" fill="#1b1e26">PrintStatementParser.cpp</text>
+<rect x="230" y="178" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="178" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="191.68" font-size="12" fill="#1b1e26">100% (15/15)</text>
+<text x="220" y="217.68" text-anchor="end" font-size="12.5" fill="#1b1e26">ReturnStatementParser.cpp</text>
+<rect x="230" y="204" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="204" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="217.68" font-size="12" fill="#1b1e26">100% (17/17)</text>
+<text x="220" y="243.68" text-anchor="end" font-size="12.5" fill="#1b1e26">BlockParser.cpp</text>
+<rect x="230" y="230" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="230" width="458.2" height="16" fill="#2ecc71"/>
+<text x="720" y="243.68" font-size="12" fill="#1b1e26">95% (21/22)</text>
+<text x="220" y="269.68" text-anchor="end" font-size="12.5" fill="#1b1e26">IfStatementParser.cpp</text>
+<rect x="230" y="256" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="256" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="269.68" font-size="12" fill="#1b1e26">100% (49/49)</text>
+<text x="220" y="295.68" text-anchor="end" font-size="12.5" fill="#1b1e26">ForStmtParser.cpp</text>
+<rect x="230" y="282" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="282" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="295.68" font-size="12" fill="#1b1e26">100% (40/40)</text>
+<text x="220" y="321.68" text-anchor="end" font-size="12.5" fill="#1b1e26">FunctionStatementParser.cpp</text>
+<rect x="230" y="308" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="308" width="465.9" height="16" fill="#2ecc71"/>
+<text x="720" y="321.68" font-size="12" fill="#1b1e26">97% (33/34)</text>
+<text x="220" y="347.68" text-anchor="end" font-size="12.5" fill="#1b1e26">ClassStatementParser.cpp</text>
+<rect x="230" y="334" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="334" width="427.6" height="16" fill="#f1c40f"/>
+<text x="720" y="347.68" font-size="12" fill="#1b1e26">89% (49/55)</text>
+<text x="220" y="373.68" text-anchor="end" font-size="12.5" fill="#1b1e26">ImportStatementParser.cpp</text>
+<rect x="230" y="360" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="360" width="480.0" height="16" fill="#2ecc71"/>
+<text x="720" y="373.68" font-size="12" fill="#1b1e26">100% (25/25)</text>
+<text x="220" y="399.68" text-anchor="end" font-size="12.5" fill="#1b1e26">ExpressionParser.cpp</text>
+<rect x="230" y="386" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="386" width="476.8" height="16" fill="#2ecc71"/>
+<text x="720" y="399.68" font-size="12" fill="#1b1e26">99% (149/150)</text>
+<text x="220" y="425.68" text-anchor="end" font-size="12.5" fill="#1b1e26">CheckerUnit.cpp</text>
+<rect x="230" y="412" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="412" width="434.1" height="16" fill="#2ecc71"/>
+<text x="720" y="425.68" font-size="12" fill="#1b1e26">90% (312/345)</text>
+<text x="220" y="451.68" text-anchor="end" font-size="12.5" fill="#1b1e26">ExecutorUnit.cpp</text>
+<rect x="230" y="438" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="438" width="434.2" height="16" fill="#2ecc71"/>
+<text x="720" y="451.68" font-size="12" fill="#1b1e26">90% (408/451)</text>
+<text x="220" y="477.68" text-anchor="end" font-size="12.5" fill="#1b1e26">NodeVisitor.cpp</text>
+<rect x="230" y="464" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="464" width="215.2" height="16" fill="#e67e22"/>
+<text x="720" y="477.68" font-size="12" fill="#1b1e26">45% (13/29)</text>
+<text x="220" y="503.68" text-anchor="end" font-size="12.5" fill="#1b1e26">SourceFileLoader.cpp</text>
+<rect x="230" y="490" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="490" width="147.7" height="16" fill="#e74c3c"/>
+<text x="720" y="503.68" font-size="12" fill="#1b1e26">31% (8/26)</text>
+<text x="220" y="529.68" text-anchor="end" font-size="12.5" fill="#1b1e26">PromptMode.cpp</text>
+<rect x="230" y="516" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="516" width="374.5" height="16" fill="#f1c40f"/>
+<text x="720" y="529.68" font-size="12" fill="#1b1e26">78% (71/91)</text>
+<text x="220" y="555.68" text-anchor="end" font-size="12.5" fill="#1b1e26">FileMode.cpp</text>
+<rect x="230" y="542" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="542" width="0.0" height="16" fill="#e74c3c"/>
+<text x="720" y="555.68" font-size="12" fill="#1b1e26">0% (0/20)</text>
+<text x="220" y="581.68" text-anchor="end" font-size="12.5" fill="#1b1e26">DebugMode.cpp</text>
+<rect x="230" y="568" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="568" width="0.0" height="16" fill="#e74c3c"/>
+<text x="720" y="581.68" font-size="12" fill="#1b1e26">0% (0/6)</text>
+<text x="220" y="607.68" text-anchor="end" font-size="12.5" fill="#1b1e26">CodeFabInterpreter.cpp</text>
+<rect x="230" y="594" width="480" height="16" fill="#e2e4ea"/>
+<rect x="230" y="594" width="266.7" height="16" fill="#e67e22"/>
+<text x="720" y="607.68" font-size="12" fill="#1b1e26">56% (10/18)</text>
+<rect x="230" y="642" width="14" height="14" fill="#2ecc71"/>
+<text x="250" y="654" font-size="12" fill="#1b1e26">90%+</text>
+<rect x="340" y="642" width="14" height="14" fill="#f1c40f"/>
+<text x="360" y="654" font-size="12" fill="#1b1e26">70~89%</text>
+<rect x="450" y="642" width="14" height="14" fill="#e67e22"/>
+<text x="470" y="654" font-size="12" fill="#1b1e26">40~69%</text>
+<rect x="560" y="642" width="14" height="14" fill="#e74c3c"/>
+<text x="580" y="654" font-size="12" fill="#1b1e26">0~39%</text>
+</svg>
