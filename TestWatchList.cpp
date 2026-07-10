@@ -96,6 +96,31 @@ protected:
 		return node;
 	}
 
+	// <arrayName>[<index>] = <valueExpr>;
+	std::unique_ptr<SyntaxNode> MakeIndexAssignStmt(const std::string& arrayName, double index, std::unique_ptr<SyntaxNode> valueExpr, int line = 1) {
+		auto indexExpr = std::make_unique<IndexExprNode>();
+		indexExpr->token.line = line;
+		indexExpr->children.push_back(MakeIdentifier(arrayName, line));
+		indexExpr->children.push_back(MakeNumberLiteral(index, line));
+
+		auto assign = std::make_unique<AssignExprNode>();
+		assign->token.type = TokenType::Assign;
+		assign->token.lexeme = "=";
+		assign->token.line = line;
+		assign->children.push_back(std::move(indexExpr));
+		assign->children.push_back(std::move(valueExpr));
+
+		return MakeExprStmt(std::move(assign), line);
+	}
+
+	// Array(<sizeExpr>)
+	std::unique_ptr<SyntaxNode> MakeArrExpr(std::unique_ptr<SyntaxNode> sizeExpr, int line = 1) {
+		auto node = std::make_unique<ArrExprNode>();
+		node->token.line = line;
+		node->children.push_back(std::move(sizeExpr));
+		return node;
+	}
+
 	template <typename... Stmts>
 	std::unique_ptr<SyntaxNode> MakeBlockStmt(Stmts&&... statements) {
 		auto node = std::make_unique<BlockStmtNode>();
@@ -173,6 +198,62 @@ TEST_F(WatchListTest, PrintAll_LocalStringVariable_PrintsLocalLabelAndStringType
 	watchList.Add("c");
 
 	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("[LOCAL] c = \"hello\" (string)"));
+}
+
+// var d = Array(3); d[0]=1; d[1]=2; d[2]=3; 실행 후 watches를 조회하면
+// "[LOCAL] d = [1, 2, 3] (array)"가 출력되어야 한다 (원소를 대괄호로 펼쳐서 표시).
+TEST_F(WatchListTest, PrintAll_LocalArrayVariable_PrintsLocalLabelAndArrayType) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))),
+		MakeIndexAssignStmt("d", 0, MakeNumberLiteral(1)),
+		MakeIndexAssignStmt("d", 1, MakeNumberLiteral(2)),
+		MakeIndexAssignStmt("d", 2, MakeNumberLiteral(3))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d");
+
+	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("[LOCAL] d = [1, 2, 3] (array)"));
+}
+
+// var d = Array(3); d[0]=1; d[1]=2; (d[2]는 미할당) 실행 후 watches를 조회하면
+// "[LOCAL] d = [1, 2, null] (array)"가 출력되어야 한다 (초기화 안 된 칸은 null).
+TEST_F(WatchListTest, PrintAll_LocalArrayVariable_WithUnassignedElement_PrintsNullForThatElement) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))),
+		MakeIndexAssignStmt("d", 0, MakeNumberLiteral(1)),
+		MakeIndexAssignStmt("d", 1, MakeNumberLiteral(2))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d");
+
+	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("[LOCAL] d = [1, 2, null] (array)"));
+}
+
+// var d = Array(3); d[0]=1; d[1]=2; d[2]=3; 실행 후 "d[0]"을 watch하면 배열 전체가
+// 아니라 그 원소값만 "[LOCAL] d[0] = 1 (number)"로 출력되어야 한다.
+TEST_F(WatchListTest, PrintAll_ArrayElementWatch_PrintsElementValue) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))),
+		MakeIndexAssignStmt("d", 0, MakeNumberLiteral(1)),
+		MakeIndexAssignStmt("d", 1, MakeNumberLiteral(2)),
+		MakeIndexAssignStmt("d", 2, MakeNumberLiteral(3))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d[0]");
+
+	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("[LOCAL] d[0] = 1 (number)"));
 }
 
 // var b = true; { var a = 4; <marker> } 구조에서 a, b를 모두 watch하면, 블록이
