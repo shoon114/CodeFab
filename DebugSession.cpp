@@ -4,8 +4,43 @@
 #include <iostream>
 #include <sstream>
 
+DebugSession::NewlineTrackingStreambuf::NewlineTrackingStreambuf(std::streambuf* target) : target(target) {}
+
+bool DebugSession::NewlineTrackingStreambuf::AtLineStart() const {
+	return atLineStart;
+}
+
+int DebugSession::NewlineTrackingStreambuf::overflow(int ch) {
+	if (ch != EOF) {
+		atLineStart = (ch == '\n');
+		return target->sputc(static_cast<char>(ch));
+	}
+	return ch;
+}
+
+std::streamsize DebugSession::NewlineTrackingStreambuf::xsputn(const char* s, std::streamsize count) {
+	if (count > 0) {
+		atLineStart = (s[count - 1] == '\n');
+	}
+	return target->sputn(s, count);
+}
+
+void DebugSession::NewlineTrackingStreambuf::MarkLineStart() {
+	atLineStart = true;
+}
+
 DebugSession::DebugSession(std::vector<std::string> sourceLines, ExecutorUnit& executor)
-	: sourceLines(std::move(sourceLines)), executor(executor) {
+	: sourceLines(std::move(sourceLines)), executor(executor),
+	  originalCoutBuffer(std::cout.rdbuf()), outputTracker(originalCoutBuffer) {
+	std::cout.rdbuf(&outputTracker);
+}
+
+DebugSession::~DebugSession() {
+	std::cout.rdbuf(originalCoutBuffer);
+}
+
+std::string DebugSession::EnsureNewLine() const {
+	return outputTracker.AtLineStart() ? "" : "\n";
 }
 
 void DebugSession::OnStmtEnter(const SyntaxNode& node) {
@@ -20,7 +55,7 @@ void DebugSession::OnStmtExit(const SyntaxNode&) {
 	depth--;
 }
 
-void DebugSession::PrintCurrentLine(const SyntaxNode& node) const {
+std::string DebugSession::PrintCurrentLine(const SyntaxNode& node) const {
 	int tokenLine = node.token.line;  // 0-indexed
 	int displayLine = tokenLine + 1;  // 사용자에게 보여주는 1-indexed
 
@@ -29,20 +64,27 @@ void DebugSession::PrintCurrentLine(const SyntaxNode& node) const {
 		sourceCode = sourceLines[tokenLine];
 	}
 
-	std::cout << "[DEBUG] Stop at line : " << displayLine;
+	std::ostringstream out;
+	out << EnsureNewLine();
+	out << "[DEBUG] Stop at line : " << displayLine;
 	if (stepController.IsRunningMode()) {
-		std::cout << " (breakpoint)";
+		out << " (breakpoint)";
 	}
-	std::cout << " > " << sourceCode << std::endl;
+	out << " > " << sourceCode << std::endl;
+	return out.str();
 }
 
 void DebugSession::PromptAndHandleCommands(const SyntaxNode& node) {
-	PrintCurrentLine(node);
+	std::cout << PrintCurrentLine(node);
 	std::cout << watchList.Watches(executor);
 
 	std::string command;
 	while (true) {
-		std::cout << "(debug) ";
+		std::cout << ">>> ";
+		// 프롬프트 장식 자체는 개행 없이 끝나지만, EnsureNewLine이 신경 쓰는 건
+		// "프로그램이 방금 개행 없이 뭔가 출력했는지"이지 이 프롬프트가 아니므로
+		// 상태를 새 줄로 되돌린다.
+		outputTracker.MarkLineStart();
 		if (!std::getline(std::cin, command)) {
 			// 입력 스트림이 끝나면(예: 파이프 입력 소진) 더 이상 멈추지 않고
 			// 남은 프로그램을 끝까지 실행한다.
@@ -79,6 +121,7 @@ bool DebugSession::HandleCommand(const std::string& command) {
 		int line;
 		if (iss >> line) {
 			stepController.SetBreakpoint(line - 1);  // 사용자 입력은 1-indexed
+			std::cout << EnsureNewLine();
 			std::cout << "[DEBUG] Set breakpoint at line : " << line << std::endl;
 		}
 		return false;
@@ -87,11 +130,13 @@ bool DebugSession::HandleCommand(const std::string& command) {
 		int line;
 		if (iss >> line) {
 			stepController.RemoveBreakpoint(line - 1);  // 사용자 입력은 1-indexed
+			std::cout << EnsureNewLine();
 			std::cout << "[DEBUG] Removed breakpoint at line : " << line << std::endl;
 		}
 		return false;
 	}
 	if (verb == "breakpoints") {
+		std::cout << EnsureNewLine();
 		for (int line : stepController.Breakpoints()) {
 			std::cout << "  " << (line + 1) << std::endl;  // 내부 0-indexed → 1-indexed 표시
 		}
