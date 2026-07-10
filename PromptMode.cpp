@@ -54,11 +54,21 @@ int PromptMode::Run() {
 	std::string line;
 	// if가 '{}' 없는 단일 문장 body를 가질 때(예: "if (a > 3)\nprint "x";"), body가
 	// ';'로 끝나는 순간에도 'else'가 이어질 수 있어 한 번은 다음 줄을 더 확인해야
-	// 한다. 다만 그 확인이 끝났는데도(=이미 한 번 대기했는데도) 여전히 'else'가
-	// 없다면 더 기다리지 않고 바로 실행해야 한다 -- 그러지 않으면 else 없는 if
-	// 뒤에 무관한 문장이 계속 이어질 때 영원히 대기하게 된다. 이 상태를 버퍼가
-	// 실행되거나 else 체인에 확실히 들어선 시점마다 리셋해가며 추적한다.
-	bool waitedOnceForElse = false;
+	// 한다. 다만 그 확인이 끝났는데도 여전히 체인을 연장하는 else가 없다면 더
+	// 기다리지 않고 바로 실행해야 한다 -- 그러지 않으면 else 없는 if 뒤에 무관한
+	// 문장이 계속 이어질 때 영원히 대기하게 된다.
+	//
+	// 단순히 "한 번 기다렸는지" bool로는 부족하다 -- "if (...) 문장; else if (...)
+	// 문장;"처럼 조건과 body가 한 줄에 합쳐진 스타일에서는, 첫 if의 body가 닫혀서
+	// 한 번 기다린 뒤 "else if (...) 문장;"이 통째로 들어오면 그 시점에 else-if의
+	// body도 이미 닫혀 있어 다시 "이 지점은 처음 보는 대기 상태"로 취급해야 하는데,
+	// bool 하나로는 "이미 한 번 기다렸다"는 상태가 그대로 이어져 버려서 진짜
+	// 마지막 순수 else를 기다리지 못하고 성급하게 실행돼 버린다. 그래서 "마지막으로
+	// 대기를 시작했을 때 버퍼에 있던 else 개수"를 기록해두고, 이후 else 개수가
+	// 늘어났다면(=새로운 else/else-if가 실제로 체인을 연장했다면) 그 시점을
+	// 다시 "새로 대기를 시작하는 시점"으로 취급한다. else 개수가 그대로라면(=
+	// 아무것도 연장되지 않았다면) 더 기다리지 않는다.
+	int elseCountAtLastWait = -1;
 	while (true) {
 		// buffer가 비어있으면 새 문장의 시작(">>> "), 그렇지 않으면 이전 줄에서
 		// 이어지는 멀티라인 입력 중("..> ")이라는 뜻이다. stdout이 아니라
@@ -133,18 +143,18 @@ int PromptMode::Run() {
 			TokenType lastRealType = tokenList[tokenList.size() - 2].type;
 			if (lastRealType == TokenType::KwElse) {
 				pendingControlBlock = true; // "... else" 다음에 '{' 또는 'if'를 기다리는 중
-				waitedOnceForElse = false; // 이미 'else'를 만났으니 "혹시 else?" 대기 상태는 아니다
+				elseCountAtLastWait = -1; // 이미 'else'를 만났으니 "혹시 else?" 대기 상태는 아니다
 			} else if (lastRealType == TokenType::RParen
 				&& (firstType == TokenType::KwIf || firstType == TokenType::KwFor || firstType == TokenType::KwFunc)) {
 				pendingControlBlock = true; // "if (...)"/"for (...)"/"func name(...)" 다음에 '{'를 기다리는 중
-				waitedOnceForElse = false;
+				elseCountAtLastWait = -1;
 			} else if (firstType == TokenType::KwClass && lastRealType == TokenType::Identifier) {
 				// "Class Name"이나 "Class Name : Parent"까지만 입력된 상태 --
 				// 클래스 body('{...}')는 반드시 있어야 하므로(단일 문장으로
 				// 대체될 수 없음) 다음 줄의 '{'를 기다린다. 이미 닫힌 선언은
 				// 마지막 토큰이 RBrace이므로 이 조건에 걸리지 않는다.
 				pendingControlBlock = true;
-				waitedOnceForElse = false;
+				elseCountAtLastWait = -1;
 			} else if (firstType == TokenType::KwIf
 				&& (lastRealType == TokenType::RBrace || lastRealType == TokenType::Semicolon)) {
 				// if의 body가 방금 닫혔다(브레이스 body든 '{}' 없는 단일 문장
@@ -160,38 +170,43 @@ int PromptMode::Run() {
 				// 나왔다면(문법상 그 뒤에 또 else가 올 수 없으므로) 더 이상
 				// 기다릴 필요가 없다.
 				bool sawTerminalElse = false;
+				int elseCount = 0;
 				for (size_t i = 0; i < tokenList.size(); i++) {
 					if (tokenList[i].type == TokenType::KwElse) {
+						elseCount++;
 						bool isElseIf = (i + 1 < tokenList.size() && tokenList[i + 1].type == TokenType::KwIf);
 						if (!isElseIf) {
 							sawTerminalElse = true;
-							break;
 						}
 					}
 				}
 				if (!sawTerminalElse) {
-					// 다만 이미 한 번 확인했는데도(waitedOnceForElse) 여전히
-					// 체인을 연장하는 else가 없다면 더 기다리지 않고 지금
-					// 실행한다 -- 안 그러면 else 없는 if 뒤에 무관한 문장이
-					// 계속 이어질 때 영원히 대기하게 된다.
-					if (!waitedOnceForElse) {
+					// "if (...) 문장; else if (...) 문장;"처럼 조건과 body가 한
+					// 줄에 합쳐진 스타일에서는, else-if의 body까지 이미 닫힌
+					// 채로 한 번에 들어올 수 있다. 이 경우 else 개수가 지난번
+					// 대기 시점보다 늘어났으므로(=실제로 체인이 한 칸 더
+					// 연장됐으므로) "새로 대기를 시작하는 시점"으로 취급해서
+					// 한 번 더 기다린다. else 개수가 그대로라면(=이번에 새로
+					// 추가된 줄이 체인을 전혀 연장하지 못했다면) 더 기다리지
+					// 않는다.
+					if (elseCount > elseCountAtLastWait) {
 						pendingControlBlock = true;
-						waitedOnceForElse = true;
+						elseCountAtLastWait = elseCount;
 					} else {
-						waitedOnceForElse = false;
+						elseCountAtLastWait = -1;
 					}
 				} else {
-					waitedOnceForElse = false;
+					elseCountAtLastWait = -1;
 				}
 			} else {
-				waitedOnceForElse = false;
+				elseCountAtLastWait = -1;
 			}
 		}
 		if (pendingControlBlock) {
 			continue;
 		}
 
-		waitedOnceForElse = false;
+		elseCountAtLastWait = -1;
 		runBuffer(buffer);
 	}
 

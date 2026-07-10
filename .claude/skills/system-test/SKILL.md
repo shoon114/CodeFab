@@ -109,6 +109,9 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | if/else if/else(3단 체인, 여러 줄, if 분기 참) | `var a = 9;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `x` |
 | if/else if/else(3단 체인, 여러 줄, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `y` |
 | if/else if/else(3단 체인, 여러 줄, else 분기 참) | `var a = 1;` → `var b = 0;` → `if (a > 3)` → `print "x";` → `else if (b > 1)` → `print "y";` → `else` → `print "z";` | `z` — else-if 분기의 body가 닫힌 뒤에도 체인을 끝내는 순수 else를 기다리는지 확인 |
+| if/else if/else(3단 체인, 조건+body가 한 줄, if 분기 참) | `var a = 9;` → `var b = 0;` → `if (a > 3) print "x";` → `else if (b > 1) print "y";` → `else print "z";` | `x` |
+| if/else if/else(3단 체인, 조건+body가 한 줄, else-if 분기 참) | `var a = 1;` → `var b = 5;` → `if (a > 3) print "x";` → `else if (b > 1) print "y";` → `else print "z";` | `y` |
+| if/else if/else(3단 체인, 조건+body가 한 줄, else 분기 참) | `var a = 1;` → `var b = 0;` → `if (a > 3) print "x";` → `else if (b > 1) print "y";` → `else print "z";` | `z` — 조건과 body가 한 줄에 합쳐진 스타일에서도 순수 else를 기다리는지 확인 |
 | for 반복문 | `for (var j = 0; j < 3; j = j + 1) { print j; }` | `012` |
 | for 반복문(단일 줄 body) | `for (var j = 0; j < 3; j = j + 1) print j;` | `012` |
 | 함수 선언과 호출 | `func add(a, b) { return a + b; }` → `print add(2, 3);` | `5` |
