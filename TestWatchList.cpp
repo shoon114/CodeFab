@@ -256,6 +256,44 @@ TEST_F(WatchListTest, PrintAll_ArrayElementWatch_PrintsElementValue) {
 	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("[LOCAL] d[0] = 1 (number)"));
 }
 
+// 한 번도 선언되지 않은 이름을 watch하면 "z = <undefined>"가 출력되어야 한다.
+TEST_F(WatchListTest, PrintAll_UndeclaredVariable_PrintsUndefinedPlaceholder) {
+	ExecutorUnit executor;
+
+	WatchList watchList;
+	watchList.Add("z");
+
+	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("z = <undefined>"));
+}
+
+// var d = Array(3); 실행 후 배열 크기를 벗어난 인덱스("d[10]")를 watch하면
+// "d[10] = <undefined>"가 출력되어야 한다.
+TEST_F(WatchListTest, PrintAll_ArrayIndexOutOfRange_PrintsUndefinedPlaceholder) {
+	auto program = MakeProgram(MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d[10]");
+
+	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("d[10] = <undefined>"));
+}
+
+// var a = 4; 실행 후 배열이 아닌 변수에 인덱스를 붙여("a[0]") watch하면
+// "a[0] = <undefined>"가 출력되어야 한다.
+TEST_F(WatchListTest, PrintAll_IndexIntoNonArrayVariable_PrintsUndefinedPlaceholder) {
+	auto program = MakeProgram(MakeVarDeclStmt("a", MakeNumberLiteral(4)));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("a[0]");
+
+	EXPECT_THAT(CapturePrintAll(watchList, executor), HasSubstr("a[0] = <undefined>"));
+}
+
 // var b = true; { var a = 4; <marker> } 구조에서 a, b를 모두 watch하면, 블록이
 // 아직 살아있는(a의 스코프가 팝되기 전) 시점엔 a는 [LOCAL], b는 [GLOBAL]로
 // 각각 올바르게 구분되어 추가한 순서(a, b)대로 출력되어야 한다.
