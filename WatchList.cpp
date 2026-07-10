@@ -25,6 +25,8 @@ void WatchList::PrintAll(const ExecutorUnit& executor) const {
 			std::cout << (isLocal ? "[LOCAL] " : "[GLOBAL] ") << name << " = ";
 			if (std::holds_alternative<bool>(value)) {
 				std::cout << (std::get<bool>(value) ? "true" : "false") << " (Boolean)";
+			} else if (std::holds_alternative<std::string>(value)) {
+				std::cout << "\"" << std::get<std::string>(value) << "\" (string)";
 			} else {
 				std::cout << std::get<double>(value) << " (number)";
 			}
