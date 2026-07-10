@@ -27,12 +27,22 @@ Source Code
 
 각 단계의 책임:
 
-- `Tokenizer`: 입력 문자열을 `TokenList`로 변환한다.
+- `Tokenizer`: 입력 문자열을 `TokenList`로 변환한다. `import "path" alias x;`를 만나면 대상 파일을 재귀적으로 읽어 토큰 스트림에 이어붙인다(`ResolveImports`).
 - `AssemblerUnit`: `TokenList`를 순회하며 `ProgramNode` AST를 만든다.
 - `StatementParserRegistry`: 현재 토큰을 처리할 parser를 선택한다.
 - `ExpressionParser`: 연산자 우선순위와 결합성을 반영해 expression AST를 만든다.
 - `CheckerUnit`: AST 기반 의미 검사를 수행하고 일부 정적 정보를 AST에 기록한다.
 - `ExecutorUnit`: AST를 실행하며 runtime scope와 value를 관리한다.
+
+### 2.1 진입점: ShellMode 전략
+
+`main()`은 `argv`를 보고 `ShellMode` 구현체 하나를 선택한다. 각 모드는 자신만의 파이프라인 인스턴스를 `Run()` 안에서 지역으로 소유하므로 모드 간 상태를 공유하지 않는다.
+
+| ShellMode 구현체 | 용도 | 상태 |
+|---|---|---|
+| `PromptMode` | REPL(한 줄씩 입력) | 구현됨 |
+| `FileMode` | `run <file>` — 파일 전체 실행 | 구현됨 |
+| `DebugMode` | `debug <file>` — step/break/watch 등 | **스텁** — `"Debug mode is not implemented yet"`만 출력 |
 
 ## 3. 주요 모듈 책임
 
@@ -69,6 +79,8 @@ Statement parser 예:
 - `BlockParser`
 - `FunctionStatementParser`
 - `ReturnStatementParser`
+- `ClassStatementParser`
+- `ImportStatementParser`
 - `ExpressionParser`
 
 설계 장점:
@@ -111,6 +123,9 @@ AST node shape 예:
 | `ForStmtNode` | `[init, condition, increment, body]` |
 | `FuncDeclStmtNode` | `[param..., body]` |
 | `BlockStmtNode` | `[statement...]` |
+| `ClassDeclStmtNode` | `[method(FuncDeclStmtNode)...]` (+ `parentNameToken` 필드) |
+| `ImportStmtNode` | `[path(StringLiteralNode), alias(IdentifierNode)]` |
+| `MemberAccessExprNode` | `[target]` (+ `token` = 멤버 이름) |
 
 설계 주의점:
 
@@ -516,6 +531,11 @@ classDiagram
 - `RuntimeError`
 - `ImportError`
 
+### 12.6 Import 실행부 / DebugMode 미구현
+
+- `ImportStatementParser`와 `CheckerUnit::Visit(const ImportStmtNode&)`는 실제로 동작한다(alias 충돌/중복 import/반복문 내부 금지 검사). 하지만 `ExecutorUnit`에는 `Visit(const ImportStmtNode&)`가 없어 `ModuleLoader`/`alias` 네임스페이스 바인딩이 아직 없다 — 실제 파일 내용 유입은 여전히 `Tokenizer::ResolveImports`의 텍스트 스플라이스(alias 무시)에 의존한다. 자세한 내용은 `docs/feature_Import_design.md`.
+- `DebugMode::Run()`은 스텁이다(`step/next/break/watch/inspect` 등 미구현). `ShellMode` 전략(2.1절)에서 `PromptMode`/`FileMode`는 실제 동작하지만 `DebugMode`는 진입만 가능하다.
+
 ## 13. 향후 리팩토링 방향
 
 우선순위:
@@ -527,6 +547,8 @@ classDiagram
 5. `StatementParserRegistry` 테스트 안정성 개선
 6. error type 계층 도입
 7. 설계 문서와 실제 코드 API 동기화
+8. Import `ModuleLoader`/alias 네임스페이스 실행부 구현 (`ExecutorUnit::Visit(const ImportStmtNode&)`)
+9. `DebugMode`의 step/next/break/watch/inspect 구현
 
 ## 14. 발표 결론
 
