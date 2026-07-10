@@ -22,6 +22,7 @@ public:
 	void Continue();
 
 	bool ShouldPause(int line, int depth) const;
+	bool IsRunningMode() const;
 
 private:
 	std::set<int> breakpoints;

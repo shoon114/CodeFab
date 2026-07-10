@@ -218,6 +218,7 @@
     <ClCompile Include="ImportStatementParser.cpp" />
     <ClCompile Include="TestImportStatementParser.cpp" />
     <ClCompile Include="StepController.cpp" />
+    <ClCompile Include="TestStepController.cpp" />
     <ClCompile Include="WatchList.cpp" />
     <ClCompile Include="DebugSession.cpp" />
     <ClCompile Include="TestWatchList.cpp" />

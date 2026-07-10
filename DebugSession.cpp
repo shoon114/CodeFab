@@ -21,12 +21,19 @@ void DebugSession::OnStmtExit(const SyntaxNode&) {
 }
 
 void DebugSession::PrintCurrentLine(const SyntaxNode& node) const {
-	int line = node.token.line;
-	std::cout << "-> line " << line;
-	if (line >= 1 && static_cast<size_t>(line) <= sourceLines.size()) {
-		std::cout << ": " << sourceLines[line - 1];
+	int tokenLine = node.token.line;  // 0-indexed
+	int displayLine = tokenLine + 1;  // 사용자에게 보여주는 1-indexed
+
+	std::string sourceCode;
+	if (static_cast<size_t>(tokenLine) < sourceLines.size()) {
+		sourceCode = sourceLines[tokenLine];
 	}
-	std::cout << std::endl;
+
+	std::cout << "[DEBUG] Stop at line : " << displayLine;
+	if (stepController.IsRunningMode()) {
+		std::cout << " (breakpoint)";
+	}
+	std::cout << " > " << sourceCode << std::endl;
 }
 
 void DebugSession::PromptAndHandleCommands(const SyntaxNode& node) {
@@ -53,6 +60,9 @@ bool DebugSession::HandleCommand(const std::string& command) {
 	std::string verb;
 	iss >> verb;
 
+	if (verb == "exit" || verb == "quit") {
+		std::exit(0);
+	}
 	if (verb == "step") {
 		stepController.Step();
 		return true;
@@ -68,20 +78,21 @@ bool DebugSession::HandleCommand(const std::string& command) {
 	if (verb == "break") {
 		int line;
 		if (iss >> line) {
-			stepController.SetBreakpoint(line);
+			stepController.SetBreakpoint(line - 1);  // 사용자 입력은 1-indexed
+			std::cout << "[DEBUG] Set breakpoint at line : " << line << std::endl;
 		}
 		return false;
 	}
 	if (verb == "remove") {
 		int line;
 		if (iss >> line) {
-			stepController.RemoveBreakpoint(line);
+			stepController.RemoveBreakpoint(line - 1);  // 사용자 입력은 1-indexed
 		}
 		return false;
 	}
 	if (verb == "breakpoints") {
 		for (int line : stepController.Breakpoints()) {
-			std::cout << "  " << line << std::endl;
+			std::cout << "  " << (line + 1) << std::endl;  // 내부 0-indexed → 1-indexed 표시
 		}
 		return false;
 	}

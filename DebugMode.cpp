@@ -18,6 +18,10 @@ int DebugMode::Run() {
 		return 1;
 	}
 
+	auto lastSlash = path.find_last_of("/\\");
+	std::string filename = (lastSlash == std::string::npos) ? path : path.substr(lastSlash + 1);
+	std::cout << "[DEBUG] Loading Source Code : " << filename << std::endl;
+
 	TokenList tokenList = SourceFileLoader::Tokenize(content);
 	AssemblerUnit assembler;
 	CheckerUnit checker;
@@ -27,13 +31,14 @@ int DebugMode::Run() {
 
 	try {
 		std::unique_ptr<SyntaxNode> tree = assembler.Parse(tokenList);
-		checker.Check(tree.get());
+		if (!checker.Check(tree.get())) {
+			return 1;
+		}
 		executor.Execute(*tree);
-		std::cout << "Program finished." << std::endl;
+		std::cout << "\nProgram finished." << std::endl;
 	} catch (const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return 1;
 	}
-
 	return 0;
 }
