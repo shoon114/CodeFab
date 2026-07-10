@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="380" viewBox="0 0 860 380" font-family="Segoe UI, Malgun Gothic, sans-serif">
+<title>CodeFab PR 리뷰 코멘트 일자별 작성 횟수</title>
+<rect x="0" y="0" width="860" height="380" fill="#ffffff"/>
+<text x="430.0" y="30" text-anchor="middle" font-size="20" font-weight="700" fill="#1b1e26">CodeFab PR 리뷰 코멘트 일자별 작성 횟수</text>
+<text x="430.0" y="50" text-anchor="middle" font-size="13" fill="#6b7280">GitHub REST API 기준(인라인 코드 리뷰 코멘트), 총 231개, 날짜는 UTC</text>
+<line x1="60" y1="320" x2="820" y2="320" stroke="#c7cad1"/>
+<line x1="60" y1="70" x2="60" y2="320" stroke="#c7cad1"/>
+<line x1="56" y1="320.0" x2="820" y2="320.0" stroke="#eef0f4" stroke-dasharray="3,3"/>
+<text x="52" y="324.0" text-anchor="end" font-size="11" fill="#6b7280">0</text>
+<line x1="56" y1="195.0" x2="820" y2="195.0" stroke="#eef0f4" stroke-dasharray="3,3"/>
+<text x="52" y="199.0" text-anchor="end" font-size="11" fill="#6b7280">34</text>
+<line x1="56" y1="70.0" x2="820" y2="70.0" stroke="#eef0f4" stroke-dasharray="3,3"/>
+<text x="52" y="74.0" text-anchor="end" font-size="11" fill="#6b7280">68</text>
+<polyline points="60.0,202.4 250.0,70.0 440.0,114.1 630.0,84.7 820.0,279.6" fill="none" stroke="#e63946" stroke-width="2.5"/>
+<circle cx="60.0" cy="202.4" r="4.5" fill="#e63946"/>
+<text x="60.0" y="192.4" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">32</text>
+<text x="60.0" y="340" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-06</text>
+<circle cx="250.0" cy="70.0" r="4.5" fill="#e63946"/>
+<text x="250.0" y="60.0" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">68</text>
+<text x="250.0" y="340" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-07</text>
+<circle cx="440.0" cy="114.1" r="4.5" fill="#e63946"/>
+<text x="440.0" y="104.1" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">56</text>
+<text x="440.0" y="340" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-08</text>
+<circle cx="630.0" cy="84.7" r="4.5" fill="#e63946"/>
+<text x="630.0" y="74.7" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">64</text>
+<text x="630.0" y="340" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-09</text>
+<circle cx="820.0" cy="279.6" r="4.5" fill="#e63946"/>
+<text x="820.0" y="269.6" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">11</text>
+<text x="820.0" y="340" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-10</text>
+</svg>
