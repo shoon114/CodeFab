@@ -1,3 +1,5 @@
+#include <windows.h>
+
 #ifdef _DEBUG
 #include "gmock/gmock.h"
 using namespace testing;
@@ -31,6 +33,12 @@ namespace {
 #endif
 
 int main(int argc, char* argv[]) {
+	// 소스/실행 문자셋을 /utf-8로 빌드해도, 콘솔(conhost)의 출력 코드페이지가
+	// 한국어 Windows 기본값(CP949)이면 UTF-8 바이트가 한글로 안 깨지고 깨져
+	// 보인다. 실행 시작 시점에 콘솔 코드페이지 자체를 UTF-8로 맞춰준다.
+	SetConsoleOutputCP(CP_UTF8);
+	SetConsoleCP(CP_UTF8);
+
 #ifdef _DEBUG
 	InitGoogleMock();
 	return RUN_ALL_TESTS();
