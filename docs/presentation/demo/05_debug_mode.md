@@ -7,6 +7,8 @@
 
 ## 준비: `add.cf`
 
+준비된 파일: [`debug_mode/add.cf`](debug_mode/add.cf) (타이핑 없이 바로 실행 가능)
+
 ```javascript
 func add(a, b) {
   var result = a + b;

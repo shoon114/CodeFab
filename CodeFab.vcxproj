@@ -87,8 +87,9 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
-      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"
+xcopy /Y /D "$(ProjectDir)docs\presentation\demo\debug_mode\*.cf" "$(OutDir)"</Command>
+      <Message>import/debug 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -110,8 +111,9 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
-      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"
+xcopy /Y /D "$(ProjectDir)docs\presentation\demo\debug_mode\*.cf" "$(OutDir)"</Command>
+      <Message>import/debug 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -131,8 +133,9 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
-      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"
+xcopy /Y /D "$(ProjectDir)docs\presentation\demo\debug_mode\*.cf" "$(OutDir)"</Command>
+      <Message>import/debug 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -154,8 +157,9 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
-      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"
+xcopy /Y /D "$(ProjectDir)docs\presentation\demo\debug_mode\*.cf" "$(OutDir)"</Command>
+      <Message>import/debug 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
