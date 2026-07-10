@@ -12,6 +12,8 @@
 - [예제](#예제)
 - [테스트](#테스트)
 - [프로젝트 구조](#프로젝트-구조)
+- [문서 구조](#문서-구조)
+- [진행 상황](#진행-상황)
 
 ## 빌드 및 실행
 
@@ -147,3 +149,31 @@ x64\Debug\CodeFab.exe
 | `ExecutorUnit` | AST를 순회하며 실제로 실행 |
 
 자세한 아키텍처/설계 결정 사항은 [`CLAUDE.md`](CLAUDE.md), [`docs/`](docs) 디렉터리를 참고하세요.
+
+## 문서 구조
+
+설계/발표 자료는 전부 [`docs/`](docs) 디렉터리에 있습니다.
+
+| 문서 | 내용 |
+|---|---|
+| [`docs/CodeFab_Design.md`](docs/CodeFab_Design.md) | 전체 설계 문서. 파이프라인, Parser의 Strategy+Registry 구조, `SyntaxNode`의 Visitor 패턴, `ShellMode`, 현재 미구현 항목(Import 실행부/DebugMode)까지 현재 구현 기준으로 정리 |
+| [`docs/CodeFab_Design_Presentation.md`](docs/CodeFab_Design_Presentation.md) / [`.html`](docs/CodeFab_Design_Presentation.html) / [`.pdf`](docs/CodeFab_Design_Presentation.pdf) | 위 설계를 발표용으로 재구성한 자료(패턴별 UML 다이어그램 포함). md가 원본, html/pdf는 렌더링 산출물 |
+| [`docs/CodeFab_Visitor_Pattern.md`](docs/CodeFab_Visitor_Pattern.md) | `SyntaxNode`/`NodeVisitor` 더블 디스패치 구조에 대한 상세 설명 |
+| [`docs/feature_Import_design.md`](docs/feature_Import_design.md) | Import 기능의 에러 처리 책임 분담 설계. 최초 설계와 실제 구현(Tokenizer 스플라이스 방식)의 차이, 아직 미결정인 오픈 이슈(alias 네임스페이싱 등)를 기록 |
+| [`docs/feature_class_design.md`](docs/feature_class_design.md) | Class 기능(상속, `this`/`super`, 생성자) 설계 문서 |
+| [`docs/assets/*.svg`](docs/assets) | 발표 자료에 쓰이는 패턴별(Pipeline/Registry+Factory/Strategy/Composite/Visitor/Singleton) UML 다이어그램 |
+
+> `src/skelton.cpp`와 `docs/CodeFab_Design.md`의 구버전 서술 일부는 outdated 배경이 있었으나(자세한 내용은 [`CLAUDE.md`](CLAUDE.md) 1절), `CodeFab_Design.md`는 2026-07-10에 현재 구현 기준으로 전면 개정되었습니다. `CLAUDE.md`가 아키텍처 관련 최우선 참고 문서입니다.
+
+## 진행 상황
+
+**구현 완료 (2026-07-10 기준)**: 변수/제어문/함수/배열/클래스(상속 포함)/`instanceof`/정적 바인딩·상수 폴딩 최적화 — 위 [구현된 기능](#구현된-기능) 표 참고. Import는 파서(`ImportStatementParser`)와 `CheckerUnit`의 정적 검사(alias 충돌/중복 import/반복문 내부 금지)까지는 실제로 동작합니다.
+
+**진행 중 / 미구현**:
+
+| 항목 | 상태 | 비고 |
+|---|---|---|
+| Import 실행부(`ModuleLoader`, alias 네임스페이스) | 미구현 | `ExecutorUnit`에 `Visit(const ImportStmtNode&)`가 없어 alias가 아직 아무 역할도 하지 않음. 실제 코드 유입은 `Tokenizer::ResolveImports`의 텍스트 splice에만 의존. 자세한 내용은 [`docs/feature_Import_design.md`](docs/feature_Import_design.md) |
+| `DebugMode`(`debug <file>`) | 스텁 | `step/next/break/breakpoints/watch/inspect` 등 전부 미구현. 진입만 가능하고 안내 메시지만 출력 |
+
+**테스트 전략 전환**: 각 모듈 API를 유닛 테스트로 검증하는 TDD 단계는 완료되었고, 이후 신규 기능/버그 수정은 system test(콘솔 입력 → 실행 결과 검증) 기준으로 진행합니다. 기존 유닛 테스트(TC)는 회귀 테스트로 계속 유지하며 커밋 전 항상 전체 스위트를 통과시킵니다. 자세한 내용은 [`CLAUDE.md`](CLAUDE.md) 5절 참고.
