@@ -170,4 +170,11 @@ private:
 
 	// Evaluate()가 Accept()를 통해 식 노드를 방문한 뒤 결과를 꺼내가는 임시 저장소.
 	Value_t lastValue;
+
+	// import 모듈 내용(ImportStmtNode::children[2:])을 실행하는 동안 true. 이 파일에서
+	// import되는 건 선언(var/Func/Class/중첩 import)뿐이고 print/if/for/단독 식 같은
+	// "동작"은 무시해야 하므로, 각 Visit(...Stmt)이 이 플래그를 보고 스스로 건너뛴다
+	// (타입으로 분기하는 새 switch/if-chain을 만들지 않기 위해 Visitor 디스패치 결과인
+	// 각 Visit 안에서 판단한다).
+	bool suppressActionsDuringImport = false;
 };

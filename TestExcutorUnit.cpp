@@ -1488,6 +1488,21 @@ TEST_F(ExecutorUnitTest, Execute_ImportedModuleFunction_NotVisibleWithoutAlias) 
 	ExpectRuntimeError(*bareCallLine, "Undefined variable 'add'");
 }
 
+// import 대상 파일에 있는 print(선언이 아닌 "동작")는 import 시점에 실행되지 않고
+// 무시되어야 한다 — import는 파일의 선언(var/Func/Class/중첩 import)만 들여온다.
+TEST_F(ExecutorUnitTest, Execute_ImportedModuleContainingPrintStmt_DoesNotExecutePrint) {
+	auto importLine = MakeProgram(
+		MakeImportStmt("math.cf", "sum",
+			MakePrintStmt(MakeStringLiteral("이건 실행되면 안 됨")),
+			MakeVarDeclStmt("PI", MakeNumberLiteral(3)))
+	);
+
+	EXPECT_THAT(RunAndCapture(*importLine), IsEmpty());
+
+	auto printLine = MakeProgram(MakePrintStmt(MakeMemberAccess(MakeIdentifier("sum"), "PI")));
+	EXPECT_THAT(RunAndCapture(*printLine), Eq("3"));
+}
+
 // sum.notExist()처럼 모듈에 없는 함수를 호출하면 런타임 오류.
 TEST_F(ExecutorUnitTest, Execute_ImportedModuleUndefinedFunctionCall_ThrowsRuntimeError) {
 	auto importLine = MakeProgram(MakeImportStmt("math.cf", "sum"));

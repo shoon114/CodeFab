@@ -134,12 +134,15 @@ Value_t ExecutorUnit::ExecuteFunctionBody(const SyntaxNode& body) {
 	return Value_t{ std::monostate{} };
 }
 
-void ExecutorUnit::Visit(const PrintStmtNode& node) { ExecutePrintStmt(node); }
+// import 모듈 내용을 실행하는 동안(suppressActionsDuringImport)에는 선언이 아닌 "동작"이므로
+// 건너뛴다 — PDF 명세상 import는 파일의 선언만 들여오고, print/if/for/단독 식 같은 부수효과는
+// 실행하지 않는다.
+void ExecutorUnit::Visit(const PrintStmtNode& node) { if (suppressActionsDuringImport) return; ExecutePrintStmt(node); }
 void ExecutorUnit::Visit(const VarDeclareStatementNode& node) { ExecuteVarDeclareStatement(node); }
-void ExecutorUnit::Visit(const BlockStmtNode& node) { ExecuteBlockStmt(node); }
-void ExecutorUnit::Visit(const IfStmtNode& node) { ExecuteIfStmt(node); }
-void ExecutorUnit::Visit(const ExprStmtNode& node) { ExecuteExprStmt(node); }
-void ExecutorUnit::Visit(const ForStmtNode& node) { ExecuteForStmt(node); }
+void ExecutorUnit::Visit(const BlockStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteBlockStmt(node); }
+void ExecutorUnit::Visit(const IfStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteIfStmt(node); }
+void ExecutorUnit::Visit(const ExprStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteExprStmt(node); }
+void ExecutorUnit::Visit(const ForStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteForStmt(node); }
 
 // 최상위/일반 함수 선언은 FunctionObject로 등록해 EvaluateCallExpr(일반 함수 호출 경로)가
 // 찾아 쓸 수 있게 한다. 클래스 메서드(init 포함)도 FuncDeclStmtNode를 재사용하지만
@@ -214,9 +217,12 @@ void ExecutorUnit::Visit(const ImportStmtNode& node) {
 	std::vector<std::unordered_map<std::string, Value_t>> savedScopes = std::move(scopes);
 	scopes.assign(1, {}); // 이 import의 모듈만을 위한 새 스코프 하나
 
+	bool previousSuppress = suppressActionsDuringImport;
+	suppressActionsDuringImport = true;
 	for (size_t i = 2; i < node.children.size(); ++i) {
 		ExecuteStmt(*node.children[i]);
 	}
+	suppressActionsDuringImport = previousSuppress;
 
 	auto module = std::make_shared<ModuleObject>();
 	module->members = std::move(scopes.back());
