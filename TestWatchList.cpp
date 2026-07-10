@@ -108,4 +108,47 @@ TEST(WatchListTest, PrintAll_LocalBooleanVariable_PrintsLocalLabelAndBooleanType
 
 	EXPECT_THAT(output, HasSubstr("[LOCAL] b = true (Boolean)"));
 }
+
+// var c = "hello"; 실행 후 watches를 조회하면 "[LOCAL] c = \"hello\" (string)"가
+// 출력되어야 한다 (문자열 값은 큰따옴표로 감싸서 출력).
+TEST(WatchListTest, PrintAll_LocalStringVariable_PrintsLocalLabelAndStringType) {
+	auto identifier = std::make_unique<IdentifierNode>();
+	identifier->token.type = TokenType::Identifier;
+	identifier->token.lexeme = "c";
+	identifier->token.line = 1;
+
+	auto stringLiteral = std::make_unique<StringLiteralNode>();
+	stringLiteral->token.type = TokenType::String;
+	stringLiteral->token.lexeme = "hello";
+	stringLiteral->token.line = 1;
+
+	auto assign = std::make_unique<AssignExprNode>();
+	assign->token.type = TokenType::Assign;
+	assign->token.lexeme = "=";
+	assign->token.line = 1;
+	assign->children.push_back(std::move(identifier));
+	assign->children.push_back(std::move(stringLiteral));
+
+	auto varDecl = std::make_unique<VarDeclareStatementNode>();
+	varDecl->token.type = TokenType::KwVar;
+	varDecl->token.lexeme = "var";
+	varDecl->token.line = 1;
+	varDecl->children.push_back(std::move(assign));
+
+	auto program = std::make_unique<ProgramNode>();
+	program->children.push_back(std::move(varDecl));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	//watch c
+	WatchList watchList;
+	watchList.Add("c");
+
+	testing::internal::CaptureStdout();
+	watchList.PrintAll(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] c = \"hello\" (string)"));
+}
 #endif
