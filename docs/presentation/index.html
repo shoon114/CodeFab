@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>CodeFab 발표</title>
+<style>
+  :root {
+    --bg: #f7f7fa;
+    --fg: #1b1e26;
+    --accent: #4361ee;
+    --accent2: #e63946;
+    --card-bg: #ffffff;
+    --code-bg: #22262f;
+    --code-fg: #e8e8ea;
+    --muted: #6b7280;
+    --border: #e2e4ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14151a;
+      --fg: #eceef2;
+      --accent: #7c9bff;
+      --accent2: #ff8a8a;
+      --card-bg: #1d1f27;
+      --code-bg: #0d0e12;
+      --code-fg: #d9dbe3;
+      --muted: #9aa0ac;
+      --border: #2b2e38;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14151a; --fg: #eceef2; --accent: #7c9bff; --accent2: #ff8a8a;
+    --card-bg: #1d1f27; --code-bg: #0d0e12; --code-fg: #d9dbe3;
+    --muted: #9aa0ac; --border: #2b2e38;
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f7fa; --fg: #1b1e26; --accent: #4361ee; --accent2: #e63946;
+    --card-bg: #ffffff; --code-bg: #22262f; --code-fg: #e8e8ea;
+    --muted: #6b7280; --border: #e2e4ea;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font-family: "Pretendard", "Segoe UI", "Malgun Gothic", sans-serif;
+    overflow: hidden;
+  }
+  #deck {
+    position: relative;
+    width: 100%; height: 100vh;
+  }
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 6vh 8vw;
+    overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+  .slide h1 {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    margin: 0 0 0.6em 0;
+    color: var(--accent);
+  }
+  .slide h2 {
+    font-size: clamp(1.1rem, 2.2vw, 1.6rem);
+    margin: 1.2em 0 0.5em 0;
+    color: var(--fg);
+    border-left: 4px solid var(--accent);
+    padding-left: 0.5em;
+  }
+  .slide p, .slide li {
+    font-size: clamp(0.95rem, 1.6vw, 1.25rem);
+    line-height: 1.55;
+    color: var(--fg);
+  }
+  .slide .muted { color: var(--muted); font-size: 0.85em; }
+  .kicker {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.8rem;
+    margin-bottom: 0.5em;
+  }
+  ul { padding-left: 1.3em; }
+  li { margin: 0.35em 0; }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1em 1.2em;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: clamp(0.75rem, 1.5vw, 1.05rem);
+    line-height: 1.5;
+    max-width: 100%;
+  }
+  code { font-family: "Cascadia Code", "Consolas", monospace; }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2em;
+    align-items: start;
+  }
+  .pipeline {
+    display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center;
+    margin: 1em 0;
+  }
+  .pipeline .box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6em 1em;
+    font-weight: 600;
+    font-size: clamp(0.8rem, 1.4vw, 1.05rem);
+  }
+  .pipeline .arrow { color: var(--muted); font-size: 1.3em; }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1em 1.3em;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.15em 0.7em;
+    font-size: 0.75em;
+    font-weight: 700;
+    margin-right: 0.5em;
+  }
+  .badge.warn { background: var(--accent2); }
+  #progress {
+    position: fixed; bottom: 0; left: 0; height: 4px;
+    background: var(--accent);
+    transition: width 0.2s ease;
+  }
+  #counter {
+    position: fixed; top: 1.2em; right: 1.6em;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #nav-hint {
+    position: fixed; bottom: 0.8em; right: 1.6em;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  .center { display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; height:100%; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid var(--border); padding: 0.5em 0.8em; text-align: left; font-size: 0.95rem; }
+  th { color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="deck">
+
+  <section class="slide active">
+    <div class="center">
+      <div class="kicker">Team Project</div>
+      <h1>CodeFab</h1>
+      <p>C++로 만든 인터프리터 언어 프로젝트</p>
+      <p class="muted">아키텍처 · TDD 개발 프로세스 · 협업 · 놓치기 쉬운 예외 케이스</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Overview</div>
+    <h1>오늘 발표 순서</h1>
+    <ul>
+      <li>아키텍처 — 파서 구조, AST 순회, 스코프/클래스 모델</li>
+      <li>언어 기능 — 변수/제어문/함수/배열/클래스/import</li>
+      <li>개발 프로세스 — TDD → System Test, Git 워크플로우, 협업</li>
+      <li>우리가 특히 신경 쓴 예외 케이스</li>
+      <li><b>기능 데모</b> (마지막 약 5분)</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Architecture</div>
+    <h1>전체 파이프라인</h1>
+    <div class="pipeline">
+      <div class="box">Source</div><div class="arrow">→</div>
+      <div class="box">Tokenizer</div><div class="arrow">→</div>
+      <div class="box">AssemblerUnit</div><div class="arrow">→</div>
+      <div class="box">CheckerUnit</div><div class="arrow">→</div>
+      <div class="box">ExecutorUnit</div><div class="arrow">→</div>
+      <div class="box">Result</div>
+    </div>
+    <p>REPL(<code>PromptMode</code>)은 한 줄씩 입력을 누적하다가 "완결된
+      statement"로 판단될 때만 이 파이프라인을 한 번 돌린다.</p>
+    <p class="muted"><code>PromptMode</code> / <code>FileMode</code> / <code>DebugMode</code>가
+      <code>ShellMode</code>를 상속하는 전략 패턴 구조.</p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Architecture</div>
+    <h1>파서: Strategy + Registry</h1>
+    <div class="grid2">
+      <div>
+        <p><code>AssemblerUnit::Parse()</code>는 statement 타입을 switch/if-else로
+          분기하지 않는다. 모든 파서는 <code>IStatementParser</code> 하나로 통일되고,
+          전역 레지스트리가 실행 시점에 알맞은 파서를 찾아 위임한다.</p>
+        <p><span class="badge">자기 등록</span>새 파서 추가 시 <code>AssemblerUnit</code>은
+          수정 불필요 — <code>.cpp</code>에 registrar 한 줄만 추가.</p>
+        <p><span class="badge">생성자 주입 금지</span>하위 파서는 항상
+          <code>Resolve()</code>로 실행 시점에 얻어온다.</p>
+      </div>
+      <pre><code>tokenList[pos].type
+  -> Registry.Resolve(type)
+  -> IStatementParser::Parse(...)
+  -> SyntaxNode
+
+// 파서 자기 등록 (VarDeclareParser.cpp)
+namespace {
+  StatementParserRegistrar&lt;VarDeclareParser&gt;
+    registrar(TokenType::KwVar);
+}</code></pre>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Architecture</div>
+    <h1>AST 순회: GoF Visitor 패턴</h1>
+    <p><code>CheckerUnit</code>/<code>ExecutorUnit</code>이 <code>NodeType</code>을
+      switch/if-chain으로 직접 분기하던 방식을 더블 디스패치로 교체했다.</p>
+    <ul>
+      <li>각 구체 노드(<code>IfStmtNode</code>, <code>ClassDeclStmtNode</code> …)가
+        <code>Accept()</code>에서 자신의 정확한 타입으로 <code>Visit()</code>을 호출</li>
+      <li><code>NodeVisitor</code>의 기본 구현은 자식을 그대로 순회(<code>Traverse</code>) —
+        관심 있는 노드만 override하면 됨</li>
+      <li>새 노드 타입이 추가돼도 관심 없는 기존 Visitor는 코드 수정 불필요</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Architecture</div>
+    <h1>스코프 / 클래스 모델</h1>
+    <div class="grid2">
+      <div class="card">
+        <h2 style="margin-top:0">스코프</h2>
+        <p><code>ScopeGuard</code>(RAII)가 <code>EnterScope</code>/<code>ExitScope</code>를
+          보장 — 예외(<code>return</code>)가 던져져도 스코프가 항상 정리된다.</p>
+        <p><code>CheckerUnit</code>의 정적 스코프 스택과 <code>ExecutorUnit</code>의
+          런타임 스코프 스택은 <b>프레임 수가 정확히 일치</b>해야 한다.</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">클래스/상속</h2>
+        <p>필드는 <code>unordered_map</code>에 동적으로 보관, 메서드는 부모 체인을
+          타고 탐색.</p>
+        <p><code>Super.method()</code>는 인스턴스의 실제 클래스가 아니라
+          <b>정의된 클래스의 부모</b>부터 탐색해야 무한 재귀를 피한다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Language</div>
+    <h1>언어 기능 한눈에</h1>
+    <table>
+      <tr><th>변수/스코프</th><td><code>{}</code> 블록마다 새 스코프, 재선언/자기참조 정적 오류</td></tr>
+      <tr><th>제어문</th><td>if/else if/else, for — Allman 스타일 + 단일문장 body 모두 지원</td></tr>
+      <tr><th>함수</th><td>재귀 지원, 호출자 로컬 변수는 못 봄, 인자 개수 정적 검사</td></tr>
+      <tr><th>배열</th><td><code>Array(n)</code>, 인덱스 범위/타입 런타임 검증</td></tr>
+      <tr><th>클래스</th><td>상속(<code>:</code>), 오버라이딩, <code>Super</code>, 동적 필드</td></tr>
+      <tr><th>import</th><td>토큰 스트림 삽입 방식, 반복문 내부·중복·별칭 충돌 정적 검사</td></tr>
+    </table>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Process</div>
+    <h1>TDD → System Test</h1>
+    <p><b>1단계</b> — 각 파서/Checker/Executor를 gmock/gtest 유닛 테스트로 검증
+      (설계 제안 → 확인 → RED → GREEN → 커밋).</p>
+    <p><b>전환점</b> — API 정확성이 확보된 뒤로는, 새 기능/버그 수정을 <b>콘솔
+      입력 → 실행 결과</b> 기준의 system test로 검증.</p>
+    <ul>
+      <li><code>.claude/skills/system-test/run.ps1</code>에 케이스 누적, Release 빌드
+        1회 + 실행 N회로 수십 개 케이스도 몇 초 안에 회귀 확인</li>
+      <li>기존 유닛 테스트는 폐기 X — 커밋 전 항상 전체 스위트 PASS 확인</li>
+      <li><code>ExpectError</code> 타입: 메시지 문구가 아니라 "에러 발생 여부"만 확인</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Process</div>
+    <h1>Git 워크플로우 &amp; 협업</h1>
+    <div class="grid2">
+      <div>
+        <h2 style="margin-top:0">Git</h2>
+        <ul>
+          <li>기능/수정 단위 브랜치 → PR 단위 squash-merge</li>
+          <li>squash-merge된 브랜치 재작업 시
+            <code>git rebase --onto master &lt;old-base&gt; &lt;branch&gt;</code></li>
+          <li>논리적 단위마다 커밋 분리 → 리뷰어가 diff로 바로 이해</li>
+        </ul>
+      </div>
+      <div>
+        <h2 style="margin-top:0">코드 리뷰로 잡은 문제</h2>
+        <ul>
+          <li>함수 중복 선언 검사 누락</li>
+          <li>메서드/생성자 호출을 미정의 함수로 오판</li>
+          <li>RAII 기반 스코프 관리 리팩토링</li>
+          <li>if문 스코프 처리 방식 재조정</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Edge Cases</div>
+    <h1>우리가 특히 신경 쓴 예외 케이스</h1>
+    <ul>
+      <li><span class="badge">1</span>여러 줄에 걸친 제어문 선언 (Allman 스타일)</li>
+      <li><span class="badge">2</span><code>else</code> vs <code>else if</code> 구분 대기 로직</li>
+      <li><span class="badge">3</span><code>for</code> 문의 스코프 누수 방지</li>
+      <li><span class="badge">4</span>함수는 호출자의 지역 변수를 볼 수 없어야 함</li>
+      <li><span class="badge">5</span>정적 오류 시 실행 자체를 중단</li>
+      <li><span class="badge warn">6</span>테스트 하네스 자체의 신뢰성 (프롬프트 출력이 회귀 테스트를 무력화)</li>
+    </ul>
+    <p class="muted">전부 "문법적으로는 맞지만 여러 줄/입력 스타일에 따라 깨지는"
+      부류 — system test 전환 이후 발견/수정.</p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Edge Cases · Deep Dive</div>
+    <h1>같은 문법, 다른 입력 스타일 → 다른 버그</h1>
+    <pre><code>// 스타일 A: 조건과 body가 다른 줄 — 정상
+if (a &gt; 3)
+{ print "x"; }
+else if (b &gt; 1)
+{ print "y"; }
+else
+{ print "z"; }
+
+// 스타일 B: 조건+body가 한 줄에 합쳐짐 — 한때 "Unexpected token" 에러
+if (a &gt; 3) print "x";
+else if (b &gt; 1) print "y";
+else print "z";</code></pre>
+    <p>"이미 한 번 기다렸는지"를 <code>bool</code> 하나로 추적하면, 스타일 B에서
+      새로 대기해야 할 지점을 "예전에 기다렸던 상태"로 착각한다. <b>"대기 시작 시점의
+      else 개수"를 정수로 추적</b>해, 개수가 실제로 늘어났을 때만 다시 기다리도록
+      바꿔서 해결했다.</p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Demo</div>
+    <h1>기능 데모 (약 5분)</h1>
+    <p><code>docs/presentation/demo/</code>의 파일 순서대로 Release 콘솔에 직접
+      입력하며 진행한다.</p>
+    <ol>
+      <li><b>01</b> — 스코프 &amp; 제어문 (Allman 스타일, 한 줄 합침 3단 else-if/else, for 스코프 누수)</li>
+      <li><b>02</b> — 함수 (재귀, 호출자 로컬 변수 은닉, 정적 오류 시 실행 중단)</li>
+      <li><b>03</b> — 배열 (생성/인덱싱, 범위 밖 인덱싱 런타임 에러)</li>
+      <li><b>04</b> — 클래스 (상속, 오버라이딩, <code>Super</code> 호출, 다형성)</li>
+    </ol>
+    <p class="muted">모든 스니펫은 실제 Release 빌드로 사전 검증됨.</p>
+  </section>
+
+  <section class="slide">
+    <div class="center">
+      <h1>감사합니다</h1>
+      <p>Q&amp;A</p>
+    </div>
+  </section>
+
+</div>
+<div id="progress"></div>
+<div id="counter"></div>
+<div id="nav-hint">← → / Space · 클릭으로 이동</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let idx = 0;
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+    document.getElementById('progress').style.width = ((idx + 1) / slides.length * 100) + '%';
+    document.getElementById('counter').textContent = (idx + 1) + ' / ' + slides.length;
+  }
+  function go(delta) {
+    idx = Math.min(slides.length - 1, Math.max(0, idx + delta));
+    render();
+  }
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) { go(1); e.preventDefault(); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { go(-1); e.preventDefault(); }
+    else if (e.key === 'Home') { idx = 0; render(); }
+    else if (e.key === 'End') { idx = slides.length - 1; render(); }
+  });
+  document.getElementById('deck').addEventListener('click', (e) => {
+    const rect = document.getElementById('deck').getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    go(clickX > rect.width / 2 ? 1 : -1);
+  });
+  render();
+</script>
+</body>
+</html>

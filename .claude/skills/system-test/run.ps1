@@ -69,11 +69,42 @@ $cases = @(
     @{ Category = "if/else if/else(3단 체인, 여러 줄, if 분기 참)"; InputLines = @('var a = 9;', 'var b = 0;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "x" }
     @{ Category = "if/else if/else(3단 체인, 여러 줄, else-if 분기 참)"; InputLines = @('var a = 1;', 'var b = 5;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "y" }
     @{ Category = "if/else if/else(3단 체인, 여러 줄, else 분기 참)"; InputLines = @('var a = 1;', 'var b = 0;', 'if (a > 3)', 'print "x";', 'else if (b > 1)', 'print "y";', 'else', 'print "z";'); Expect = "z" }
+    @{ Category = "if/else if/else(3단 체인, 조건+body가 한 줄, if 분기 참)"; InputLines = @('var a = 9;', 'var b = 0;', 'if (a > 3) print "x";', 'else if (b > 1) print "y";', 'else print "z";'); Expect = "x" }
+    @{ Category = "if/else if/else(3단 체인, 조건+body가 한 줄, else-if 분기 참)"; InputLines = @('var a = 1;', 'var b = 5;', 'if (a > 3) print "x";', 'else if (b > 1) print "y";', 'else print "z";'); Expect = "y" }
+    @{ Category = "if/else if/else(3단 체인, 조건+body가 한 줄, else 분기 참)"; InputLines = @('var a = 1;', 'var b = 0;', 'if (a > 3) print "x";', 'else if (b > 1) print "y";', 'else print "z";'); Expect = "z" }
     @{ Category = "for 반복문"; InputLines = @('for (var j = 0; j < 3; j = j + 1) { print j; }'); Expect = "012" }
     @{ Category = "for 반복문(단일 줄 body)"; InputLines = @('for (var j = 0; j < 3; j = j + 1) print j;'); Expect = "012" }
+    @{ Category = "함수 선언과 호출"; InputLines = @('func add(a, b) { return a + b; }', 'print add(2, 3);'); Expect = "5" }
+    @{ Category = "함수 선언(이름/파라미터와 body가 별도 줄)"; InputLines = @('func add(a, b)', '{', '  return a + b;', '}', 'print add(2, 3);'); Expect = "5" }
+    @{ Category = "함수 호출(return 없이 종료)"; InputLines = @('func noop() { }', 'print noop();'); Expect = "null" }
+    @{ Category = "함수 호출(재귀, 팩토리얼)"; InputLines = @('func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }', 'print fact(5);'); Expect = "120" }
+    @{ Category = "함수 호출(전역 변수 접근 가능)"; InputLines = @('var g = 10;', 'func showG() { return g; }', 'print showG();'); Expect = "10" }
+    @{ Category = "함수 호출(for/if 내부에서 return으로 조기 종료)"; InputLines = @('func firstEvenFrom(start, n) { for (var i = start; i <= n; i = i + 1) { if (i % 2 == 0) { return i; } } return -1; }', 'print firstEvenFrom(3, 10);'); Expect = "4" }
+    @{ Category = "함수 호출(내부 지역 변수가 바깥에 영향 없음)"; InputLines = @('var x = 1;', 'func setX() { var x = 99; return x; }', 'print setX();', 'print x;'); Expect = "99`n1" }
+    @{ Category = "배열 생성/쓰기/읽기"; InputLines = @('var arr = Array(3);', 'arr[0] = 10;', 'print arr[0];'); Expect = "10" }
+    @{ Category = "배열 기본값(null)"; InputLines = @('var arr = Array(3);', 'print arr[1];'); Expect = "null" }
+    @{ Category = "배열(for 반복문으로 채우기)"; InputLines = @('var arr = Array(3);', 'for (var i = 0; i < 3; i = i + 1) { arr[i] = i * i; }', 'print arr[2];'); Expect = "4" }
+    @{ Category = "클래스 선언/인스턴스 생성/필드 읽기"; InputLines = @('Class Robot { init(name) { this.name = name; } }', 'var r = Robot("Wall-E");', 'print r.name;'); Expect = "Wall-E" }
+    @{ Category = "클래스 메서드 호출"; InputLines = @('Class Counter { init() { this.value = 0; } increment() { this.value = this.value + 1; return this.value; } }', 'var c = Counter();', 'c.increment();', 'print c.increment();'); Expect = "2" }
+    @{ Category = "클래스 상속/오버라이딩/Super 호출"; InputLines = @('Class Animal { speak() { return "..."; } describe() { return "I say " + this.speak(); } }', 'Class Dog : Animal { speak() { return "Woof, and " + Super.speak(); } }', 'var d = Dog();', 'print d.describe();'); Expect = "I say Woof, and ..." }
+    @{ Category = "클래스 선언(이름과 body가 별도 줄)"; InputLines = @('Class Robot', '{', '  init(name) { this.name = name; }', '}', 'var r = Robot("Wall-E");', 'print r.name;'); Expect = "Wall-E" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
+    @{ Category = "정적 오류: 클래스 외부에서 this 사용"; InputLines = @('print this;'); ExpectError = $true }
+    @{ Category = "정적 오류: 클래스가 자기 자신을 상속"; InputLines = @('Class Loop : Loop { }'); ExpectError = $true }
+    @{ Category = "정적 오류: 정의되지 않은 클래스 상속"; InputLines = @('Class Dog : Ghost { }'); ExpectError = $true }
+    @{ Category = "런타임 오류: 존재하지 않는 필드 읽기"; InputLines = @('Class Robot { init() { } }', 'var r = Robot();', 'print r.name;'); ExpectError = $true }
+    @{ Category = "런타임 오류: 인스턴스가 아닌 값의 필드 접근"; InputLines = @('var x = 5;', 'print x.name;'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 인덱스 범위 초과"; InputLines = @('var arr = Array(3);', 'print arr[5];'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 음수 인덱스"; InputLines = @('var arr = Array(3);', 'print arr[-1];'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열이 아닌 값 인덱싱"; InputLines = @('var x = 5;', 'print x[0];'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 크기가 음수"; InputLines = @('var arr = Array(-1);'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 크기가 정수가 아님"; InputLines = @('var arr = Array(2.5);'); ExpectError = $true }
+    @{ Category = "런타임 오류: 배열 값 자체를 print"; InputLines = @('var arr = Array(3);', 'print arr;'); ExpectError = $true }
+    @{ Category = "정적 오류: 함수 호출 인자 개수 불일치"; InputLines = @('func add(a, b) { return a + b; }', 'print add(1);'); ExpectError = $true }
+    @{ Category = "정적 오류: 정의되지 않은 함수 호출"; InputLines = @('print notAFunc(1);'); ExpectError = $true }
+    @{ Category = "런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가"; InputLines = @('func tryAccess() { return localOnly; }', '{ var localOnly = 5; print tryAccess(); }'); ExpectError = $true }
     @{ Category = "런타임 오류: for 단일 줄 body에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var i = 0; i < 3; i = i + 1) var x = i;', 'print x;'); ExpectError = $true }
     @{ Category = "런타임 오류: for init에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var a = 0; a < 3; a = a + 1) { print a; }', 'print a;'); ExpectError = $true }
     @{ Category = "구문 오류: 세미콜론 누락"; InputLines = @('print 1 + 2'); ExpectError = $true }
@@ -95,6 +126,12 @@ $cases = @(
 # have this problem, so write the input to a temp file and redirect from it.
 # stdout/stderr는 따로 캡처한다 -- ExpectError 케이스는 stderr(에러 메시지)가
 # 비어있지 않은지만 확인하고, 그 외 케이스는 stdout만 기대값과 비교한다.
+#
+# PromptMode가 매 줄 입력 전에 ">>> "/"..> " 프롬프트를 stderr로 출력하므로
+# (stdout으로 보내면 run.ps1의 stdout 비교가 깨지기 때문에 의도적으로 stderr로
+# 분리되어 있음), 실제 에러 메시지 유무를 판단하려면 이 프롬프트 잡음을 먼저
+# 제거해야 한다. 그러지 않으면 에러가 전혀 없는 정상 실행도 stderr가 항상
+# 비어있지 않게 되어 ExpectError 판정이 무의미해진다.
 function Invoke-CodeFab {
     param(
         [string]$ExePath,
@@ -108,6 +145,10 @@ function Invoke-CodeFab {
         [System.IO.File]::WriteAllText($tmpFile, $content, (New-Object System.Text.UTF8Encoding($false)))
         $stdout = cmd /c "`"$ExePath`" < `"$tmpFile`" 2>`"$errFile`""
         $stderr = Get-Content -Raw -ErrorAction SilentlyContinue -Path $errFile
+        if ($stderr) {
+            $stderr = ($stderr -replace '>>> ', '') -replace '\.\.> ', ''
+            $stderr = $stderr.Trim()
+        }
         return [pscustomobject]@{
             Stdout = ($stdout -join "`n")
             Stderr = if ($stderr) { $stderr } else { "" }

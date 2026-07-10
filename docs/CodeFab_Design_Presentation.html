@@ -404,12 +404,24 @@
         <span class="node">ExecutorUnit</span>
       </div>
       <div class="pipeline">
-        <div class="step"><strong>Tokenizer</strong><span>입력 문자열을 TokenList로 변환합니다.</span></div>
+        <div class="step"><strong>Tokenizer</strong><span>입력 문자열을 TokenList로 변환합니다. import 문을 만나면 대상 파일을 재귀적으로 splice합니다.</span></div>
         <div class="step"><strong>AssemblerUnit</strong><span>TokenList를 순회하며 ProgramNode AST를 조립합니다.</span></div>
         <div class="step"><strong>Registry</strong><span>현재 TokenType에 맞는 IStatementParser 구현체를 선택합니다.</span></div>
         <div class="step"><strong>CheckerUnit</strong><span>AST 의미 검사와 정적 정보 기록을 수행합니다.</span></div>
         <div class="step"><strong>ExecutorUnit</strong><span>AST를 실행하며 runtime scope와 value를 관리합니다.</span></div>
       </div>
+      <h3>2.1 진입점: ShellMode 전략</h3>
+      <p class="lead"><code>main()</code>은 <code>argv</code>를 보고 <code>ShellMode</code> 구현체 하나를 선택합니다. 각 모드는 자신만의 파이프라인을 <code>Run()</code> 안에서 지역으로 소유합니다.</p>
+      <table>
+        <thead>
+          <tr><th>ShellMode 구현체</th><th>용도</th><th>상태</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>PromptMode</code></td><td>REPL(한 줄씩 입력)</td><td>구현됨</td></tr>
+          <tr><td><code>FileMode</code></td><td><code>run &lt;file&gt;</code> — 파일 전체 실행</td><td>구현됨</td></tr>
+          <tr><td><code>DebugMode</code></td><td><code>debug &lt;file&gt;</code> — step/break/watch 등</td><td><strong>스텁</strong> — 미구현 메시지만 출력</td></tr>
+        </tbody>
+      </table>
     </section>
 
     <section id="modules">
@@ -444,6 +456,7 @@
         <span class="tag">Factory Pattern</span>
         <span class="tag">Strategy Pattern</span>
       </div>
+      <p class="lead">등록된 statement parser: <code>VarDeclareParser</code>, <code>PrintStatementParser</code>, <code>IfStatementParser</code>, <code>ForStmtParser</code>, <code>BlockParser</code>, <code>FunctionStatementParser</code>, <code>ReturnStatementParser</code>, <code>ClassStatementParser</code>, <code>ImportStatementParser</code>, <code>ExpressionParser</code>.</p>
       <div class="grid">
         <article class="card">
           <h3>장점</h3>
@@ -482,6 +495,9 @@
           <tr><td><code>IfStmtNode</code></td><td><code>[condition, thenBranch, optionalElseBranch]</code></td></tr>
           <tr><td><code>ForStmtNode</code></td><td><code>[init, condition, increment, body]</code></td></tr>
           <tr><td><code>FuncDeclStmtNode</code></td><td><code>[param..., body]</code></td></tr>
+          <tr><td><code>ClassDeclStmtNode</code></td><td><code>[method(FuncDeclStmtNode)...]</code> (+ <code>parentNameToken</code>)</td></tr>
+          <tr><td><code>ImportStmtNode</code></td><td><code>[path(StringLiteralNode), alias(IdentifierNode)]</code></td></tr>
+          <tr><td><code>MemberAccessExprNode</code></td><td><code>[target]</code> (+ <code>token</code> = 멤버 이름)</td></tr>
         </tbody>
       </table>
     </section>
@@ -631,6 +647,14 @@
           <h3>Singleton Registry</h3>
           <p>전역 registry는 테스트 간 상태 오염과 등록 순서 문제를 만들 수 있습니다.</p>
         </article>
+        <article class="card warning">
+          <h3>Import 실행부 미구현</h3>
+          <p>Parser/CheckerUnit은 <code>ImportStmtNode</code>를 실제로 처리하지만, ExecutorUnit에 해당 Visit()이 없어 alias 네임스페이스(<code>math.add(...)</code>)가 아직 없습니다. 실제 코드 유입은 Tokenizer의 텍스트 splice에만 의존합니다.</p>
+        </article>
+        <article class="card warning">
+          <h3>DebugMode 스텁</h3>
+          <p><code>DebugMode::Run()</code>은 안내 메시지만 출력하며 step/next/break/watch/inspect가 전혀 구현되어 있지 않습니다.</p>
+        </article>
       </div>
     </section>
 
@@ -643,6 +667,8 @@
         <div class="step"><strong>4</strong><span>FunctionRuntime, ClassRuntime, ModuleLoader 분리</span></div>
         <div class="step"><strong>5</strong><span>StatementParserRegistry 테스트 안정성 개선</span></div>
         <div class="step"><strong>6</strong><span>ParseError, SemanticError, RuntimeError 타입 계층 도입</span></div>
+        <div class="step"><strong>7</strong><span>Import ModuleLoader/alias 네임스페이스 실행부 구현 (ExecutorUnit::Visit(ImportStmtNode))</span></div>
+        <div class="step"><strong>8</strong><span>DebugMode step/next/break/watch/inspect 구현</span></div>
       </div>
     </section>
 

@@ -47,6 +47,7 @@ public:
 	void Visit(const SuperExprNode& node) override;
 	void Visit(const MemberAccessExprNode& node) override;
 	void Visit(const ClassDeclStmtNode& node) override;
+	void Visit(const ImportStmtNode& node) override;
 
 private:
 	// 클래스 하나의 런타임 정보: 부모 이름(없으면 nullopt) + 메서드 이름 -> AST(FuncDeclStmtNode) 포인터.
@@ -128,8 +129,15 @@ private:
 	Value_t EvaluateArrExpr(const SyntaxNode& node);
 	Value_t EvaluateIndexExpr(const SyntaxNode& node);
 	Value_t EvaluateCallExpr(const CallExprNode& node);
-	Value_t EvaluateMethodCall(const CallExprNode& node);
+	// 인스턴스 메서드(r.move(5))와 모듈 함수(sum.add(1,2)) 호출을 모두 다룬다.
+	Value_t EvaluateMemberCall(const CallExprNode& node);
 	Value_t EvaluateMemberAccess(const MemberAccessExprNode& node);
+	// 함수 호출 실행 공용 로직(인자 개수 검사 + 스코프 격리 + 본문 실행). 인자는
+	// 호출자가 이미 평가해서 넘긴다(일반 호출은 children 전체, 모듈 함수 호출은
+	// children[1:]이 인자라 시작 위치가 달라 호출자가 뽑는 게 더 단순하다).
+	// EvaluateCallExpr와 InvokeModuleFunction이 공유한다.
+	Value_t CallFunction(std::shared_ptr<FunctionObject> function, const std::vector<Value_t>& args, int line);
+	Value_t InvokeModuleFunction(std::shared_ptr<ModuleObject> module, const std::string& functionName, const CallExprNode& node);
 
 	void EnterScope();
 	void ExitScope();
@@ -177,4 +185,10 @@ private:
 	// DebugSession이 자신을 등록해두면 ExecuteStmt가 문 경계마다 알려준다.
 	// nullptr이면(prompt/run 모드) 기존 동작과 완전히 동일하다.
 	ExecutionObserver* observer = nullptr;
+	// import 모듈 내용(ImportStmtNode::children[2:])을 실행하는 동안 true. 이 파일에서
+	// import되는 건 선언(var/Func/Class/중첩 import)뿐이고 print/if/for/단독 식 같은
+	// "동작"은 무시해야 하므로, 각 Visit(...Stmt)이 이 플래그를 보고 스스로 건너뛴다
+	// (타입으로 분기하는 새 switch/if-chain을 만들지 않기 위해 Visitor 디스패치 결과인
+	// 각 Visit 안에서 판단한다).
+	bool suppressActionsDuringImport = false;
 };

@@ -1105,6 +1105,7 @@ TEST_F(TokenizerTest, CreateTokenForCode_ImportStatementProducesExpectedTypeSequ
 
 	EXPECT_THAT(types, ElementsAre(
 		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
+		TokenType::ImportEnd,
 		TokenType::EndOfFile));
 
 	EXPECT_EQ(tokens[1].lexeme, path);
@@ -1137,6 +1138,7 @@ TEST_F(TokenizerTest, CreateTokenForCode_ImportSplicesImportedFileTokensRightAft
 		TokenType::LBrace,
 		TokenType::KwReturn, TokenType::Identifier, TokenType::Plus, TokenType::Identifier, TokenType::Semicolon,
 		TokenType::RBrace,
+		TokenType::ImportEnd,
 		TokenType::Print, TokenType::Number, TokenType::Semicolon,
 		TokenType::EndOfFile));
 }
@@ -1156,7 +1158,9 @@ TEST_F(TokenizerTest, CreateTokenForCode_ImportRecursivelySplicesNestedImports) 
 		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
 		TokenType::KwImport, TokenType::String, TokenType::KwAlias, TokenType::Identifier, TokenType::Semicolon,
 		TokenType::KwVar, TokenType::Identifier, TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::ImportEnd, // inner import 자신의 경계 마커
 		TokenType::KwVar, TokenType::Identifier, TokenType::Assign, TokenType::Number, TokenType::Semicolon,
+		TokenType::ImportEnd, // outer import 자신의 경계 마커
 		TokenType::EndOfFile));
 }
 

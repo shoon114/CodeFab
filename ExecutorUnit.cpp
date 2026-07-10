@@ -23,8 +23,8 @@ void ExecutorUnit::Execute(const SyntaxNode& tree) {
 		// 선언한 변수를 계속 참조할 수 있다)
 	}
 
-	for (const auto& stmt : tree.children) {
-		ExecuteStmt(*stmt);
+	for (const auto& statement : tree.children) {
+		ExecuteStmt(*statement);
 	}
 }
 
@@ -155,12 +155,15 @@ Value_t ExecutorUnit::ExecuteFunctionBody(const SyntaxNode& body) {
 	return Value_t{ std::monostate{} };
 }
 
-void ExecutorUnit::Visit(const PrintStmtNode& node) { ExecutePrintStmt(node); }
+// import 모듈 내용을 실행하는 동안(suppressActionsDuringImport)에는 선언이 아닌 "동작"이므로
+// 건너뛴다 — PDF 명세상 import는 파일의 선언만 들여오고, print/if/for/단독 식 같은 부수효과는
+// 실행하지 않는다.
+void ExecutorUnit::Visit(const PrintStmtNode& node) { if (suppressActionsDuringImport) return; ExecutePrintStmt(node); }
 void ExecutorUnit::Visit(const VarDeclareStatementNode& node) { ExecuteVarDeclareStatement(node); }
-void ExecutorUnit::Visit(const BlockStmtNode& node) { ExecuteBlockStmt(node); }
-void ExecutorUnit::Visit(const IfStmtNode& node) { ExecuteIfStmt(node); }
-void ExecutorUnit::Visit(const ExprStmtNode& node) { ExecuteExprStmt(node); }
-void ExecutorUnit::Visit(const ForStmtNode& node) { ExecuteForStmt(node); }
+void ExecutorUnit::Visit(const BlockStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteBlockStmt(node); }
+void ExecutorUnit::Visit(const IfStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteIfStmt(node); }
+void ExecutorUnit::Visit(const ExprStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteExprStmt(node); }
+void ExecutorUnit::Visit(const ForStmtNode& node) { if (suppressActionsDuringImport) return; ExecuteForStmt(node); }
 
 // 최상위/일반 함수 선언은 FunctionObject로 등록해 EvaluateCallExpr(일반 함수 호출 경로)가
 // 찾아 쓸 수 있게 한다. 클래스 메서드(init 포함)도 FuncDeclStmtNode를 재사용하지만
@@ -207,7 +210,7 @@ void ExecutorUnit::Visit(const SuperExprNode& node) {
 	// Super 단독으로는 this와 같은 인스턴스 값으로 평가된다(필드는 클래스별로 분리되어
 	// 저장되지 않으므로 Super.field와 this.field는 동일한 저장소를 가리킨다). Super가
 	// 메서드 호출의 대상일 때(Super.move(...))의 "부모부터 찾기" 동작은
-	// EvaluateMethodCall이 SuperExprNode 타입을 직접 검사해서 별도로 처리한다.
+	// EvaluateMemberCall이 SuperExprNode 타입을 직접 검사해서 별도로 처리한다.
 	if (thisStack.empty()) {
 		throw std::runtime_error("클래스 외부에서 'Super'를 사용할 수 없습니다 at line " + std::to_string(node.token.line));
 	}
@@ -225,6 +228,27 @@ void ExecutorUnit::Visit(const ClassDeclStmtNode& node) {
 		info.methods[methodNode->token.lexeme] = methodNode.get();
 	}
 	classes[node.token.lexeme] = std::move(info);
+}
+
+// node.children[0]=path, [1]=alias, [2:]=Tokenizer가 이어붙이고 ImportStatementParser가
+// ImportEnd 마커까지 소비해 파싱해둔 import 대상 파일의 최상위 문장들.
+void ExecutorUnit::Visit(const ImportStmtNode& node) {
+	const std::string& aliasName = node.children[1]->token.lexeme;
+
+	std::vector<std::unordered_map<std::string, Value_t>> savedScopes = std::move(scopes);
+	scopes.assign(1, {}); // 이 import의 모듈만을 위한 새 스코프 하나
+
+	bool previousSuppress = suppressActionsDuringImport;
+	suppressActionsDuringImport = true;
+	for (size_t i = 2; i < node.children.size(); ++i) {
+		ExecuteStmt(*node.children[i]);
+	}
+	suppressActionsDuringImport = previousSuppress;
+
+	auto module = std::make_shared<ModuleObject>();
+	module->members = std::move(scopes.back());
+	scopes = std::move(savedScopes);
+	scopes.back()[aliasName] = module;
 }
 
 void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
@@ -263,8 +287,8 @@ void ExecutorUnit::ExecuteVarDeclareStatement(const SyntaxNode& node) {
 
 void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
 	ScopeGuard scopeGuard(*this);
-	for (const auto& stmt : node.children) {
-		ExecuteStmt(*stmt);
+	for (const auto& statement : node.children) {
+		ExecuteStmt(*statement);
 	}
 }
 
@@ -375,10 +399,10 @@ Value_t& ExecutorUnit::ResolveIndexElement(const SyntaxNode& node) {
 }
 
 Value_t ExecutorUnit::EvaluateCallExpr(const CallExprNode& node) {
-	// r.move(5), this.report(), Super.move(dist)처럼 children[0]이 MemberAccessExprNode면
-	// <대상>.<메서드>(...) 형태의 메서드 호출이다.
+	// r.move(5), this.report(), Super.move(dist), sum.add(1,2)처럼 children[0]이
+	// MemberAccessExprNode면 <대상>.<이름>(...) 형태의 메서드/모듈 함수 호출이다.
 	if (!node.children.empty() && node.children[0]->type == NodeType::MemberAccessExpr) {
-		return EvaluateMethodCall(node);
+		return EvaluateMemberCall(node);
 	}
 
 	// 그 외에는 기존처럼 token.lexeme이 호출 대상 이름이고 children 전체가 인자다.
@@ -397,16 +421,20 @@ Value_t ExecutorUnit::EvaluateCallExpr(const CallExprNode& node) {
 	}
 	auto function = std::get<std::shared_ptr<FunctionObject>>(calleeValue);
 
-	if (node.children.size() != function->parameters.size()) {
-		throw std::runtime_error("Expected " + std::to_string(function->parameters.size()) +
-			" argument(s) but got " + std::to_string(node.children.size()) +
-			" at line " + std::to_string(node.token.line));
-	}
-
 	std::vector<Value_t> args;
 	args.reserve(node.children.size());
 	for (const auto& argExpr : node.children) {
 		args.push_back(Evaluate(*argExpr));
+	}
+
+	return CallFunction(function, args, node.token.line);
+}
+
+Value_t ExecutorUnit::CallFunction(std::shared_ptr<FunctionObject> function, const std::vector<Value_t>& args, int line) {
+	if (args.size() != function->parameters.size()) {
+		throw std::runtime_error("Expected " + std::to_string(function->parameters.size()) +
+			" argument(s) but got " + std::to_string(args.size()) +
+			" at line " + std::to_string(line));
 	}
 
 	// 함수 본문은 caller의 지역 스코프를 보지 못해야 하므로, global(scopes[0])만
@@ -419,21 +447,31 @@ Value_t ExecutorUnit::EvaluateCallExpr(const CallExprNode& node) {
 	return ExecuteFunctionBody(*function->body);
 }
 
-Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
+Value_t ExecutorUnit::InvokeModuleFunction(std::shared_ptr<ModuleObject> module, const std::string& functionName, const CallExprNode& node) {
+	auto memberIt = module->members.find(functionName);
+	if (memberIt == module->members.end() || !std::holds_alternative<std::shared_ptr<FunctionObject>>(memberIt->second)) {
+		throw std::runtime_error("존재하지 않는 함수 '" + functionName + "'을(를) 호출했습니다 at line " + std::to_string(node.token.line));
+	}
+
+	std::vector<Value_t> args;
+	for (size_t i = 1; i < node.children.size(); ++i) {
+		args.push_back(Evaluate(*node.children[i]));
+	}
+
+	return CallFunction(std::get<std::shared_ptr<FunctionObject>>(memberIt->second), args, node.token.line);
+}
+
+Value_t ExecutorUnit::EvaluateMemberCall(const CallExprNode& node) {
 	const auto& memberAccess = static_cast<const MemberAccessExprNode&>(*node.children[0]);
-	const std::string& methodName = memberAccess.token.lexeme;
+	const std::string& memberName = memberAccess.token.lexeme;
 	const auto& targetExpr = *memberAccess.children[0];
 
-	Value_t targetValue = Evaluate(targetExpr);
-	if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
-		throw std::runtime_error("인스턴스가 아닌 값의 메서드 '" + methodName + "'을(를) 호출할 수 없습니다 at line " + std::to_string(node.token.line));
-	}
-	auto instance = std::get<std::shared_ptr<InstanceObject>>(targetValue);
+	std::shared_ptr<InstanceObject> instance;
+	std::string searchStartClass;
 
 	// Super.move(...)는 인스턴스의 실제(가장 파생된) 클래스가 아니라, "현재 실행 중인
 	// 메서드가 정의된 클래스"의 부모부터 찾아야 한다(그래야 오버라이딩한 자기 자신을
 	// 다시 호출하는 무한 재귀에 빠지지 않는다).
-	std::string searchStartClass;
 	if (targetExpr.type == NodeType::SuperExpr) {
 		if (currentClassNameStack.empty()) {
 			throw std::runtime_error("클래스 외부에서 'Super'를 사용할 수 없습니다 at line " + std::to_string(node.token.line));
@@ -442,14 +480,23 @@ Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
 		if (!currentClassInfo.parentName) {
 			throw std::runtime_error("부모 클래스가 없는 클래스에서 'Super'를 사용할 수 없습니다 at line " + std::to_string(node.token.line));
 		}
+		instance = thisStack.back();
 		searchStartClass = *currentClassInfo.parentName;
 	} else {
+		Value_t targetValue = Evaluate(targetExpr);
+		if (std::holds_alternative<std::shared_ptr<ModuleObject>>(targetValue)) {
+			return InvokeModuleFunction(std::get<std::shared_ptr<ModuleObject>>(targetValue), memberName, node);
+		}
+		if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
+			throw std::runtime_error("인스턴스가 아닌 값의 메서드 '" + memberName + "'을(를) 호출할 수 없습니다 at line " + std::to_string(node.token.line));
+		}
+		instance = std::get<std::shared_ptr<InstanceObject>>(targetValue);
 		searchStartClass = instance->className;
 	}
 
-	ResolvedMethod resolved = FindMethod(searchStartClass, methodName);
+	ResolvedMethod resolved = FindMethod(searchStartClass, memberName);
 	if (!resolved.method) {
-		throw std::runtime_error("존재하지 않는 메서드 '" + methodName + "'을(를) 호출했습니다 at line " + std::to_string(node.token.line));
+		throw std::runtime_error("존재하지 않는 메서드 '" + memberName + "'을(를) 호출했습니다 at line " + std::to_string(node.token.line));
 	}
 
 	std::vector<Value_t> args;
@@ -462,6 +509,17 @@ Value_t ExecutorUnit::EvaluateMethodCall(const CallExprNode& node) {
 
 Value_t ExecutorUnit::EvaluateMemberAccess(const MemberAccessExprNode& node) {
 	Value_t targetValue = Evaluate(*node.children[0]);
+
+	// sum.PI처럼 모듈의 전역 변수를 읽는 경우.
+	if (std::holds_alternative<std::shared_ptr<ModuleObject>>(targetValue)) {
+		auto module = std::get<std::shared_ptr<ModuleObject>>(targetValue);
+		auto memberIt = module->members.find(node.token.lexeme);
+		if (memberIt == module->members.end()) {
+			throw std::runtime_error("존재하지 않는 이름 '" + node.token.lexeme + "'에 접근했습니다 at line " + std::to_string(node.token.line));
+		}
+		return memberIt->second;
+	}
+
 	if (!std::holds_alternative<std::shared_ptr<InstanceObject>>(targetValue)) {
 		throw std::runtime_error("인스턴스가 아닌 값에 멤버 '" + node.token.lexeme + "'로 접근할 수 없습니다 at line " + std::to_string(node.token.line));
 	}

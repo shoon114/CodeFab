@@ -192,14 +192,19 @@ protected:
 		return node;
 	}
 
-	// import "path" alias aliasName; — KwImport/KwAlias 토큰이 아직 파서 쪽에 없어서
-	// (import 문법은 미구현) token은 다른 초기 스텁 노드들과 마찬가지로 Identifier로 둔다.
-	// CheckerUnit은 token.type을 보지 않고 line 정보와 children의 lexeme만 사용한다.
-	std::unique_ptr<SyntaxNode> MakeImportStmt(const std::string& path, const std::string& aliasName) {
+	// import "path" alias aliasName; — token은 다른 초기 스텁 노드들과 마찬가지로
+	// Identifier로 둔다(CheckerUnit은 token.type을 보지 않고 line 정보와 children의
+	// lexeme만 사용한다). moduleContent는 Tokenizer/ImportStatementParser가 ImportEnd
+	// 마커까지 파싱해뒀을 import 대상 파일의 최상위 문장들(children[2:])이다.
+	std::unique_ptr<SyntaxNode> MakeImportStmt(const std::string& path, const std::string& aliasName,
+		std::vector<std::unique_ptr<SyntaxNode>> moduleContent = {}) {
 		auto node = std::make_unique<ImportStmtNode>();
 		node->token = MakeToken(TokenType::Identifier, "import", 1, 1);
 		node->children.push_back(MakeStringLiteral(path));
 		node->children.push_back(MakeIdentifier(aliasName));
+		for (auto& statement : moduleContent) {
+			node->children.push_back(std::move(statement));
+		}
 		return node;
 	}
 
@@ -417,6 +422,41 @@ TEST_F(CheckerUnitTest, Check_NestedBlockVariableReference_ComputesScopeDistance
 	EXPECT_TRUE(checker.Check(root.get()));
 	EXPECT_EQ(assignTargetPtr->scopeDistance, 2);
 	EXPECT_EQ(readRefPtr->scopeDistance, 2);
+}
+
+// 13개의 중첩 블록 안에 for문(자신만의 래핑 스코프 + 본문 블록 스코프, 총 2단계)을
+// 넣어 실제 홉 수(13 + 2 = 15)가 계산되는지 확인한다. Visit(const ForStmtNode&)가
+// EnterScope 하나만 부르고 body의 BlockStmtNode가 자신의 EnterScope를 또 부르는
+// 구조라, 둘 중 하나라도 빠지면 이 값이 어긋난다.
+TEST_F(CheckerUnitTest, Check_DeeplyNestedBlocksWrappingForLoop_ComputesScopeDistanceMatchingActualDepth) {
+	auto assignTarget = MakeIdentifier("a");
+	auto* assignTargetPtr = static_cast<IdentifierNode*>(assignTarget.get());
+
+	auto readRef = MakeIdentifier("a");
+	auto* readRefPtr = static_cast<IdentifierNode*>(readRef.get());
+
+	auto addExpr = MakeBinaryExpr(TokenType::Plus, std::move(readRef), MakeNumberLiteral(1.0));
+	auto assignExpr = MakeAssignExpr(std::move(assignTarget), std::move(addExpr));
+
+	std::vector<std::unique_ptr<SyntaxNode>> forBody;
+	forBody.push_back(MakeExprStmt(std::move(assignExpr)));
+	std::unique_ptr<SyntaxNode> innermost = MakeForStmt(std::move(forBody));
+
+	constexpr int kBlockNestingCount = 13;
+	for (int i = 0; i < kBlockNestingCount; ++i) {
+		std::vector<std::unique_ptr<SyntaxNode>> wrapped;
+		wrapped.push_back(std::move(innermost));
+		innermost = MakeBlock(std::move(wrapped));
+	}
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("a", MakeNumberLiteral(0.0)));
+	statements.push_back(std::move(innermost));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+	EXPECT_EQ(assignTargetPtr->scopeDistance, 15);
+	EXPECT_EQ(readRefPtr->scopeDistance, 15);
 }
 
 // 선언되지 않은 변수를 참조하면 scopeDistance는 기본값(-1, 미해결)으로 남아야
@@ -881,6 +921,39 @@ TEST_F(CheckerUnitTest, Check_ImportAliasCollidesWithVariable_ReportsError) {
 	});
 
 	EXPECT_THAT(output, HasSubstr("별칭 'sum' 중복 선언"));
+}
+
+// var pi = 0; import "sum.txt" alias sum { var pi = 3; } — import 대상 파일의 선언은
+// 그 파일만의 독립된 스코프에서 검사되어야 하므로, 바깥에 이미 있는 이름과 같아도
+// 충돌로 보고되면 안 된다(alias를 통해서만 접근 가능하므로 실제로 이름이 겹치지 않는다).
+TEST_F(CheckerUnitTest, Check_ImportedVarNameMatchesOuterVar_ReturnsTrue) {
+	std::vector<std::unique_ptr<SyntaxNode>> moduleContent;
+	moduleContent.push_back(MakeVarDecl("pi", MakeNumberLiteral(3.0)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeVarDecl("pi", MakeNumberLiteral(0.0)));
+	statements.push_back(MakeImportStmt("sum.txt", "sum", std::move(moduleContent)));
+	auto root = MakeProgram(std::move(statements));
+
+	EXPECT_TRUE(checker.Check(root.get()));
+}
+
+// import "sum.txt" alias sum { var pi = 1; var pi = 2; } — import 대상 파일 자체
+// 내부에서의 중복 선언은(그 파일만의 스코프 안에서) 여전히 에러여야 한다.
+TEST_F(CheckerUnitTest, Check_DuplicateVarInsideImportedModule_ReportsError) {
+	std::vector<std::unique_ptr<SyntaxNode>> moduleContent;
+	moduleContent.push_back(MakeVarDecl("pi", MakeNumberLiteral(1.0)));
+	moduleContent.push_back(MakeVarDecl("pi", MakeNumberLiteral(2.0)));
+
+	std::vector<std::unique_ptr<SyntaxNode>> statements;
+	statements.push_back(MakeImportStmt("sum.txt", "sum", std::move(moduleContent)));
+	auto root = MakeProgram(std::move(statements));
+
+	std::string output = CaptureStderr([&]() {
+		EXPECT_FALSE(checker.Check(root.get()));
+	});
+
+	EXPECT_THAT(output, HasSubstr("중복 선언"));
 }
 
 // import "sum.txt" alias sum; import "sum.txt" alias sum2; — alias가 달라도 같은 파일을
