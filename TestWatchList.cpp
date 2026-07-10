@@ -416,4 +416,20 @@ TEST_F(WatchListTest, Inspect_MultipleVariables_PrintsAllOfThem) {
 	EXPECT_THAT(output, HasSubstr("[LOCAL] c = \"hi\" (string)"));
 	EXPECT_EQ(std::count(output.begin(), output.end(), '\n'), 3);
 }
+
+// 변수가 하나도 없는 스코프에서 inspect하면 크래시 없이 아무것도 출력되지 않아야 한다.
+TEST_F(WatchListTest, Inspect_EmptyScope_PrintsNothing) {
+	auto program = MakeProgram();
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+
+	testing::internal::CaptureStdout();
+	watchList.Inspect(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(output, "");
+}
 #endif
