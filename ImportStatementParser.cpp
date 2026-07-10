@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <string>
 
+
+
 namespace {
 StatementParserRegistrar<ImportStatementParser> registrar(TokenType::KwImport);
 
@@ -40,6 +42,23 @@ std::unique_ptr<SyntaxNode> ImportStatementParser::Parse(const TokenList& tokenL
 	importNode->token = importToken;
 	importNode->children.push_back(std::move(pathNode));
 	importNode->children.push_back(std::move(aliasNode));
+
+	// Tokenizer가 import한 파일의 토큰을 이 자리에 그대로 이어붙이고 그 끝에
+	// ImportEnd 마커를 심어둔다. 그 마커를 만날 때까지 문장을 계속 파싱해
+	// importNode의 children(children[2:])으로 붙인다 — 이렇게 해야 뒤이어 같은
+	// 문장 목록에 오는 사용자 코드와 import 내용이 섞이지 않는다.
+	while (pos < tokenList.size() && tokenList[pos].type != TokenType::ImportEnd) {
+		auto parser = StatementParserRegistry::Instance().Resolve(tokenList[pos].type);
+		if (!parser) {
+			throw std::runtime_error("Unexpected token while parsing imported content at line " + std::to_string(PeekLine(tokenList, pos)));
+		}
+		importNode->children.push_back(parser->Parse(tokenList, pos));
+	}
+
+	if (pos >= tokenList.size() || tokenList[pos].type != TokenType::ImportEnd) {
+		throw std::runtime_error("Missing import boundary marker at line " + std::to_string(PeekLine(tokenList, pos)));
+	}
+	pos++; // ImportEnd
 
 	return importNode;
 }

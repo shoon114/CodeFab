@@ -23,34 +23,9 @@ void ExecutorUnit::Execute(const SyntaxNode& tree) {
 		// 선언한 변수를 계속 참조할 수 있다)
 	}
 
-	ExecuteTopLevelStatements(tree.children);
-}
-
-void ExecutorUnit::ExecuteTopLevelStatements(const std::vector<std::unique_ptr<SyntaxNode>>& statements, size_t startIndex) {
-	for (size_t i = startIndex; i < statements.size(); ++i) {
-		if (statements[i]->type == NodeType::ImportStmt) {
-			ExecuteImportAndRemaining(static_cast<const ImportStmtNode&>(*statements[i]), statements, i + 1);
-			return;
-		}
-		ExecuteStmt(*statements[i]);
+	for (const auto& statement : tree.children) {
+		ExecuteStmt(*statement);
 	}
-}
-
-void ExecutorUnit::ExecuteImportAndRemaining(const ImportStmtNode& importNode,
-	const std::vector<std::unique_ptr<SyntaxNode>>& statements, size_t contentStart) {
-	const std::string& aliasName = importNode.children[1]->token.lexeme;
-
-	std::vector<std::unordered_map<std::string, Value_t>> savedScopes = std::move(scopes);
-	scopes.assign(1, {}); // 이 import의 모듈만을 위한 새 스코프 하나
-
-	// contentStart부터 나머지 전부가 이 import의 모듈 내용이다. 중첩 import를 만나면
-	// ExecuteTopLevelStatements가 같은 규칙을 재귀 적용해 자기 뒤 나머지를 삼킨다.
-	ExecuteTopLevelStatements(statements, contentStart);
-
-	auto module = std::make_shared<ModuleObject>();
-	module->members = std::move(scopes.back());
-	scopes = std::move(savedScopes);
-	scopes.back()[aliasName] = module;
 }
 
 void ExecutorUnit::EnterScope() {
@@ -231,12 +206,22 @@ void ExecutorUnit::Visit(const ClassDeclStmtNode& node) {
 	classes[node.token.lexeme] = std::move(info);
 }
 
-// 안전망: ExecuteTopLevelStatements/ExecuteBlockStmt가 먼저 가로채 처리하는 경로를
-// 타지 않고(예: if 문의 단일 문장 body처럼 statement 리스트가 아닌 곳에) import가
-// 놓이면 이 Visit이 대신 호출된다. 뒤에 삼킬 나머지 문장을 모를 때이므로 빈
-// 모듈만 alias에 바인딩해 최소한 크래시는 나지 않게 한다.
+// node.children[0]=path, [1]=alias, [2:]=Tokenizer가 이어붙이고 ImportStatementParser가
+// ImportEnd 마커까지 소비해 파싱해둔 import 대상 파일의 최상위 문장들.
 void ExecutorUnit::Visit(const ImportStmtNode& node) {
-	ExecuteImportAndRemaining(node, node.children, node.children.size());
+	const std::string& aliasName = node.children[1]->token.lexeme;
+
+	std::vector<std::unordered_map<std::string, Value_t>> savedScopes = std::move(scopes);
+	scopes.assign(1, {}); // 이 import의 모듈만을 위한 새 스코프 하나
+
+	for (size_t i = 2; i < node.children.size(); ++i) {
+		ExecuteStmt(*node.children[i]);
+	}
+
+	auto module = std::make_shared<ModuleObject>();
+	module->members = std::move(scopes.back());
+	scopes = std::move(savedScopes);
+	scopes.back()[aliasName] = module;
 }
 
 void ExecutorUnit::ExecutePrintStmt(const SyntaxNode& node) {
@@ -275,7 +260,9 @@ void ExecutorUnit::ExecuteVarDeclareStatement(const SyntaxNode& node) {
 
 void ExecutorUnit::ExecuteBlockStmt(const SyntaxNode& node) {
 	ScopeGuard scopeGuard(*this);
-	ExecuteTopLevelStatements(node.children);
+	for (const auto& statement : node.children) {
+		ExecuteStmt(*statement);
+	}
 }
 
 void ExecutorUnit::ExecuteIfStmt(const SyntaxNode& node) {

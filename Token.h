@@ -22,6 +22,7 @@ enum class TokenType {
 	KwInstanceof,
 	KwImport,
 	KwAlias,
+	ImportEnd,
 
 	Plus,
 	Minus,

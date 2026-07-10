@@ -341,6 +341,19 @@ void Tokenizer::ResolveImports(TokenList& tokens, std::vector<std::string>& acti
 
 		TokenList importedTokens = TokenizeFileForImport(tokens[i + 1].lexeme, tokens[i].line, activeImports);
 
+		// 스플라이스된 토큰들은 원본 파일 어디까지가 이 import의 내용인지 표시가
+		// 없으면 뒤이어 같은 문장 목록에 오는 사용자 코드와 구분할 수 없다. import한
+		// 파일 내용 바로 뒤에 경계 마커(ImportEnd) 하나를 심어서, Parser가 이 마커를
+		// 만날 때까지만 import의 내용으로 소비하도록 한다.
+		Token importEnd;
+		importEnd.type = TokenType::ImportEnd;
+		importEnd.lexeme = "";
+		importEnd.realValue = 0.0;
+		importEnd.originalCode = tokens[i].originalCode;
+		importEnd.line = tokens[i].line;
+		importEnd.column = tokens[i].column;
+		importedTokens.push_back(importEnd);
+
 		tokens.insert(tokens.begin() + insertPos, importedTokens.begin(), importedTokens.end());
 		i = insertPos + importedTokens.size() - 1; // 삽입된 토큰은 이미 재귀적으로 처리됐으니 건너뛴다
 	}
