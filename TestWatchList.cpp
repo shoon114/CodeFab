@@ -4,6 +4,7 @@
 #include "ExecutionObserver.h"
 #include "ExecutorUnit.h"
 #include "SyntaxNode.h"
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -389,5 +390,30 @@ TEST_F(WatchListTest, Inspect_DoesNotIncludeGlobalVariables) {
 
 	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
 	EXPECT_THAT(output, Not(HasSubstr("[GLOBAL]")));
+}
+
+// var a = 4; var b = true; var c = "hi"; 실행 후 inspect하면 세 변수가 전부
+// 출력되어야 한다. CurrentScope()가 unordered_map이라 순서를 보장하지 않으므로
+// 각 줄이 있는지만 확인하고, 줄 수로 누락/중복이 없는지 확인한다.
+TEST_F(WatchListTest, Inspect_MultipleVariables_PrintsAllOfThem) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(4)),
+		MakeVarDeclStmt("b", MakeBoolLiteral(true)),
+		MakeVarDeclStmt("c", MakeStringLiteral("hi"))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+
+	testing::internal::CaptureStdout();
+	watchList.Inspect(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
+	EXPECT_THAT(output, HasSubstr("[LOCAL] b = true (Boolean)"));
+	EXPECT_THAT(output, HasSubstr("[LOCAL] c = \"hi\" (string)"));
+	EXPECT_EQ(std::count(output.begin(), output.end(), '\n'), 3);
 }
 #endif
