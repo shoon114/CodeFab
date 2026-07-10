@@ -25,8 +25,8 @@ void StepController::Continue() {
 	mode = Mode::Running;
 }
 
-bool StepController::IsBreakpointHit(int line) const {
-	return mode == Mode::Running && breakpoints.count(line) > 0;
+bool StepController::IsRunningMode() const {
+	return mode == Mode::Running;
 }
 
 bool StepController::ShouldPause(int line, int depth) const {

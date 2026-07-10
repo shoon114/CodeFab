@@ -12,8 +12,7 @@ void DebugSession::OnStmtEnter(const SyntaxNode& node) {
 	depth++;
 
 	if (stepController.ShouldPause(node.token.line, depth)) {
-		bool isBreakpoint = stepController.IsBreakpointHit(node.token.line);
-		PromptAndHandleCommands(node, isBreakpoint);
+		PromptAndHandleCommands(node);
 	}
 }
 
@@ -21,7 +20,7 @@ void DebugSession::OnStmtExit(const SyntaxNode&) {
 	depth--;
 }
 
-void DebugSession::PrintCurrentLine(const SyntaxNode& node, bool isBreakpoint) const {
+void DebugSession::PrintCurrentLine(const SyntaxNode& node) const {
 	int tokenLine = node.token.line;  // 0-indexed
 	int displayLine = tokenLine + 1;  // 사용자에게 보여주는 1-indexed
 
@@ -31,14 +30,14 @@ void DebugSession::PrintCurrentLine(const SyntaxNode& node, bool isBreakpoint) c
 	}
 
 	std::cout << "[DEBUG] Stop at line : " << displayLine;
-	if (isBreakpoint) {
+	if (stepController.IsRunningMode()) {
 		std::cout << " (breakpoint)";
 	}
 	std::cout << " > " << sourceCode << std::endl;
 }
 
-void DebugSession::PromptAndHandleCommands(const SyntaxNode& node, bool isBreakpoint) {
-	PrintCurrentLine(node, isBreakpoint);
+void DebugSession::PromptAndHandleCommands(const SyntaxNode& node) {
+	PrintCurrentLine(node);
 	watchList.Watches(executor);
 
 	std::string command;

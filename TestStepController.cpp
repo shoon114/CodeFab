@@ -98,30 +98,26 @@ TEST_F(StepControllerTest, RemoveBreakpoint_NonExistentIsNoOp) {
 	EXPECT_EQ(sc.Breakpoints().size(), 1u);
 }
 
-// ── IsBreakpointHit ───────────────────────────────────────────────────────────
+// ── IsRunningMode ─────────────────────────────────────────────────────────────
 
-TEST_F(StepControllerTest, IsBreakpointHit_TrueOnlyInRunningModeWithBreakpoint) {
-	sc.SetBreakpoint(3);
-	sc.Continue(); // Running 모드
-	EXPECT_TRUE(sc.IsBreakpointHit(3));
-}
-
-TEST_F(StepControllerTest, IsBreakpointHit_FalseInSteppingModeEvenWithBreakpoint) {
-	sc.SetBreakpoint(3);
-	// 기본 모드는 Stepping
-	EXPECT_FALSE(sc.IsBreakpointHit(3));
-}
-
-TEST_F(StepControllerTest, IsBreakpointHit_FalseInSteppingOverModeEvenWithBreakpoint) {
-	sc.SetBreakpoint(3);
-	sc.Next(1);
-	EXPECT_FALSE(sc.IsBreakpointHit(3));
-}
-
-TEST_F(StepControllerTest, IsBreakpointHit_FalseForNonBreakpointLineInRunning) {
-	sc.SetBreakpoint(3);
+TEST_F(StepControllerTest, IsRunningMode_TrueAfterContinue) {
 	sc.Continue();
-	EXPECT_FALSE(sc.IsBreakpointHit(5));
+	EXPECT_TRUE(sc.IsRunningMode());
+}
+
+TEST_F(StepControllerTest, IsRunningMode_FalseInInitialSteppingMode) {
+	EXPECT_FALSE(sc.IsRunningMode());
+}
+
+TEST_F(StepControllerTest, IsRunningMode_FalseAfterNext) {
+	sc.Next(1);
+	EXPECT_FALSE(sc.IsRunningMode());
+}
+
+TEST_F(StepControllerTest, IsRunningMode_FalseAfterStepFromRunning) {
+	sc.Continue();
+	sc.Step();
+	EXPECT_FALSE(sc.IsRunningMode());
 }
 
 // ── 모드 전환 ─────────────────────────────────────────────────────────────────
