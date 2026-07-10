@@ -352,10 +352,11 @@ else print "z";</code></pre>
     <p><code>docs/presentation/demo/</code>의 파일 순서대로 Release 콘솔에 직접
       입력하며 진행한다.</p>
     <ol>
-      <li><b>01</b> — 스코프 &amp; 제어문 (Allman 스타일, 한 줄 합침 3단 else-if/else, for 스코프 누수)</li>
-      <li><b>02</b> — 함수 (재귀, 호출자 로컬 변수 은닉, 정적 오류 시 실행 중단)</li>
-      <li><b>03</b> — 배열 (생성/인덱싱, 범위 밖 인덱싱 런타임 에러)</li>
-      <li><b>04</b> — 클래스 (상속, 오버라이딩, <code>Super</code> 호출, 다형성)</li>
+      <li><b>01</b> — 제어문 파싱 (Allman 스타일, 한 줄 합침 3단 else-if/else, for 스코프 누수)</li>
+      <li><b>02</b> — 함수 스코프 격리 (호출자 로컬 변수 은닉, 정적 오류 시 실행 중단)</li>
+      <li><b>03</b> — 클래스 (상속, 오버라이딩, <code>Super</code> 호출, 다형성)</li>
+      <li><b>04</b> — import 경계 처리 (선언만 들여오기, 존재하지 않는 파일 catch)</li>
+      <li><b>05</b> — 인터랙티브 디버그 모드 (<code>step</code>/<code>next</code>/<code>watch</code>/<code>inspect</code>)</li>
     </ol>
     <p class="muted">모든 스니펫은 실제 Release 빌드로 사전 검증됨.</p>
   </section>

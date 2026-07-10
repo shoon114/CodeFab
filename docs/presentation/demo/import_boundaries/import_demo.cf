@@ -1,0 +1,2 @@
+import "math_utils.cf" alias math;
+print math.square(5);

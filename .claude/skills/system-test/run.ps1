@@ -107,6 +107,7 @@ $cases = @(
     @{ Category = "런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가"; InputLines = @('func tryAccess() { return localOnly; }', '{ var localOnly = 5; print tryAccess(); }'); ExpectError = $true }
     @{ Category = "런타임 오류: for 단일 줄 body에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var i = 0; i < 3; i = i + 1) var x = i;', 'print x;'); ExpectError = $true }
     @{ Category = "런타임 오류: for init에서 선언된 변수는 바깥에서 참조 불가"; InputLines = @('for (var a = 0; a < 3; a = a + 1) { print a; }', 'print a;'); ExpectError = $true }
+    @{ Category = "else 없는 if 블록에서 런타임 에러 발생 후 다음 문장이 정상 실행됨"; InputLines = @('if (true)', '{', '  print b;', '}', 'print "after";'); Expect = "after" }
     @{ Category = "구문 오류: 세미콜론 누락"; InputLines = @('print 1 + 2'); ExpectError = $true }
     @{ Category = "구문 오류: 닫는 괄호 누락"; InputLines = @('print (1 + 2;'); ExpectError = $true }
     @{ Category = "런타임 오류: 잘못된 할당 대상"; InputLines = @('var a = 1;', 'var b = 2;', 'a + b = 3;'); ExpectError = $true }

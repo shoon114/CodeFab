@@ -144,6 +144,7 @@ powershell -ExecutionPolicy Bypass -File .claude/skills/system-test/run.ps1 -Ski
 | 런타임 오류: 함수는 호출자의 로컬 스코프에 접근 불가 | `func tryAccess() { return localOnly; }` → `{ var localOnly = 5; print tryAccess(); }` | (에러 발생 여부만 확인) |
 | 런타임 오류: for 단일 줄 body에서 선언된 변수는 바깥에서 참조 불가 | `for (var i = 0; i < 3; i = i + 1) var x = i;` → `print x;` | (에러 발생 여부만 확인) — '{}' 없는 단일 문장 body도 `{}` body와 동일하게 스코프가 격리되는지 확인 |
 | 런타임 오류: for init에서 선언된 변수는 바깥에서 참조 불가 | `for (var a = 0; a < 3; a = a + 1) { print a; }` → `print a;` | (에러 발생 여부만 확인) — init에서 선언된 변수도 `{}` 블록 지역 변수와 동일하게 for문이 끝나면 사라지는지 확인 |
+| else 없는 if 블록에서 런타임 에러 발생 후 다음 문장이 정상 실행됨 | `if (true) { print b; }` → `print "after";` | `after` — else 없는 if의 body 실행 중 예외가 나도, PromptMode가 "혹시 else?" 대기 중 함께 묶어버린 다음 문장이 조용히 사라지지 않고 정상 실행되는지 확인 |
 | 구문 오류: 세미콜론 누락 | `print 1 + 2` | (에러 발생 여부만 확인) |
 | 구문 오류: 닫는 괄호 누락 | `print (1 + 2;` | (에러 발생 여부만 확인) |
 | 런타임 오류: 잘못된 할당 대상 | `var a = 1;` → `var b = 2;` → `a + b = 3;` | (에러 발생 여부만 확인) |
