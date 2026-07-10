@@ -38,7 +38,7 @@ void DebugSession::PrintCurrentLine(const SyntaxNode& node) const {
 
 void DebugSession::PromptAndHandleCommands(const SyntaxNode& node) {
 	PrintCurrentLine(node);
-	watchList.Watches(executor);
+	std::cout << watchList.Watches(executor);
 
 	std::string command;
 	while (true) {
@@ -114,11 +114,11 @@ bool DebugSession::HandleCommand(const std::string& command) {
 		return false;
 	}
 	if (verb == "watches") {
-		watchList.Watches(executor);
+		std::cout << watchList.Watches(executor);
 		return false;
 	}
 	if (verb == "inspect") {
-		watchList.Inspect(executor);
+		std::cout << watchList.Inspect(executor);
 		return false;
 	}
 
