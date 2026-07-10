@@ -128,6 +128,13 @@ int PromptMode::Run() {
 				&& (firstType == TokenType::KwIf || firstType == TokenType::KwFor || firstType == TokenType::KwFunc)) {
 				pendingControlBlock = true; // "if (...)"/"for (...)"/"func name(...)" 다음에 '{'를 기다리는 중
 				waitedOnceForElse = false;
+			} else if (firstType == TokenType::KwClass && lastRealType == TokenType::Identifier) {
+				// "Class Name"이나 "Class Name : Parent"까지만 입력된 상태 --
+				// 클래스 body('{...}')는 반드시 있어야 하므로(단일 문장으로
+				// 대체될 수 없음) 다음 줄의 '{'를 기다린다. 이미 닫힌 선언은
+				// 마지막 토큰이 RBrace이므로 이 조건에 걸리지 않는다.
+				pendingControlBlock = true;
+				waitedOnceForElse = false;
 			} else if (firstType == TokenType::KwIf
 				&& (lastRealType == TokenType::RBrace || lastRealType == TokenType::Semicolon)) {
 				// if의 body가 방금 닫혔다(브레이스 body든 '{}' 없는 단일 문장

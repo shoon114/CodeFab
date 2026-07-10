@@ -81,9 +81,18 @@ $cases = @(
     @{ Category = "배열 생성/쓰기/읽기"; InputLines = @('var arr = Array(3);', 'arr[0] = 10;', 'print arr[0];'); Expect = "10" }
     @{ Category = "배열 기본값(null)"; InputLines = @('var arr = Array(3);', 'print arr[1];'); Expect = "null" }
     @{ Category = "배열(for 반복문으로 채우기)"; InputLines = @('var arr = Array(3);', 'for (var i = 0; i < 3; i = i + 1) { arr[i] = i * i; }', 'print arr[2];'); Expect = "4" }
+    @{ Category = "클래스 선언/인스턴스 생성/필드 읽기"; InputLines = @('Class Robot { init(name) { this.name = name; } }', 'var r = Robot("Wall-E");', 'print r.name;'); Expect = "Wall-E" }
+    @{ Category = "클래스 메서드 호출"; InputLines = @('Class Counter { init() { this.value = 0; } increment() { this.value = this.value + 1; return this.value; } }', 'var c = Counter();', 'c.increment();', 'print c.increment();'); Expect = "2" }
+    @{ Category = "클래스 상속/오버라이딩/Super 호출"; InputLines = @('Class Animal { speak() { return "..."; } describe() { return "I say " + this.speak(); } }', 'Class Dog : Animal { speak() { return "Woof, and " + Super.speak(); } }', 'var d = Dog();', 'print d.describe();'); Expect = "I say Woof, and ..." }
+    @{ Category = "클래스 선언(이름과 body가 별도 줄)"; InputLines = @('Class Robot', '{', '  init(name) { this.name = name; }', '}', 'var r = Robot("Wall-E");', 'print r.name;'); Expect = "Wall-E" }
 
     # 아래부터는 "정확한 출력값"이 아니라 "에러가 발생하는지"만 확인하는 케이스다
     # (ExpectError = $true). Expect 필드는 쓰지 않는다.
+    @{ Category = "정적 오류: 클래스 외부에서 this 사용"; InputLines = @('print this;'); ExpectError = $true }
+    @{ Category = "정적 오류: 클래스가 자기 자신을 상속"; InputLines = @('Class Loop : Loop { }'); ExpectError = $true }
+    @{ Category = "정적 오류: 정의되지 않은 클래스 상속"; InputLines = @('Class Dog : Ghost { }'); ExpectError = $true }
+    @{ Category = "런타임 오류: 존재하지 않는 필드 읽기"; InputLines = @('Class Robot { init() { } }', 'var r = Robot();', 'print r.name;'); ExpectError = $true }
+    @{ Category = "런타임 오류: 인스턴스가 아닌 값의 필드 접근"; InputLines = @('var x = 5;', 'print x.name;'); ExpectError = $true }
     @{ Category = "런타임 오류: 배열 인덱스 범위 초과"; InputLines = @('var arr = Array(3);', 'print arr[5];'); ExpectError = $true }
     @{ Category = "런타임 오류: 배열 음수 인덱스"; InputLines = @('var arr = Array(3);', 'print arr[-1];'); ExpectError = $true }
     @{ Category = "런타임 오류: 배열이 아닌 값 인덱싱"; InputLines = @('var x = 5;', 'print x[0];'); ExpectError = $true }
