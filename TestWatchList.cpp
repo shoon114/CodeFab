@@ -1,0 +1,435 @@
+#ifdef _DEBUG
+#include "gmock/gmock.h"
+#include "WatchList.h"
+#include "ExecutionObserver.h"
+#include "ExecutorUnit.h"
+#include "SyntaxNode.h"
+#include <algorithm>
+#include <memory>
+#include <string>
+
+using namespace testing;
+
+// ExecutionObserver는 순수가상이라 뭔가는 구현해야 한다. 특정 statement(marker)에
+// 진입하는 순간(그 스코프가 아직 팝되기 전) watches 출력을 캡처하기 위한 옵저버.
+// fixture 상태와 무관하게 독립적으로 쓰이므로 fixture 밖에 둔다.
+class CaptureAtMarkerObserver : public ExecutionObserver {
+public:
+	CaptureAtMarkerObserver(const SyntaxNode* marker, const WatchList& watchList,
+		const ExecutorUnit& executor, std::string& output)
+		: marker(marker), watchList(watchList), executor(executor), output(output) {}
+
+	void OnStmtEnter(const SyntaxNode& node) override {
+		if (&node == marker) {
+			testing::internal::CaptureStdout();
+			watchList.Watches(executor);
+			output = testing::internal::GetCapturedStdout();
+		}
+	}
+	void OnStmtExit(const SyntaxNode&) override {}
+
+private:
+	const SyntaxNode* marker;
+	const WatchList& watchList;
+	const ExecutorUnit& executor;
+	std::string& output;
+};
+
+// TestExcutorUnit.cpp과 동일한 목적(파서 없이 트리를 직접 구성)의 헬퍼지만,
+// 다른 .cpp의 fixture와 공유되지 않으므로 여기서 필요한 만큼만 멤버 함수로 다시 둔다.
+class WatchListTest : public ::testing::Test {
+protected:
+	std::unique_ptr<SyntaxNode> MakeIdentifier(const std::string& name, int line = 1) {
+		auto node = std::make_unique<IdentifierNode>();
+		node->token.type = TokenType::Identifier;
+		node->token.lexeme = name;
+		node->token.line = line;
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeNumberLiteral(double value, int line = 1) {
+		auto node = std::make_unique<NumberLiteralNode>();
+		node->token.type = TokenType::Number;
+		node->token.realValue = value;
+		node->token.line = line;
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeBoolLiteral(bool value, int line = 1) {
+		auto node = std::make_unique<BoolLiteralNode>();
+		node->token.lexeme = value ? "true" : "false";
+		node->token.line = line;
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeStringLiteral(const std::string& value, int line = 1) {
+		auto node = std::make_unique<StringLiteralNode>();
+		node->token.type = TokenType::String;
+		node->token.lexeme = value;
+		node->token.line = line;
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeAssignExpr(const std::string& name, std::unique_ptr<SyntaxNode> value, int line = 1) {
+		auto node = std::make_unique<AssignExprNode>();
+		node->token.type = TokenType::Assign;
+		node->token.lexeme = "=";
+		node->token.line = line;
+		node->children.push_back(MakeIdentifier(name, line));
+		node->children.push_back(std::move(value));
+		return node;
+	}
+
+	// var <name> = <initializer>;
+	std::unique_ptr<SyntaxNode> MakeVarDeclStmt(const std::string& name, std::unique_ptr<SyntaxNode> initializer, int line = 1) {
+		auto node = std::make_unique<VarDeclareStatementNode>();
+		node->token.type = TokenType::KwVar;
+		node->token.lexeme = "var";
+		node->token.line = line;
+		node->children.push_back(MakeAssignExpr(name, std::move(initializer), line));
+		return node;
+	}
+
+	std::unique_ptr<SyntaxNode> MakeExprStmt(std::unique_ptr<SyntaxNode> expression, int line = 1) {
+		auto node = std::make_unique<ExprStmtNode>();
+		node->token.line = line;
+		node->children.push_back(std::move(expression));
+		return node;
+	}
+
+	// <arrayName>[<index>] = <valueExpr>;
+	std::unique_ptr<SyntaxNode> MakeIndexAssignStmt(const std::string& arrayName, double index, std::unique_ptr<SyntaxNode> valueExpr, int line = 1) {
+		auto indexExpr = std::make_unique<IndexExprNode>();
+		indexExpr->token.line = line;
+		indexExpr->children.push_back(MakeIdentifier(arrayName, line));
+		indexExpr->children.push_back(MakeNumberLiteral(index, line));
+
+		auto assign = std::make_unique<AssignExprNode>();
+		assign->token.type = TokenType::Assign;
+		assign->token.lexeme = "=";
+		assign->token.line = line;
+		assign->children.push_back(std::move(indexExpr));
+		assign->children.push_back(std::move(valueExpr));
+
+		return MakeExprStmt(std::move(assign), line);
+	}
+
+	// Array(<sizeExpr>)
+	std::unique_ptr<SyntaxNode> MakeArrExpr(std::unique_ptr<SyntaxNode> sizeExpr, int line = 1) {
+		auto node = std::make_unique<ArrExprNode>();
+		node->token.line = line;
+		node->children.push_back(std::move(sizeExpr));
+		return node;
+	}
+
+	template <typename... Stmts>
+	std::unique_ptr<SyntaxNode> MakeBlockStmt(Stmts&&... statements) {
+		auto node = std::make_unique<BlockStmtNode>();
+		(node->children.push_back(std::forward<Stmts>(statements)), ...);
+		return node;
+	}
+
+	template <typename... Stmts>
+	std::unique_ptr<SyntaxNode> MakeProgram(Stmts&&... statements) {
+		auto node = std::make_unique<ProgramNode>();
+		(node->children.push_back(std::forward<Stmts>(statements)), ...);
+		return node;
+	}
+
+	// watchList.Watches(executor)의 출력을 캡처해 문자열로 돌려주는 공용 헬퍼.
+	std::string CaptureWatches(const WatchList& watchList, const ExecutorUnit& executor) {
+		testing::internal::CaptureStdout();
+		watchList.Watches(executor);
+		return testing::internal::GetCapturedStdout();
+	}
+};
+
+TEST_F(WatchListTest, Add_NewName_IsInList) {
+	WatchList watchList;
+	watchList.Add("a");
+
+	EXPECT_TRUE(watchList.Contains("a"));
+}
+
+TEST_F(WatchListTest, Remove_WatchedName_IsNoLongerInList) {
+	WatchList watchList;
+	watchList.Add("a");
+
+	watchList.Remove("a");//unWatch
+
+	EXPECT_FALSE(watchList.Contains("a"));
+}
+
+// var a = 4; 실행 후(전역 스코프에 남아있는 상태) watches를 조회하면
+// "[LOCAL] a = 4 (number)"가 출력되어야 한다.
+TEST_F(WatchListTest, Watches_GlobalNumberVariable_PrintsGlobalLabelAndNumberType) {
+	auto program = MakeProgram(MakeVarDeclStmt("a", MakeNumberLiteral(4)));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("a");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] a = 4 (number)"));
+}
+
+// var b = true; 실행 후 watches를 조회하면 "[LOCAL] b = true (Boolean)"가 출력되어야 한다.
+TEST_F(WatchListTest, Watches_LocalBooleanVariable_PrintsLocalLabelAndBooleanType) {
+	auto program = MakeProgram(MakeVarDeclStmt("b", MakeBoolLiteral(true)));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("b");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] b = true (Boolean)"));
+}
+
+// var c = "hello"; 실행 후 watches를 조회하면 "[LOCAL] c = \"hello\" (string)"가
+// 출력되어야 한다 (문자열 값은 큰따옴표로 감싸서 출력).
+TEST_F(WatchListTest, Watches_LocalStringVariable_PrintsLocalLabelAndStringType) {
+	auto program = MakeProgram(MakeVarDeclStmt("c", MakeStringLiteral("hello")));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("c");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] c = \"hello\" (string)"));
+}
+
+// var d = Array(3); d[0]=1; d[1]=2; d[2]=3; 실행 후 watches를 조회하면
+// "[LOCAL] d = [1, 2, 3] (array)"가 출력되어야 한다 (원소를 대괄호로 펼쳐서 표시).
+TEST_F(WatchListTest, Watches_LocalArrayVariable_PrintsLocalLabelAndArrayType) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))),
+		MakeIndexAssignStmt("d", 0, MakeNumberLiteral(1)),
+		MakeIndexAssignStmt("d", 1, MakeNumberLiteral(2)),
+		MakeIndexAssignStmt("d", 2, MakeNumberLiteral(3))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] d = [1, 2, 3] (array)"));
+}
+
+// var d = Array(3); d[0]=1; d[1]=2; (d[2]는 미할당) 실행 후 watches를 조회하면
+// "[LOCAL] d = [1, 2, null] (array)"가 출력되어야 한다 (초기화 안 된 칸은 null).
+TEST_F(WatchListTest, Watches_LocalArrayVariable_WithUnassignedElement_PrintsNullForThatElement) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))),
+		MakeIndexAssignStmt("d", 0, MakeNumberLiteral(1)),
+		MakeIndexAssignStmt("d", 1, MakeNumberLiteral(2))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] d = [1, 2, null] (array)"));
+}
+
+// var d = Array(3); d[0]=1; d[1]=2; d[2]=3; 실행 후 "d[0]"을 watch하면 배열 전체가
+// 아니라 그 원소값만 "[LOCAL] d[0] = 1 (number)"로 출력되어야 한다.
+TEST_F(WatchListTest, Watches_ArrayElementWatch_PrintsElementValue) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))),
+		MakeIndexAssignStmt("d", 0, MakeNumberLiteral(1)),
+		MakeIndexAssignStmt("d", 1, MakeNumberLiteral(2)),
+		MakeIndexAssignStmt("d", 2, MakeNumberLiteral(3))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d[0]");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] d[0] = 1 (number)"));
+}
+
+// 한 번도 선언되지 않은 이름을 watch하면 "z = <undefined>"가 출력되어야 한다.
+TEST_F(WatchListTest, Watches_UndeclaredVariable_PrintsUndefinedPlaceholder) {
+	ExecutorUnit executor;
+
+	WatchList watchList;
+	watchList.Add("z");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("z = <undefined>"));
+}
+
+// var d = Array(3); 실행 후 배열 크기를 벗어난 인덱스("d[10]")를 watch하면
+// "d[10] = <undefined>"가 출력되어야 한다.
+TEST_F(WatchListTest, Watches_ArrayIndexOutOfRange_PrintsUndefinedPlaceholder) {
+	auto program = MakeProgram(MakeVarDeclStmt("d", MakeArrExpr(MakeNumberLiteral(3))));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("d[10]");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("d[10] = <undefined>"));
+}
+
+// var a = 4; 실행 후 배열이 아닌 변수에 인덱스를 붙여("a[0]") watch하면
+// "a[0] = <undefined>"가 출력되어야 한다.
+TEST_F(WatchListTest, Watches_IndexIntoNonArrayVariable_PrintsUndefinedPlaceholder) {
+	auto program = MakeProgram(MakeVarDeclStmt("a", MakeNumberLiteral(4)));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+	watchList.Add("a[0]");
+
+	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("a[0] = <undefined>"));
+}
+
+// var b = true; { var a = 4; <marker> } 구조에서 a, b를 모두 watch하면, 블록이
+// 아직 살아있는(a의 스코프가 팝되기 전) 시점엔 a는 [LOCAL], b는 [GLOBAL]로
+// 각각 올바르게 구분되어 추가한 순서(a, b)대로 출력되어야 한다.
+TEST_F(WatchListTest, Watches_MultipleVariablesAcrossLocalAndGlobalScopes_LabelsEachCorrectly) {
+	auto marker = MakeExprStmt(MakeIdentifier("a", 3), 3);
+	const SyntaxNode* markerPtr = marker.get();
+
+	auto program = MakeProgram(
+		MakeVarDeclStmt("b", MakeBoolLiteral(true)),
+		MakeBlockStmt(
+			MakeVarDeclStmt("a", MakeNumberLiteral(4), 2),
+			std::move(marker)
+		)
+	);
+
+	WatchList watchList;
+	watchList.Add("a");
+	watchList.Add("b");
+
+	ExecutorUnit executor;
+	std::string output;
+	CaptureAtMarkerObserver observer(markerPtr, watchList, executor, output);
+	executor.SetObserver(&observer);
+	executor.Execute(*program);
+	executor.SetObserver(nullptr);
+
+	EXPECT_EQ(output, "[LOCAL] a = 4 (number)\n[GLOBAL] b = true (Boolean)\n");
+}
+
+// var a = 4; 실행 후(전역 스코프에 남아있는 상태) inspect를 조회하면 watch 목록에
+// 추가한 적이 없어도 "[LOCAL] a = 4 (number)"가 출력되어야 한다.
+TEST_F(WatchListTest, Inspect_CurrentScopeVariable_PrintsLocalLabelAndValue) {
+	auto program = MakeProgram(MakeVarDeclStmt("a", MakeNumberLiteral(4)));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+
+	testing::internal::CaptureStdout();
+	watchList.Inspect(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
+}
+
+// var b = true; { var a = 4; <marker> } 구조에서 블록이 아직 살아있는 시점에
+// inspect하면, 전역 b는 나오지 않고 로컬 a만 출력되어야 한다.
+TEST_F(WatchListTest, Inspect_DoesNotIncludeGlobalVariables) {
+	auto marker = MakeExprStmt(MakeIdentifier("a", 3), 3);
+	const SyntaxNode* markerPtr = marker.get();
+
+	auto program = MakeProgram(
+		MakeVarDeclStmt("b", MakeBoolLiteral(true)),
+		MakeBlockStmt(
+			MakeVarDeclStmt("a", MakeNumberLiteral(4), 2),
+			std::move(marker)
+		)
+	);
+
+	WatchList watchList;
+
+	// ExecutionObserver는 순수가상이라 뭔가는 구현해야 한다. marker에 진입하는
+	// 순간(블록 스코프가 아직 살아있을 때) inspect 출력을 캡처하기 위한 옵저버.
+	class CaptureInspectAtMarkerObserver : public ExecutionObserver {
+	public:
+		CaptureInspectAtMarkerObserver(const SyntaxNode* marker, const WatchList& watchList,
+			const ExecutorUnit& executor, std::string& output)
+			: marker(marker), watchList(watchList), executor(executor), output(output) {}
+
+		void OnStmtEnter(const SyntaxNode& node) override {
+			if (&node == marker) {
+				testing::internal::CaptureStdout();
+				watchList.Inspect(executor);
+				output = testing::internal::GetCapturedStdout();
+			}
+		}
+		void OnStmtExit(const SyntaxNode&) override {}
+
+	private:
+		const SyntaxNode* marker;
+		const WatchList& watchList;
+		const ExecutorUnit& executor;
+		std::string& output;
+	};
+
+	ExecutorUnit executor;
+	std::string output;
+	CaptureInspectAtMarkerObserver observer(markerPtr, watchList, executor, output);
+	executor.SetObserver(&observer);
+	executor.Execute(*program);
+	executor.SetObserver(nullptr);
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
+	EXPECT_THAT(output, Not(HasSubstr("[GLOBAL]")));
+}
+
+// var a = 4; var b = true; var c = "hi"; 실행 후 inspect하면 세 변수가 전부
+// 출력되어야 한다. CurrentScope()가 unordered_map이라 순서를 보장하지 않으므로
+// 각 줄이 있는지만 확인하고, 줄 수로 누락/중복이 없는지 확인한다.
+TEST_F(WatchListTest, Inspect_MultipleVariables_PrintsAllOfThem) {
+	auto program = MakeProgram(
+		MakeVarDeclStmt("a", MakeNumberLiteral(4)),
+		MakeVarDeclStmt("b", MakeBoolLiteral(true)),
+		MakeVarDeclStmt("c", MakeStringLiteral("hi"))
+	);
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+
+	testing::internal::CaptureStdout();
+	watchList.Inspect(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
+	EXPECT_THAT(output, HasSubstr("[LOCAL] b = true (Boolean)"));
+	EXPECT_THAT(output, HasSubstr("[LOCAL] c = \"hi\" (string)"));
+	EXPECT_EQ(std::count(output.begin(), output.end(), '\n'), 3);
+}
+
+// 변수가 하나도 없는 스코프에서 inspect하면 크래시 없이 아무것도 출력되지 않아야 한다.
+TEST_F(WatchListTest, Inspect_EmptyScope_PrintsNothing) {
+	auto program = MakeProgram();
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+
+	testing::internal::CaptureStdout();
+	watchList.Inspect(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(output, "");
+}
+#endif

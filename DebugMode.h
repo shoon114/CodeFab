@@ -2,8 +2,9 @@
 #include "ShellMode.h"
 #include <string>
 
-// 디버그 모드: Stmt 단위로 정지하며 step/next/break/watch 등을 지원할 예정.
-// 현재는 쉘(진입점 분기) PR 범위라 스텁만 있고, stepping/watch 구현은 다음 PR에서 추가한다.
+// 디버그 모드: Stmt 단위로 정지하며 step/next/break/watch 등을 지원한다.
+// DebugSession이 ExecutionObserver로 등록되어 ExecutorUnit::ExecuteStmt의
+// 문 경계마다 통보받는다.
 class DebugMode : public ShellMode {
 public:
 	explicit DebugMode(std::string path);

@@ -106,10 +106,24 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="DebugMode.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="ClassStatementParser.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="TestClassStatementParser.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="StepController.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="WatchList.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugSession.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="TestWatchList.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -178,7 +192,21 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="DebugMode.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="ClassStatementParser.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ExecutionObserver.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="StepController.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="WatchList.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugSession.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

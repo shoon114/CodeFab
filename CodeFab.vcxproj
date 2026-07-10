@@ -217,6 +217,10 @@
     </ClCompile>
     <ClCompile Include="ImportStatementParser.cpp" />
     <ClCompile Include="TestImportStatementParser.cpp" />
+    <ClCompile Include="StepController.cpp" />
+    <ClCompile Include="WatchList.cpp" />
+    <ClCompile Include="DebugSession.cpp" />
+    <ClCompile Include="TestWatchList.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblerUnit.h" />
@@ -246,6 +250,10 @@
     <ClInclude Include="SourceFileLoader.h" />
     <ClInclude Include="FileMode.h" />
     <ClInclude Include="DebugMode.h" />
+    <ClInclude Include="ExecutionObserver.h" />
+    <ClInclude Include="StepController.h" />
+    <ClInclude Include="WatchList.h" />
+    <ClInclude Include="DebugSession.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
