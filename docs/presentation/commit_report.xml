@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="860" height="836" viewBox="0 0 860 836" font-family="Segoe UI, Malgun Gothic, sans-serif">
 <title>CodeFab 커밋 히스토리 리포트</title>
 <rect x="0" y="0" width="860" height="836" fill="#ffffff"/>
-<text x="430.0" y="30" text-anchor="middle" font-size="20" font-weight="700" fill="#1b1e26">CodeFab 커밋 히스토리 리포트 (현재 브랜치 기준, 총 89개)</text>
+<text x="430.0" y="30" text-anchor="middle" font-size="20" font-weight="700" fill="#1b1e26">CodeFab 커밋 히스토리 리포트 (현재 브랜치 기준, 총 92개)</text>
 <text x="60" y="50" font-size="14" font-weight="700" fill="#1b1e26">1. 일자별 커밋 개수</text>
 <line x1="60" y1="310" x2="820" y2="310" stroke="#c7cad1"/>
 <line x1="60" y1="60" x2="60" y2="310" stroke="#c7cad1"/>
@@ -11,7 +11,7 @@
 <text x="52" y="189.0" text-anchor="end" font-size="11" fill="#6b7280">13</text>
 <line x1="56" y1="60.0" x2="820" y2="60.0" stroke="#eef0f4" stroke-dasharray="3,3"/>
 <text x="52" y="64.0" text-anchor="end" font-size="11" fill="#6b7280">26</text>
-<polyline points="60.0,252.3 250.0,69.6 440.0,69.6 630.0,60.0 820.0,242.7" fill="none" stroke="#4361ee" stroke-width="2.5"/>
+<polyline points="60.0,252.3 250.0,69.6 440.0,69.6 630.0,60.0 820.0,213.8" fill="none" stroke="#4361ee" stroke-width="2.5"/>
 <circle cx="60.0" cy="252.3" r="4.5" fill="#4361ee"/>
 <text x="60.0" y="242.3" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">6</text>
 <text x="60.0" y="330" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-06</text>
@@ -24,52 +24,52 @@
 <circle cx="630.0" cy="60.0" r="4.5" fill="#4361ee"/>
 <text x="630.0" y="50.0" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">26</text>
 <text x="630.0" y="330" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-09</text>
-<circle cx="820.0" cy="242.7" r="4.5" fill="#4361ee"/>
-<text x="820.0" y="232.7" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">7</text>
+<circle cx="820.0" cy="213.8" r="4.5" fill="#4361ee"/>
+<text x="820.0" y="203.8" text-anchor="middle" font-size="12" font-weight="600" fill="#1b1e26">10</text>
 <text x="820.0" y="330" text-anchor="middle" font-size="11" fill="#6b7280">2026-07-10</text>
 <text x="60" y="390" font-size="14" font-weight="700" fill="#1b1e26">2. 모듈별 수정 커밋 개수</text>
 <text x="240" y="426.9" text-anchor="end" font-size="12.5" fill="#1b1e26">유닛 테스트(TC)</text>
 <rect x="250" y="410" width="570.0" height="18" fill="#e2e4ea"/>
 <rect x="250" y="410" width="570.0" height="18" fill="#4361ee"/>
-<text x="830.0" y="426.9" font-size="12" fill="#1b1e26">59</text>
+<text x="830.0" y="426.9" font-size="12" fill="#1b1e26">60</text>
 <text x="240" y="452.9" text-anchor="end" font-size="12.5" fill="#1b1e26">Statement 파서</text>
 <rect x="250" y="436" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="436" width="260.8" height="18" fill="#3a86ff"/>
-<text x="830.0" y="452.9" font-size="12" fill="#1b1e26">27</text>
+<rect x="250" y="436" width="266.0" height="18" fill="#3a86ff"/>
+<text x="830.0" y="452.9" font-size="12" fill="#1b1e26">28</text>
 <text x="240" y="478.9" text-anchor="end" font-size="12.5" fill="#1b1e26">빌드/프로젝트 설정</text>
 <rect x="250" y="462" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="462" width="241.5" height="18" fill="#2ec4b6"/>
+<rect x="250" y="462" width="237.5" height="18" fill="#2ec4b6"/>
 <text x="830.0" y="478.9" font-size="12" fill="#1b1e26">25</text>
 <text x="240" y="504.9" text-anchor="end" font-size="12.5" fill="#1b1e26">ExecutorUnit/AST</text>
 <rect x="250" y="488" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="488" width="193.2" height="18" fill="#ff9f1c"/>
-<text x="830.0" y="504.9" font-size="12" fill="#1b1e26">20</text>
+<rect x="250" y="488" width="199.5" height="18" fill="#ff9f1c"/>
+<text x="830.0" y="504.9" font-size="12" fill="#1b1e26">21</text>
 <text x="240" y="530.9" text-anchor="end" font-size="12.5" fill="#1b1e26">Tokenizer</text>
 <rect x="250" y="514" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="514" width="125.6" height="18" fill="#e63946"/>
-<text x="830.0" y="530.9" font-size="12" fill="#1b1e26">13</text>
+<rect x="250" y="514" width="133.0" height="18" fill="#e63946"/>
+<text x="830.0" y="530.9" font-size="12" fill="#1b1e26">14</text>
 <text x="240" y="556.9" text-anchor="end" font-size="12.5" fill="#1b1e26">실행 진입점(ShellMode)</text>
 <rect x="250" y="540" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="540" width="125.6" height="18" fill="#8338ec"/>
-<text x="830.0" y="556.9" font-size="12" fill="#1b1e26">13</text>
+<rect x="250" y="540" width="133.0" height="18" fill="#8338ec"/>
+<text x="830.0" y="556.9" font-size="12" fill="#1b1e26">14</text>
 <text x="240" y="582.9" text-anchor="end" font-size="12.5" fill="#1b1e26">CheckerUnit</text>
 <rect x="250" y="566" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="566" width="115.9" height="18" fill="#ffbe0b"/>
-<text x="830.0" y="582.9" font-size="12" fill="#1b1e26">12</text>
-<text x="240" y="608.9" text-anchor="end" font-size="12.5" fill="#1b1e26">테스트/자동화 스크립트</text>
+<rect x="250" y="566" width="123.5" height="18" fill="#ffbe0b"/>
+<text x="830.0" y="582.9" font-size="12" fill="#1b1e26">13</text>
+<text x="240" y="608.9" text-anchor="end" font-size="12.5" fill="#1b1e26">문서</text>
 <rect x="250" y="592" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="592" width="115.9" height="18" fill="#06a77d"/>
-<text x="830.0" y="608.9" font-size="12" fill="#1b1e26">12</text>
-<text x="240" y="634.9" text-anchor="end" font-size="12.5" fill="#1b1e26">문서</text>
+<rect x="250" y="592" width="123.5" height="18" fill="#06a77d"/>
+<text x="830.0" y="608.9" font-size="12" fill="#1b1e26">13</text>
+<text x="240" y="634.9" text-anchor="end" font-size="12.5" fill="#1b1e26">테스트/자동화 스크립트</text>
 <rect x="250" y="618" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="618" width="106.3" height="18" fill="#e76f51"/>
-<text x="830.0" y="634.9" font-size="12" fill="#1b1e26">11</text>
+<rect x="250" y="618" width="114.0" height="18" fill="#e76f51"/>
+<text x="830.0" y="634.9" font-size="12" fill="#1b1e26">12</text>
 <text x="240" y="660.9" text-anchor="end" font-size="12.5" fill="#1b1e26">AssemblerUnit(파서 코어)</text>
 <rect x="250" y="644" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="644" width="96.6" height="18" fill="#457b9d"/>
+<rect x="250" y="644" width="95.0" height="18" fill="#457b9d"/>
 <text x="830.0" y="660.9" font-size="12" fill="#1b1e26">10</text>
 <text x="240" y="686.9" text-anchor="end" font-size="12.5" fill="#1b1e26">기타</text>
 <rect x="250" y="670" width="570.0" height="18" fill="#e2e4ea"/>
-<rect x="250" y="670" width="96.6" height="18" fill="#6c757d"/>
+<rect x="250" y="670" width="95.0" height="18" fill="#6c757d"/>
 <text x="830.0" y="686.9" font-size="12" fill="#1b1e26">10</text>
 </svg>
