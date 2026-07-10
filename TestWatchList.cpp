@@ -339,4 +339,55 @@ TEST_F(WatchListTest, Inspect_CurrentScopeVariable_PrintsLocalLabelAndValue) {
 
 	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
 }
+
+// var b = true; { var a = 4; <marker> } 구조에서 블록이 아직 살아있는 시점에
+// inspect하면, 전역 b는 나오지 않고 로컬 a만 출력되어야 한다.
+TEST_F(WatchListTest, Inspect_DoesNotIncludeGlobalVariables) {
+	auto marker = MakeExprStmt(MakeIdentifier("a", 3), 3);
+	const SyntaxNode* markerPtr = marker.get();
+
+	auto program = MakeProgram(
+		MakeVarDeclStmt("b", MakeBoolLiteral(true)),
+		MakeBlockStmt(
+			MakeVarDeclStmt("a", MakeNumberLiteral(4), 2),
+			std::move(marker)
+		)
+	);
+
+	WatchList watchList;
+
+	// ExecutionObserver는 순수가상이라 뭔가는 구현해야 한다. marker에 진입하는
+	// 순간(블록 스코프가 아직 살아있을 때) inspect 출력을 캡처하기 위한 옵저버.
+	class CaptureInspectAtMarkerObserver : public ExecutionObserver {
+	public:
+		CaptureInspectAtMarkerObserver(const SyntaxNode* marker, const WatchList& watchList,
+			const ExecutorUnit& executor, std::string& output)
+			: marker(marker), watchList(watchList), executor(executor), output(output) {}
+
+		void OnStmtEnter(const SyntaxNode& node) override {
+			if (&node == marker) {
+				testing::internal::CaptureStdout();
+				watchList.Inspect(executor);
+				output = testing::internal::GetCapturedStdout();
+			}
+		}
+		void OnStmtExit(const SyntaxNode&) override {}
+
+	private:
+		const SyntaxNode* marker;
+		const WatchList& watchList;
+		const ExecutorUnit& executor;
+		std::string& output;
+	};
+
+	ExecutorUnit executor;
+	std::string output;
+	CaptureInspectAtMarkerObserver observer(markerPtr, watchList, executor, output);
+	executor.SetObserver(&observer);
+	executor.Execute(*program);
+	executor.SetObserver(nullptr);
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
+	EXPECT_THAT(output, Not(HasSubstr("[GLOBAL]")));
+}
 #endif
