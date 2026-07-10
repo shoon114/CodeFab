@@ -21,9 +21,7 @@ public:
 
 	void OnStmtEnter(const SyntaxNode& node) override {
 		if (&node == marker) {
-			testing::internal::CaptureStdout();
-			watchList.Watches(executor);
-			output = testing::internal::GetCapturedStdout();
+			output = watchList.Watches(executor);
 		}
 	}
 	void OnStmtExit(const SyntaxNode&) override {}
@@ -135,13 +133,6 @@ protected:
 		(node->children.push_back(std::forward<Stmts>(statements)), ...);
 		return node;
 	}
-
-	// watchList.Watches(executor)의 출력을 캡처해 문자열로 돌려주는 공용 헬퍼.
-	std::string CaptureWatches(const WatchList& watchList, const ExecutorUnit& executor) {
-		testing::internal::CaptureStdout();
-		watchList.Watches(executor);
-		return testing::internal::GetCapturedStdout();
-	}
 };
 
 TEST_F(WatchListTest, Add_NewName_IsInList) {
@@ -171,7 +162,7 @@ TEST_F(WatchListTest, Watches_GlobalNumberVariable_PrintsGlobalLabelAndNumberTyp
 	WatchList watchList;
 	watchList.Add("a");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] a = 4 (number)"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("[LOCAL] a = 4 (number)"));
 }
 
 // var b = true; 실행 후 watches를 조회하면 "[LOCAL] b = true (Boolean)"가 출력되어야 한다.
@@ -184,7 +175,7 @@ TEST_F(WatchListTest, Watches_LocalBooleanVariable_PrintsLocalLabelAndBooleanTyp
 	WatchList watchList;
 	watchList.Add("b");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] b = true (Boolean)"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("[LOCAL] b = true (Boolean)"));
 }
 
 // var c = "hello"; 실행 후 watches를 조회하면 "[LOCAL] c = \"hello\" (string)"가
@@ -198,7 +189,7 @@ TEST_F(WatchListTest, Watches_LocalStringVariable_PrintsLocalLabelAndStringType)
 	WatchList watchList;
 	watchList.Add("c");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] c = \"hello\" (string)"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("[LOCAL] c = \"hello\" (string)"));
 }
 
 // var d = Array(3); d[0]=1; d[1]=2; d[2]=3; 실행 후 watches를 조회하면
@@ -217,7 +208,7 @@ TEST_F(WatchListTest, Watches_LocalArrayVariable_PrintsLocalLabelAndArrayType) {
 	WatchList watchList;
 	watchList.Add("d");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] d = [1, 2, 3] (array)"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("[LOCAL] d = [1, 2, 3] (array)"));
 }
 
 // var d = Array(3); d[0]=1; d[1]=2; (d[2]는 미할당) 실행 후 watches를 조회하면
@@ -235,7 +226,7 @@ TEST_F(WatchListTest, Watches_LocalArrayVariable_WithUnassignedElement_PrintsNul
 	WatchList watchList;
 	watchList.Add("d");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] d = [1, 2, null] (array)"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("[LOCAL] d = [1, 2, null] (array)"));
 }
 
 // var d = Array(3); d[0]=1; d[1]=2; d[2]=3; 실행 후 "d[0]"을 watch하면 배열 전체가
@@ -254,7 +245,7 @@ TEST_F(WatchListTest, Watches_ArrayElementWatch_PrintsElementValue) {
 	WatchList watchList;
 	watchList.Add("d[0]");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("[LOCAL] d[0] = 1 (number)"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("[LOCAL] d[0] = 1 (number)"));
 }
 
 // 한 번도 선언되지 않은 이름을 watch하면 "z = <undefined>"가 출력되어야 한다.
@@ -264,7 +255,7 @@ TEST_F(WatchListTest, Watches_UndeclaredVariable_PrintsUndefinedPlaceholder) {
 	WatchList watchList;
 	watchList.Add("z");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("z = <undefined>"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("z = <undefined>"));
 }
 
 // var d = Array(3); 실행 후 배열 크기를 벗어난 인덱스("d[10]")를 watch하면
@@ -278,7 +269,7 @@ TEST_F(WatchListTest, Watches_ArrayIndexOutOfRange_PrintsUndefinedPlaceholder) {
 	WatchList watchList;
 	watchList.Add("d[10]");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("d[10] = <undefined>"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("d[10] = <undefined>"));
 }
 
 // var a = 4; 실행 후 배열이 아닌 변수에 인덱스를 붙여("a[0]") watch하면
@@ -292,7 +283,7 @@ TEST_F(WatchListTest, Watches_IndexIntoNonArrayVariable_PrintsUndefinedPlacehold
 	WatchList watchList;
 	watchList.Add("a[0]");
 
-	EXPECT_THAT(CaptureWatches(watchList, executor), HasSubstr("a[0] = <undefined>"));
+	EXPECT_THAT(watchList.Watches(executor), HasSubstr("a[0] = <undefined>"));
 }
 
 // var b = true; { var a = 4; <marker> } 구조에서 a, b를 모두 watch하면, 블록이
@@ -334,9 +325,7 @@ TEST_F(WatchListTest, Inspect_CurrentScopeVariable_PrintsLocalLabelAndValue) {
 
 	WatchList watchList;
 
-	testing::internal::CaptureStdout();
-	watchList.Inspect(executor);
-	std::string output = testing::internal::GetCapturedStdout();
+	std::string output = watchList.Inspect(executor);
 
 	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
 }
@@ -367,9 +356,7 @@ TEST_F(WatchListTest, Inspect_DoesNotIncludeGlobalVariables) {
 
 		void OnStmtEnter(const SyntaxNode& node) override {
 			if (&node == marker) {
-				testing::internal::CaptureStdout();
-				watchList.Inspect(executor);
-				output = testing::internal::GetCapturedStdout();
+				output = watchList.Inspect(executor);
 			}
 		}
 		void OnStmtExit(const SyntaxNode&) override {}
@@ -407,9 +394,7 @@ TEST_F(WatchListTest, Inspect_MultipleVariables_PrintsAllOfThem) {
 
 	WatchList watchList;
 
-	testing::internal::CaptureStdout();
-	watchList.Inspect(executor);
-	std::string output = testing::internal::GetCapturedStdout();
+	std::string output = watchList.Inspect(executor);
 
 	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
 	EXPECT_THAT(output, HasSubstr("[LOCAL] b = true (Boolean)"));
@@ -426,9 +411,7 @@ TEST_F(WatchListTest, Inspect_EmptyScope_PrintsNothing) {
 
 	WatchList watchList;
 
-	testing::internal::CaptureStdout();
-	watchList.Inspect(executor);
-	std::string output = testing::internal::GetCapturedStdout();
+	std::string output = watchList.Inspect(executor);
 
 	EXPECT_EQ(output, "");
 }
