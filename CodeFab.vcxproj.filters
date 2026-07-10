@@ -117,6 +117,9 @@
     <ClCompile Include="StepController.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="TestStepController.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="WatchList.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
