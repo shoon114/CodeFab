@@ -69,23 +69,42 @@ int PromptMode::Run() {
 	// 다시 "새로 대기를 시작하는 시점"으로 취급한다. else 개수가 그대로라면(=
 	// 아무것도 연장되지 않았다면) 더 기다리지 않는다.
 	int elseCountAtLastWait = -1;
+	// 다음 반복에서 새 줄을 cin으로부터 읽지 않고, 이번에 이미 읽은 line을
+	// 그대로 재사용해야 하면 true로 설정한다(아래 "체인이 연장되지 못했다"
+	// 분기 참고).
+	bool reuseLine = false;
 	while (true) {
-		// buffer가 비어있으면 새 문장의 시작(">>> "), 그렇지 않으면 이전 줄에서
-		// 이어지는 멀티라인 입력 중("..> ")이라는 뜻이다. stdout이 아니라
-		// stderr로 보내는 이유: stdout으로 보내면 파이프/리다이렉션으로 출력을
-		// 캡처하는 system test(run.ps1)에서 프롬프트 문자열이 실제 실행 결과와
-		// 같은 줄에 섞여 기대값 비교가 깨진다. 프롬프트는 UI 장식이지 프로그램의
-		// 실행 결과가 아니므로 stdout과 분리한다.
-		std::cerr << (buffer.empty() ? ">>> " : "..> ") << std::flush;
-		if (!std::getline(std::cin, line)) {
-			break;
+		if (reuseLine) {
+			reuseLine = false;
+		} else {
+			// buffer가 비어있으면 새 문장의 시작(">>> "), 그렇지 않으면 이전 줄에서
+			// 이어지는 멀티라인 입력 중("..> ")이라는 뜻이다. stdout이 아니라
+			// stderr로 보내는 이유: stdout으로 보내면 파이프/리다이렉션으로 출력을
+			// 캡처하는 system test(run.ps1)에서 프롬프트 문자열이 실제 실행 결과와
+			// 같은 줄에 섞여 기대값 비교가 깨진다. 프롬프트는 UI 장식이지 프로그램의
+			// 실행 결과가 아니므로 stdout과 분리한다.
+			std::cerr << (buffer.empty() ? ">>> " : "..> ") << std::flush;
+			if (!std::getline(std::cin, line)) {
+				break;
+			}
+			if (line == "exit" || line == "quit") {
+				break;
+			}
+			if (buffer.empty() && line.empty()) {
+				continue;
+			}
 		}
-		if (line == "exit" || line == "quit") {
-			break;
-		}
-		if (buffer.empty() && line.empty()) {
-			continue;
-		}
+
+		// "else 대기" 상태(elseCountAtLastWait >= 0)에서 받은 다음 줄이 체인을
+		// 연장하지 못하면, 그 줄은 이미 완결된 앞의 if-체인과는 무관한 별도의
+		// 문장이다. 이 줄을 buffer에 합치기 전 상태를 남겨둬서, 그런 경우 완결된
+		// 앞부분만 먼저 실행하고 이번 줄은 새 buffer로 처음부터 다시 검사할 수
+		// 있게 한다(합쳐서 하나의 트리로 실행해버리면, 앞부분 실행 중 예외가
+		// 났을 때 뒤에 붙은 멀쩡한 문장이 예외 없이 통째로 실행되지 않고
+		// 사라지는 문제가 있었다).
+		std::string bufferBeforeThisLine = buffer;
+		bool wasWaitingForElse = (elseCountAtLastWait >= 0);
+
 		buffer += line + "\n";
 
 		Tokenizer tokenizer;
@@ -103,6 +122,7 @@ int PromptMode::Run() {
 			// 보고하고 버퍼를 비운 뒤 다음 입력을 받는다.
 			std::cerr << e.what() << std::endl;
 			buffer.clear();
+			elseCountAtLastWait = -1;
 			continue;
 		}
 
@@ -137,6 +157,7 @@ int PromptMode::Run() {
 		// 끝났거나, else가 막 끝난 경우처럼 "다음이 반드시 '{'여야 하는" 패턴만
 		// 좁게 감지해서 그 경우에만 대기한다.
 		bool pendingControlBlock = false;
+		bool chainFailedToExtend = false;
 		if (tokenList.size() >= 2) {
 			TokenType firstType = tokenList[0].type;
 			TokenType lastRealType = tokenList[tokenList.size() - 2].type;
@@ -193,6 +214,7 @@ int PromptMode::Run() {
 						elseCountAtLastWait = elseCount;
 					} else {
 						elseCountAtLastWait = -1;
+						chainFailedToExtend = true;
 					}
 				} else {
 					elseCountAtLastWait = -1;
@@ -202,6 +224,20 @@ int PromptMode::Run() {
 			}
 		}
 		if (pendingControlBlock) {
+			continue;
+		}
+
+		if (wasWaitingForElse && chainFailedToExtend) {
+			// 방금 읽은 줄은 else 체인을 연장하지 못했다 -- bufferBeforeThisLine에
+			// 담긴, 이미 완결된 if(-else if)* 체인과는 무관한 별도의 문장이다.
+			// 합쳐서 하나의 트리로 실행하면 앞부분 실행 중 예외가 났을 때 뒤에
+			// 붙은 이 문장이 함께 버려지므로, 완결된 부분만 먼저 실행하고 이번
+			// 줄은 새 buffer로 처음부터 다시 검사한다(그 줄 자체가 또 다른
+			// 여러 줄짜리 문장의 시작일 수도 있으므로 line을 재사용해 루프를
+			// 한 번 더 돈다).
+			runBuffer(bufferBeforeThisLine);
+			buffer.clear();
+			reuseLine = true;
 			continue;
 		}
 
