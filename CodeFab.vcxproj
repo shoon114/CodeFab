@@ -86,6 +86,10 @@
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
+      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -105,6 +109,10 @@
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
+      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -122,6 +130,10 @@
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
+      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -141,6 +153,10 @@
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)docs\presentation\demo\import_boundaries\*.cf" "$(OutDir)"</Command>
+      <Message>import 데모용 .cf 파일을 출력 디렉터리로 복사(clean 빌드 후에도 유지)</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AssemblerUnit.cpp">
