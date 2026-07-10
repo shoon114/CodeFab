@@ -23,18 +23,19 @@ print add(2, 3);
 $ CodeFab.exe debug add.cf
 [DEBUG] Loading Source Code : add.cf
 [DEBUG] Stop at line : 1 > func add(a, b) {
-(debug) next
+>>> next
 [DEBUG] Stop at line : 5 > print add(2, 3);
-(debug) step
+>>> step
 [DEBUG] Stop at line : 1 > func add(a, b) {
-(debug) step
+>>> step
 [DEBUG] Stop at line : 2 >   var result = a + b;
-(debug) step
+>>> step
 [DEBUG] Stop at line : 3 >   return result;
-(debug) watch result
-(debug) inspect
+>>> watch result
+[DEBUG] Watching 'result'
+>>> inspect
 [LOCAL] result = 5 (number)
-(debug) continue
+>>> continue
 5
 Program finished.
 ```
@@ -43,8 +44,8 @@ Program finished.
 - `next`는 현재 depth보다 깊이 들어가지 않고 다음 문에서 멈춘다(`func` 선언
   자체는 건너뛰고 바로 `print` 호출로 이동).
 - `step`은 함수 호출 내부까지 따라 들어간다.
-- `watch <이름>`으로 등록한 변수는 이후 정지할 때마다 스코프(`[LOCAL]`/
-  `[GLOBAL]`)와 함께 자동으로 보여주고, `inspect`는 watch 목록과 무관하게
-  현재 스코프의 변수 전부를 즉시 덤프한다.
+- `watch <이름>`으로 등록하면 바로 확인 메시지를 보여주고, 이후 정지할
+  때마다 스코프(`[LOCAL]`/`[GLOBAL]`)와 함께 자동으로 값을 보여준다.
+  `inspect`는 watch 목록과 무관하게 현재 스코프의 변수 전부를 즉시 덤프한다.
 - 존재하지 않는 파일로 `debug`를 실행하면 크래시 없이 `File not found: ...`
   로 깔끔하게 종료된다.
