@@ -1,5 +1,12 @@
 # 3~4일차 기능 추가 요구사항 구현 현황
 
+```mermaid
+pie showData
+    title 세부 항목 구현 상태 (표 기준 집계)
+    "완료" : 40
+    "부분(테스트 공백)" : 1
+```
+
 ## 0. 문서 목적
 
 `3일차_CodeFab Interpreter.pdf`(기능 추가 요청서)의 Chapter 2~7에 나열된 요구사항을
@@ -8,9 +15,10 @@
 파일·근거 테스트**를 함께 남겨서, 나중에 코드가 바뀌었을 때 이 문서만 보고도 다시
 검증할 수 있게 하는 것이 목적이다.
 
-전체적으로 function/class/정적 배열/실행 전 최적화 4개 카테고리는 파서·CheckerUnit·
-ExecutorUnit·테스트가 모두 갖춰진 상태다. import는 핵심 동작이 이미 완료돼 있고,
-공장 제어 쉘은 프롬프트/파일 모드가 완료된 상태에서 디버그 모드가 남아 있다.
+전체적으로 function/class/정적 배열/실행 전 최적화/import/공장 제어 쉘까지 6개
+카테고리 전부 PDF 요구사항을 만족하는 상태다(2026-07-10 커밋 `7117b13` 기준, PR
+#102/#103/#104/#105 반영). 남은 건 소규모 회귀 테스트 공백(파라미터 이름 중복,
+`this.메서드()` 체이닝) 정도다.
 
 ---
 
@@ -140,22 +148,18 @@ Test Double로 "실제로 최적화 경로를 탔는지"를 검증한다.
 | 실제 파일 시스템에서 파일을 찾아 읽고 토큰화 | 완료 | `Tokenizer::ReadFile`이 `std::ifstream`으로 실제 파일을 열고, `Tokenizer::ResolveImports`가 `import` 문을 만나면 `TokenizeFileForImport`로 그 파일을 실제로 토큰화해서 import 문 바로 뒤에 이어붙인다(재귀 지원). `TestTokenizerUnit.cpp`의 `CreateTokenForCode_ImportSplicesImportedFileTokensRightAfterStatement`, `CreateTokenForCode_ImportRecursivelySplicesNestedImports`로 검증됨 |
 | import 대상 파일 없음 → 오류 | 완료 | `Tokenizer::ReadFile`이 파일을 못 열면 `"Cannot open import file: <path> at line N"`을 던짐. `CreateTokenForCode_ImportOfMissingFileThrows`로 검증 |
 | 순환 import(A→B→A, 서로 다른 두 파일) 감지 | 완료 | `Tokenizer::TokenizeFileForImport`가 `activeImports` 스택에 정규화된 경로(`std::filesystem::weakly_canonical`)로 감지하며, 걸리면 `"Circular import detected: ..."`를 던짐. `CreateTokenForCode_CircularImportThrows`, 경로 표기가 달라도(`./` 섞임) 잡아내는 `CreateTokenForCode_CircularImportThroughDifferentlyFormattedPathStillThrows`로 검증 |
-| alias 네임스페이스로 멤버 접근(`sum.add(1, 2)`) | 완료 | `ExecutorUnit::ExecuteImportAndRemaining`이 import 뒤에 이어지는(스플라이싱된) 선언들을 별도 스코프에서 실행한 뒤 `ModuleObject`로 감싸 alias 이름에 바인딩한다. `.` 접근은 `InvokeModuleFunction`/멤버 조회가 `ModuleObject`를 처리해 실제로 `math.add(...)`처럼 동작한다. `Execute_ImportedModuleFunctionCall_ReturnsSum`, `Execute_ImportedModuleVariableRead_ReturnsValue`, `Execute_ImportedModuleFunction_NotVisibleWithoutAlias`(alias 없이는 안 보임 = 네임스페이스 격리가 실제로 동작함), `Execute_ImportedModuleUndefinedFunctionCall_ThrowsRuntimeError`로 검증 |
-| import 대상 파일은 선언(import/함수선언/전역 var선언)만 허용 | 미구현 | Checker/Executor 어디에도 "import 뒤 내용이 선언문으로만 구성돼야 한다"는 제약 검사가 없음 |
+| alias 네임스페이스로 멤버 접근(`sum.add(1, 2)`) | 완료 | `ExecutorUnit::Visit(const ImportStmtNode&)`가 import 대상 파일의 선언들(`node.children[2:]`)을 별도 스코프에서 실행한 뒤 `ModuleObject`로 감싸 alias 이름에 바인딩한다. `.` 접근은 `InvokeModuleFunction`/멤버 조회가 `ModuleObject`를 처리해 실제로 `math.add(...)`처럼 동작한다. `Execute_ImportedModuleFunctionCall_ReturnsSum`, `Execute_ImportedModuleVariableRead_ReturnsValue`, `Execute_ImportedModuleFunction_NotVisibleWithoutAlias`(alias 없이는 안 보임 = 네임스페이스 격리가 실제로 동작함), `Execute_ImportedModuleUndefinedFunctionCall_ThrowsRuntimeError`로 검증 |
+| import 스플라이스 경계를 정확히 구분(뒤이은 사용자 코드와 안 섞임) | 완료 | `Token.h`에 `ImportEnd` 마커 토큰이 추가됐고, `Tokenizer::ResolveImports`가 스플라이스한 내용 끝에 이 마커를 심는다. `ImportStatementParser::Parse`가 이 마커를 만날 때까지만 문장을 계속 파싱해 `ImportStmtNode.children`으로 흡수한다. `Parse_ImportEndBoundary_ParsesModuleContentIntoChildren`, `Parse_NestedImportBeforeImportEnd_ConsumesEachBoundarySeparately`로 검증 |
+| import 대상 파일은 선언(import/함수선언/전역 var선언)만 허용, 그 외 구문 무시 | 완료 | PDF가 허용한 두 정책("에러 처리" 또는 "선언 외 ignore") 중 **ignore**로 결정됐다. `ExecutorUnit`에 `suppressActionsDuringImport` 플래그를 두고, import 모듈 내용을 실행하는 동안 `Visit(PrintStmtNode)`/`Visit(BlockStmtNode)`/`Visit(IfStmtNode)`/`Visit(ExprStmtNode)`/`Visit(ForStmtNode)`가 스스로 그 플래그를 보고 아무 것도 안 하고 리턴한다(선언 계열 Visit는 이 체크가 없어 그대로 실행됨). `Execute_ImportedModuleContainingPrintStmt_DoesNotExecutePrint`로 검증. `CheckerUnit::Visit(ImportStmtNode)`도 `EnterScope()`/`ExitScope()`로 감싸 이 선언들을 독립 스코프에서 정적 검사한다(`Check_ImportedVarNameMatchesOuterVar_ReturnsTrue`, `Check_DuplicateVarInsideImportedModule_ReportsError`) |
+| import 대상 파일 없음 오류가 REPL/파일 모드에서 실제로 잡히는지 | 완료 | 이전에는 `PromptMode`/`FileMode`가 토큰화(`CreateTokenForCode`/`Tokenize`)를 try 블록 **밖에서** 호출해서, import 파일이 없을 때 `Tokenizer`가 던지는 예외가 새지 않을지 불확실했다. 이제 두 곳 다 토큰화를 try 블록 **안으로** 옮겨 정상적으로 catch하고 에러 메시지를 출력한 뒤 계속 진행하도록 고쳐짐 |
 | `SourceFileLoader`와의 관계 | 참고 | `SourceFileLoader`는 `FileMode`/`DebugMode`가 **진입점 소스 파일 하나**를 읽는 용도로만 쓰이고, import 대상 파일을 읽는 `Tokenizer::ReadFile`과는 별개의 코드 경로 — 이름이 비슷해서 혼동하기 쉬우니 유의. |
 
 ### 종합 판단
-import는 파일을 찾아 읽고 토큰화한 뒤, alias 네임스페이스(`ModuleObject`)로 감싸서
-멤버 접근까지 지원하는 것까지 전부 구현돼 있다 — PDF Chapter 6의 `sum.add(1, 2)`
-예시가 그대로 동작한다. 남은 작업은 "import 대상 파일 내용 제약(선언만
-허용할지)" 정도다.
-
-> **참고**: `docs/feature_Import_design.md` 0.3절은 "ExecutorUnit이 아직
-> `Visit(const ImportStmtNode&)`를 override하지 않아 alias가 실제로 뭔가를 가리키지
-> 않는다"고 적혀 있는데, 이 문서를 작성한 커밋(`d68dc1a`, 09:16)보다 alias
-> 네임스페이스 구현 커밋(`bd03407`, 08:58, `#94`/`#96`)이 더 먼저 병합되어 있어
-> 그 부분은 이미 사실과 다르다. 이 문서의 6절("가정 시나리오")에 그려둔 그림에
-> 가깝게 이미 구현이 끝난 상태로 보면 된다.
+import는 파일을 찾아 읽고 토큰화해서 alias 네임스페이스(`ModuleObject`)로 감싸는
+것, 스플라이스 경계를 `ImportEnd` 마커로 명확히 구분하는 것, import 대상 파일에서
+선언 외의 구문(print/if/for/단독 식)은 조용히 무시하는 것까지 전부 구현·테스트돼
+있다. PDF Chapter 6의 요구사항을 전부 만족한 상태로 보인다. 자세한 파이프라인
+흐름은 `docs/feature_Import_design.md` 0절 참고.
 
 ---
 
@@ -171,14 +175,18 @@ Interpreter Factory를 실행하는 3가지 모드(프롬프트/파일/디버그
 | 모드 분기(`prompt`/`run`/`debug`) | 완료 | `CodeFabInterpreter.cpp::SelectMode` |
 | 프롬프트 모드(REPL, `exit`/`quit` 종료) | 완료 | `PromptMode.cpp` |
 | 파일 모드(`run <경로>`) | 완료 | `FileMode.cpp` — 파일 없으면 "File not found" 오류, 런타임 오류 시 "at line N" 포함 메시지 출력 후 종료 코드 1 반환 |
-| **디버그 모드(`debug <경로>`) 전체** | **미구현** | `DebugMode.cpp`가 완전한 스텁 상태. `Run()`은 "Debug mode is not implemented yet" 문자열만 출력하고, step/next/break/Breakpoints/remove/continue/watch/unwatch/watches/inspect 명령어는 전부 `// TODO` 주석으로만 존재. 대응하는 `TestDebugMode.cpp` 자체가 없음 |
+| 디버그 모드 아키텍처(ExecutorUnit과 분리) | 완료 | GoF **Observer 패턴**으로 구현됨. `ExecutionObserver` 인터페이스(`OnStmtEnter`/`OnStmtExit`)를 두고 `ExecutorUnit::SetObserver`로 주입 — observer가 `nullptr`이면(prompt/run 모드) 기존 동작이 그대로 유지된다. `DebugSession`이 이 인터페이스를 구현해 문 경계마다 통보받는다 |
+| watch/unwatch/watches/inspect | 완료 | `WatchList`가 담당. Number/Boolean/String/Array 타입 watch, 선언 안 된 변수는 `<undefined>` 표시, local/global 스코프 구분 캡처, 현재 스코프의 변수만 보여주는 `inspect`까지 `TestWatchList.cpp`(435줄)로 검증됨 |
+| step(항상 정지)/next(현재 depth 이하로 돌아올 때까지 진입 X)/continue(breakpoint까지 실행) | 완료 | `StepController`가 `Mode{Stepping, SteppingOver, Running}` 상태 머신으로 구현됨. `Step()`→`Stepping`(항상 `ShouldPause` true), `Next(depth)`→`SteppingOver`(현재 depth 기록 후 `depth <= stepOverDepth`일 때만 true), `Continue()`→`Running`(breakpoint 줄에서만 true). `TestStepController.cpp` 19개 케이스(`Step_PausesAtEveryStatement`, `Next_PausesWhenDepthAtOrBelowRecorded`/`Next_SkipsWhenDepthAboveRecorded`, `Continue_PausesAtBreakpointLine`/`Continue_DoesNotPauseAtNonBreakpointLine`, `ModeTransition_*` 등)로 검증 |
+| break/remove/breakpoints(줄 번호 설정·해제·목록) | 완료 | `StepController::SetBreakpoint`/`RemoveBreakpoint`/`Breakpoints()`(내부는 0-indexed, 사용자 입출력은 1-indexed로 `DebugSession`이 변환). `SetBreakpoint_AppearsInBreakpoints`, `SetBreakpoint_DuplicateIgnored`, `RemoveBreakpoint_RemovesExisting`/`RemoveBreakpoint_NonExistentIsNoOp`로 검증 |
+| 명령어 파싱·라우팅 + `exit`/`quit`로 디버그 모드 종료 | 완료 | `DebugSession::HandleCommand`가 step/next/continue/break/remove/breakpoints/watch/unwatch/watches/inspect/exit/quit 전부를 처리한다 |
 
 ### 종합 판단
-프롬프트/파일 모드는 **완료**. 디버그 모드는 master 기준으로는 아직 착수 전이지만,
-원격에 `Feature/shell/Debug`/`Feature/shell/DebugWatch` 브랜치가 있고 각각
-"Step Controller 생성", "Watch 클래스 생성", "Debug 모드 아키텍처 추가(Observer
-패턴으로 ExecutorUnit과 분리)" 커밋이 올라가 있어 이미 작업이 진행 중인 것으로
-보인다. master에는 아직 병합되지 않았다.
+프롬프트/파일/디버그 모드 전부 **완료**. 디버그 모드는 Observer 패턴으로
+ExecutorUnit과 분리된 아키텍처 위에 `StepController`(언제 멈출지)와
+`WatchList`(멈췄을 때 뭘 보여줄지)가 역할을 나눠 구현돼 있고, 각각 전용 테스트
+(`TestStepController.cpp`, `TestWatchList.cpp`)로 검증됐다. PDF Chapter 7의
+프롬프트/파일/디버그 요구사항을 전부 만족한 상태다.
 
 ---
 
@@ -186,6 +194,7 @@ Interpreter Factory를 실행하는 3가지 모드(프롬프트/파일/디버그
 
 | 우선순위 | 작업 | 이유 |
 |---|---|---|
-| 1 | **디버그 모드 병합/이어서 구현** | master에는 없지만 `Feature/shell/Debug`/`Feature/shell/DebugWatch` 브랜치에 stepping/watch/아키텍처 커밋이 이미 있음 — 처음부터 새로 만들지 말고 그 브랜치를 확인부터 하는 게 우선 |
-| 2 | import 대상 파일 내용 제약(선언 외 구문 금지/허용 정책 확정) | `docs/feature_Import_design.md`의 오픈 이슈 1번 그대로 — 팀 결정만 남음 |
-| 3 | 회귀 테스트 공백 보강 (파라미터 이름 중복, `this.메서드()` 체이닝) | 기능 자체는 동작하므로 급하지 않지만, 리팩토링 시 회귀를 못 잡을 위험이 있음 |
+| 1 | 회귀 테스트 공백 보강 (파라미터 이름 중복, `this.메서드()` 체이닝) | 기능 자체는 동작하므로 급하지 않지만, 리팩토링 시 회귀를 못 잡을 위험이 있음 |
+
+6개 카테고리 요구사항이 전부 구현된 상태라 남은 작업은 이 회귀 테스트 공백
+하나뿐이다(맨 위 차트 참고).
