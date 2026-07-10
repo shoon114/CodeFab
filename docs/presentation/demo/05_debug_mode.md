@@ -1,4 +1,4 @@
-# 데모 1 — 인터랙티브 디버그 모드 (`debug` 명령)
+# 데모 5 — 인터랙티브 디버그 모드 (`debug` 명령)
 
 `CodeFab.exe debug <file>`로 실행하면 문(statement) 경계마다 멈춰서
 `step`/`next`/`break`/`watch`/`inspect` 같은 명령으로 실행을 들여다볼 수 있다.

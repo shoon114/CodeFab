@@ -1,0 +1,4 @@
+print "this should NOT print during import";
+func square(x) {
+  return x * x;
+}

@@ -1,4 +1,4 @@
-# 데모 5 — 함수는 호출자의 지역 변수를 볼 수 없다
+# 데모 2 — 함수는 호출자의 지역 변수를 볼 수 없다
 
 ```javascript
 func tryAccess() { return localOnly; }
