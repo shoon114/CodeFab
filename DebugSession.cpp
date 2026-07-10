@@ -87,6 +87,7 @@ bool DebugSession::HandleCommand(const std::string& command) {
 		int line;
 		if (iss >> line) {
 			stepController.RemoveBreakpoint(line - 1);  // 사용자 입력은 1-indexed
+			std::cout << "[DEBUG] Removed breakpoint at line : " << line << std::endl;
 		}
 		return false;
 	}
@@ -100,6 +101,7 @@ bool DebugSession::HandleCommand(const std::string& command) {
 		std::string name;
 		if (iss >> name) {
 			watchList.Add(name);
+			std::cout << "[DEBUG] Watching '" << name << "'" << std::endl;
 		}
 		return false;
 	}
@@ -107,6 +109,7 @@ bool DebugSession::HandleCommand(const std::string& command) {
 		std::string name;
 		if (iss >> name) {
 			watchList.Remove(name);
+			std::cout << "[DEBUG] Unwatching '" << name << "'" << std::endl;
 		}
 		return false;
 	}
