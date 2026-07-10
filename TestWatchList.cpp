@@ -322,4 +322,21 @@ TEST_F(WatchListTest, Watches_MultipleVariablesAcrossLocalAndGlobalScopes_Labels
 
 	EXPECT_EQ(output, "[LOCAL] a = 4 (number)\n[GLOBAL] b = true (Boolean)\n");
 }
+
+// var a = 4; 실행 후(전역 스코프에 남아있는 상태) inspect를 조회하면 watch 목록에
+// 추가한 적이 없어도 "[LOCAL] a = 4 (number)"가 출력되어야 한다.
+TEST_F(WatchListTest, Inspect_CurrentScopeVariable_PrintsLocalLabelAndValue) {
+	auto program = MakeProgram(MakeVarDeclStmt("a", MakeNumberLiteral(4)));
+
+	ExecutorUnit executor;
+	executor.Execute(*program);
+
+	WatchList watchList;
+
+	testing::internal::CaptureStdout();
+	watchList.Inspect(executor);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	EXPECT_THAT(output, HasSubstr("[LOCAL] a = 4 (number)"));
+}
 #endif
