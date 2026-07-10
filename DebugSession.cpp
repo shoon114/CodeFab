@@ -60,7 +60,7 @@ bool DebugSession::HandleCommand(const std::string& command) {
 	std::string verb;
 	iss >> verb;
 
-	if (verb == "exit") {
+	if (verb == "exit" || verb == "quit") {
 		std::exit(0);
 	}
 	if (verb == "step") {
