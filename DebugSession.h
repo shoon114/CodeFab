@@ -20,10 +20,10 @@ public:
 private:
 	// 정지 시점마다 현재 줄/watch를 출력하고, step/next/continue가 입력될 때까지
 	// break/remove/breakpoints/watch/unwatch/watches/inspect 명령을 반복 처리한다.
-	void PromptAndHandleCommands(const SyntaxNode& node);
+	void PromptAndHandleCommands(const SyntaxNode& node, bool isBreakpoint);
 	// 실행을 재개해야 하면(step/next/continue) true를 반환한다.
 	bool HandleCommand(const std::string& command);
-	void PrintCurrentLine(const SyntaxNode& node) const;
+	void PrintCurrentLine(const SyntaxNode& node, bool isBreakpoint) const;
 
 	std::vector<std::string> sourceLines;
 	ExecutorUnit& executor;

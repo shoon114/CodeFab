@@ -13,22 +13,30 @@ std::set<int> StepController::Breakpoints() const {
 }
 
 void StepController::Step() {
-	// TODO(스텝 담당자): mode = Mode::Stepping;
+	mode = Mode::Stepping;
 }
 
 void StepController::Next(int currentDepth) {
-	// TODO(스텝 담당자): mode = Mode::SteppingOver; stepOverDepth = currentDepth;
-	(void)currentDepth;
+	mode = Mode::SteppingOver;
+	stepOverDepth = currentDepth;
 }
 
 void StepController::Continue() {
-	// TODO(스텝 담당자): mode = Mode::Running;
+	mode = Mode::Running;
+}
+
+bool StepController::IsBreakpointHit(int line) const {
+	return mode == Mode::Running && breakpoints.count(line) > 0;
 }
 
 bool StepController::ShouldPause(int line, int depth) const {
-	// TODO(스텝 담당자): mode에 따라 Stepping(항상)/SteppingOver(depth<=stepOverDepth)/
-	// Running(breakpoints.count(line)) 중 하나로 판단
-	(void)line;
-	(void)depth;
+	switch (mode) {
+	case Mode::Stepping:
+		return true;
+	case Mode::SteppingOver:
+		return depth <= stepOverDepth;
+	case Mode::Running:
+		return breakpoints.count(line) > 0;
+	}
 	return false;
 }

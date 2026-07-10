@@ -103,7 +103,6 @@ int PromptMode::Run() {
 			// 보고하고 버퍼를 비운 뒤 다음 입력을 받는다.
 			std::cerr << e.what() << std::endl;
 			buffer.clear();
-			waitedOnceForElse = false;
 			continue;
 		}
 
