@@ -419,7 +419,7 @@
         <tbody>
           <tr><td><code>PromptMode</code></td><td>REPL(한 줄씩 입력)</td><td>구현됨</td></tr>
           <tr><td><code>FileMode</code></td><td><code>run &lt;file&gt;</code> — 파일 전체 실행</td><td>구현됨</td></tr>
-          <tr><td><code>DebugMode</code></td><td><code>debug &lt;file&gt;</code> — step/break/watch 등</td><td><strong>스텁</strong> — 미구현 메시지만 출력</td></tr>
+          <tr><td><code>DebugMode</code></td><td><code>debug &lt;file&gt;</code> — step/next/continue/break/watch/inspect</td><td>구현됨 — Observer 패턴(<code>ExecutionObserver</code>) + <code>StepController</code>/<code>WatchList</code></td></tr>
         </tbody>
       </table>
     </section>
@@ -647,13 +647,19 @@
           <h3>Singleton Registry</h3>
           <p>전역 registry는 테스트 간 상태 오염과 등록 순서 문제를 만들 수 있습니다.</p>
         </article>
-        <article class="card warning">
-          <h3>Import 실행부 미구현</h3>
-          <p>Parser/CheckerUnit은 <code>ImportStmtNode</code>를 실제로 처리하지만, ExecutorUnit에 해당 Visit()이 없어 alias 네임스페이스(<code>math.add(...)</code>)가 아직 없습니다. 실제 코드 유입은 Tokenizer의 텍스트 splice에만 의존합니다.</p>
+      </div>
+    </section>
+
+    <section id="completed">
+      <h2>10.1 최근 완료된 항목 (2026-07-10)</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Import 실행부</h3>
+          <p><code>ImportEnd</code> 경계 마커로 스플라이스된 선언을 <code>ImportStmtNode</code>의 자식으로 흡수하고, <code>ExecutorUnit::Visit(const ImportStmtNode&amp;)</code>가 <code>ModuleObject</code>로 감싸 alias에 바인딩합니다 — <code>math.add(1, 2)</code>가 실제로 동작합니다.</p>
         </article>
-        <article class="card warning">
-          <h3>DebugMode 스텁</h3>
-          <p><code>DebugMode::Run()</code>은 안내 메시지만 출력하며 step/next/break/watch/inspect가 전혀 구현되어 있지 않습니다.</p>
+        <article class="card">
+          <h3>DebugMode</h3>
+          <p>Observer 패턴으로 <code>ExecutorUnit</code>과 분리된 <code>DebugSession</code>이 <code>StepController</code>(step/next/continue/breakpoint)와 <code>WatchList</code>(watch/unwatch/watches/inspect)를 오케스트레이션합니다.</p>
         </article>
       </div>
     </section>
@@ -664,11 +670,9 @@
         <div class="step"><strong>1</strong><span>ExpressionStatementParser 분리</span></div>
         <div class="step"><strong>2</strong><span>AST node shape table 문서화</span></div>
         <div class="step"><strong>3</strong><span>Environment / ScopeStack 분리</span></div>
-        <div class="step"><strong>4</strong><span>FunctionRuntime, ClassRuntime, ModuleLoader 분리</span></div>
+        <div class="step"><strong>4</strong><span>FunctionRuntime, ClassRuntime 분리</span></div>
         <div class="step"><strong>5</strong><span>StatementParserRegistry 테스트 안정성 개선</span></div>
         <div class="step"><strong>6</strong><span>ParseError, SemanticError, RuntimeError 타입 계층 도입</span></div>
-        <div class="step"><strong>7</strong><span>Import ModuleLoader/alias 네임스페이스 실행부 구현 (ExecutorUnit::Visit(ImportStmtNode))</span></div>
-        <div class="step"><strong>8</strong><span>DebugMode step/next/break/watch/inspect 구현</span></div>
       </div>
     </section>
 
